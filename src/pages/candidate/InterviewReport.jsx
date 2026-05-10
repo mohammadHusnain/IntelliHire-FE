@@ -22,6 +22,8 @@ import {
   Layout
 } from "lucide-react";
 import IntelliHireLogo from "../../components/shared/IntelliHireLogo";
+import useCounter from "../../hooks/useCounter";
+import useInView from "../../hooks/useInView";
 
 // Sidebar Navigation Item
 const NavItem = ({ icon: Icon, label, active, onClick }) => (
@@ -57,10 +59,14 @@ const ScoreRing = ({ score, size = 120 }) => {
   const strokeWidth = 6;
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
-  const offset = circumference - (score / 100) * circumference;
-  
+
+  // Animate ring + number together from 0 → score on viewport entry.
+  const [ref, inView] = useInView({ threshold: 0.3, once: true });
+  const animatedScore = useCounter(score, 1400, inView);
+  const offset = circumference - (animatedScore / 100) * circumference;
+
   return (
-    <div className={`relative rounded-full bg-gradient-to-br ${bgGradient} shadow-[0_8px_32px_rgba(0,0,0,0.08)] p-3`} style={{ width: size + 24, height: size + 24 }}>
+    <div ref={ref} className={`relative rounded-full bg-gradient-to-br ${bgGradient} shadow-[0_8px_32px_rgba(0,0,0,0.08)] p-3`} style={{ width: size + 24, height: size + 24 }}>
       {/* Outer glow ring */}
       <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/50 to-transparent" />
       
@@ -91,13 +97,13 @@ const ScoreRing = ({ score, size = 120 }) => {
           strokeDasharray={circumference}
           strokeDashoffset={offset}
           strokeLinecap="round"
-          className="transition-all duration-1000 drop-shadow-sm"
+          className="drop-shadow-sm"
         />
       </svg>
       
       <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
         <span className="text-[42px] font-bold text-[#111827] leading-none" style={{ fontFamily: 'Times New Roman, serif' }}>
-          {score}
+          {animatedScore}
         </span>
         <span className="text-[14px] text-[#6B7280] mt-1">/100</span>
       </div>
@@ -116,24 +122,28 @@ const ScoreCard = ({ label, score, icon }) => {
       default: return null;
     }
   };
-  
+
+  // Sync number + bar fill from 0 → score on viewport entry.
+  const [ref, inView] = useInView({ threshold: 0.25, once: true });
+  const animatedScore = useCounter(score, 1100, inView);
+
   return (
-    <div className="group bg-gradient-to-br from-white to-[#FAFAFA] border border-[#E5E7EB] rounded-[12px] p-5 hover:shadow-[0_4px_16px_rgba(240,78,35,0.08)] hover:border-[#FCA68A] transition-all duration-300">
+    <div ref={ref} className="group bg-gradient-to-br from-white to-[#FAFAFA] border border-[#E5E7EB] rounded-[12px] p-5 hover:shadow-[0_4px_16px_rgba(240,78,35,0.08)] hover:border-[#FCA68A] hover:-translate-y-0.5 transition-all duration-300">
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-[10px] bg-gradient-to-br from-[#FFF4F1] to-[#FFE4DC] flex items-center justify-center text-[#F04E23] group-hover:ring-orange-100 transition-transform">
+          <div className="w-10 h-10 rounded-[10px] bg-gradient-to-br from-[#FFF4F1] to-[#FFE4DC] flex items-center justify-center text-[#F04E23] group-hover:scale-105 transition-transform">
             {getIcon()}
           </div>
           <span className="text-[14px] font-medium text-[#374151]">{label}</span>
         </div>
         <span className="text-[22px] font-bold text-[#111827]" style={{ fontFamily: 'Times New Roman, serif' }}>
-          {score}%
+          {animatedScore}%
         </span>
       </div>
       <div className="relative h-2.5 bg-[#E5E7EB] rounded-full overflow-hidden">
-        <div 
-          className="absolute top-0 left-0 h-full bg-gradient-to-r from-[#F04E23] to-[#FFA07A] rounded-full transition-all duration-700 ease-out group-hover:from-[#D43D14] group-hover:to-[#F04E23]"
-          style={{ width: `${score}%` }}
+        <div
+          className="absolute top-0 left-0 h-full bg-gradient-to-r from-[#F04E23] to-[#FFA07A] rounded-full group-hover:from-[#D43D14] group-hover:to-[#F04E23]"
+          style={{ width: `${animatedScore}%` }}
         />
       </div>
     </div>

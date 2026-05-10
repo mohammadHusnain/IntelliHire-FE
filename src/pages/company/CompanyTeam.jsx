@@ -209,7 +209,11 @@ function CompanyTeam() {
     setActiveNav(id);
     if (id === "dashboard") navigate("/company/dashboard");
     if (id === "jobs") navigate("/company/jobs");
+    if (id === "candidates") navigate("/company/candidates");
     if (id === "team") navigate("/company/team");
+    if (id === "analytics") navigate("/company/analytics");
+    if (id === "community") navigate("/company/community");
+    if (id === "settings") navigate("/company/settings");
   };
 
   const handleInvite = (e) => {

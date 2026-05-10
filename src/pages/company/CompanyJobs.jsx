@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import IntelliHireLogo from "../../components/shared/IntelliHireLogo";
+import { getJobs, saveJobs, deleteJob as storeDeleteJob, updateJob as storeUpdateJob } from "../../data/jobsStore";
 
 // ─── Toast ──────────────────────────────────────────────────────────────────
 const Toast = ({ message, type = "success", onClose }) => {
@@ -97,16 +98,6 @@ const navItems = [
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
-// ─── Mock Job Data ───────────────────────────────────────────────────────────
-const jobData = [
-  { id: 1, title: "Frontend Developer", department: "Engineering", deadline: "May 31, 2025", applicants: 34, status: "Published" },
-  { id: 2, title: "Backend Engineer", department: "Engineering", deadline: "Jun 15, 2025", applicants: 28, status: "Published" },
-  { id: 3, title: "Product Designer", department: "Design", deadline: "May 28, 2025", applicants: 22, status: "Published" },
-  { id: 4, title: "DevOps Engineer", department: "Engineering", deadline: null, applicants: 0, status: "Draft" },
-  { id: 5, title: "Data Scientist", department: "Data & AI", deadline: "Jun 30, 2025", applicants: 24, status: "Published" },
-  { id: 6, title: "UX Researcher", department: "Design", deadline: "Apr 30, 2025", applicants: 16, status: "Closed" },
-  { id: 7, title: "Marketing Manager", department: "Marketing", deadline: null, applicants: 0, status: "Draft" },
-];
 
 // ─── Deadline Color Helper ───────────────────────────────────────────────────
 function getDeadlineStyle(deadline) {
@@ -126,7 +117,7 @@ function CompanyJobs() {
   const [statusFilter, setStatusFilter] = useState("All");
   const [closeConfirm, setCloseConfirm] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
-  const [jobs, setJobs] = useState(jobData);
+  const [jobs, setJobs] = useState(() => getJobs());
   const [toast, setToast] = useState(null);
   const [toastType, setToastType] = useState("success");
   const [editJob, setEditJob] = useState(null);
@@ -142,9 +133,11 @@ function CompanyJobs() {
     setActiveNav(id);
     if (id === "dashboard") navigate("/company/dashboard");
     if (id === "jobs") navigate("/company/jobs");
+    if (id === "candidates") navigate("/company/candidates");
     if (id === "team") navigate("/company/team");
     if (id === "analytics") navigate("/company/analytics");
     if (id === "community") navigate("/company/community");
+    if (id === "settings") navigate("/company/settings");
   };
 
   const filteredJobs = useMemo(() => {
@@ -154,18 +147,24 @@ function CompanyJobs() {
     return list;
   }, [search, statusFilter, jobs]);
 
+  const syncJobs = useCallback((updater) => {
+    setJobs((prev) => { const next = updater(prev); saveJobs(next); return next; });
+  }, []);
+
   const handleCloseJob = useCallback((id) => {
-    setJobs((prev) => prev.map((j) => j.id === id ? { ...j, status: "Closed" } : j));
+    storeUpdateJob(id, { status: "Closed" });
+    syncJobs((prev) => prev.map((j) => j.id === id ? { ...j, status: "Closed" } : j));
     setCloseConfirm(null);
     showToast("Job posting closed successfully");
-  }, [showToast]);
+  }, [showToast, syncJobs]);
 
   const handleDeleteJob = useCallback((id) => {
     const job = jobs.find((j) => j.id === id);
-    setJobs((prev) => prev.filter((j) => j.id !== id));
+    storeDeleteJob(id);
+    syncJobs((prev) => prev.filter((j) => String(j.id) !== String(id)));
     setDeleteConfirm(null);
     showToast(`"${job?.title}" deleted`, "error");
-  }, [jobs, showToast]);
+  }, [jobs, showToast, syncJobs]);
 
   const handleEditOpen = useCallback((job) => {
     setEditForm({ title: job.title, department: job.department, deadline: job.deadline || "", status: job.status });
@@ -174,10 +173,18 @@ function CompanyJobs() {
 
   const handleEditSave = useCallback((e) => {
     e.preventDefault();
-    setJobs((prev) => prev.map((j) => j.id === editJob ? { ...j, ...editForm } : j));
+    storeUpdateJob(editJob, editForm);
+    syncJobs((prev) => prev.map((j) => String(j.id) === String(editJob) ? { ...j, ...editForm } : j));
     showToast(`"${editForm.title}" updated successfully`);
     setEditJob(null);
-  }, [editJob, editForm, showToast]);
+  }, [editJob, editForm, showToast, syncJobs]);
+
+  // Re-sync from store on focus (picks up changes from create/preview pages)
+  useEffect(() => {
+    const handleFocus = () => setJobs(getJobs());
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, []);
 
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: "Inter, sans-serif" }}>

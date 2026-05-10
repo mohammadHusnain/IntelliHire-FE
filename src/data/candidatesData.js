@@ -24,14 +24,14 @@ export const stageBadgeStyle = {
 };
 
 export const candidatesList = [
-  { id: "c1", name: "Priya Patel", email: "priya.patel@email.com", applied: "May 01", score: 91, defaultStage: "Shortlisted" },
-  { id: "c2", name: "James Wilson", email: "james.wilson@email.com", applied: "May 02", score: 87, defaultStage: "Interviewed" },
-  { id: "c3", name: "Ahmed Malik", email: "ahmed.malik@email.com", applied: "May 03", score: 82, defaultStage: "Shortlisted" },
-  { id: "c4", name: "Sarah Chen", email: "sarah.chen@email.com", applied: "Apr 30", score: 76, defaultStage: "Screened" },
-  { id: "c5", name: "Daniel Kim", email: "daniel.kim@email.com", applied: "Apr 29", score: 71, defaultStage: "Applied" },
-  { id: "c6", name: "Maria Torres", email: "maria.torres@email.com", applied: "Apr 28", score: 65, defaultStage: "Applied" },
-  { id: "c7", name: "Tom Evans", email: "tom.evans@email.com", applied: "Apr 27", score: 58, defaultStage: "Applied" },
-  { id: "c8", name: "Lisa Nguyen", email: "lisa.nguyen@email.com", applied: "Apr 26", score: 44, defaultStage: "Applied" },
+  { id: "c1", name: "Priya Patel", email: "priya.patel@email.com", applied: "May 01", score: 91, defaultStage: "Shortlisted", job: "Frontend Developer", source: "LinkedIn", recruiter: "Sarah Johnson", interviewStatus: "Scheduled", experience: "5 years", lastActivity: "2 hours ago" },
+  { id: "c2", name: "James Wilson", email: "james.wilson@email.com", applied: "May 02", score: 87, defaultStage: "Interviewed", job: "Frontend Developer", source: "Referral", recruiter: "John Smith", interviewStatus: "Completed", experience: "4 years", lastActivity: "5 hours ago" },
+  { id: "c3", name: "Ahmed Malik", email: "ahmed.malik@email.com", applied: "May 03", score: 82, defaultStage: "Shortlisted", job: "Frontend Developer", source: "Job Board", recruiter: "Emily Davis", interviewStatus: "Pending", experience: "3 years", lastActivity: "1 day ago" },
+  { id: "c4", name: "Sarah Chen", email: "sarah.chen@email.com", applied: "Apr 30", score: 76, defaultStage: "Screened", job: "Backend Engineer", source: "LinkedIn", recruiter: "Sarah Johnson", interviewStatus: "Not Scheduled", experience: "2 years", lastActivity: "2 days ago" },
+  { id: "c5", name: "Daniel Kim", email: "daniel.kim@email.com", applied: "Apr 29", score: 71, defaultStage: "Applied", job: "Backend Engineer", source: "Career Page", recruiter: "Unassigned", interviewStatus: "Not Scheduled", experience: "3 years", lastActivity: "3 days ago" },
+  { id: "c6", name: "Maria Torres", email: "maria.torres@email.com", applied: "Apr 28", score: 65, defaultStage: "Applied", job: "Product Designer", source: "LinkedIn", recruiter: "Unassigned", interviewStatus: "Not Scheduled", experience: "1 year", lastActivity: "3 days ago" },
+  { id: "c7", name: "Tom Evans", email: "tom.evans@email.com", applied: "Apr 27", score: 58, defaultStage: "Applied", job: "Data Scientist", source: "Referral", recruiter: "Michael Chen", interviewStatus: "Not Scheduled", experience: "1 year", lastActivity: "4 days ago" },
+  { id: "c8", name: "Lisa Nguyen", email: "lisa.nguyen@email.com", applied: "Apr 26", score: 44, defaultStage: "Applied", job: "DevOps Engineer", source: "Career Page", recruiter: "Unassigned", interviewStatus: "Not Scheduled", experience: "<1 year", lastActivity: "5 days ago" },
 ];
 
 export const candidateProfiles = {

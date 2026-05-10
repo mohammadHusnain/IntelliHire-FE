@@ -16,9 +16,11 @@ import CompanyJobs from "./pages/company/CompanyJobs";
 import CompanyJobCreate from "./pages/company/CompanyJobCreate";
 import CompanyJobPreview from "./pages/company/CompanyJobPreview";
 import CompanyCandidates from "./pages/company/CompanyCandidates";
+import CompanyAllCandidates from "./pages/company/CompanyAllCandidates";
 import CompanyCandidateProfile from "./pages/company/CompanyCandidateProfile";
 import CompanyAnalytics from "./pages/company/CompanyAnalytics";
 import CompanyCommunity from "./pages/company/CompanyCommunity";
+import CompanySettings from "./pages/company/CompanySettings";
 
 function App() {
   return (
@@ -41,10 +43,12 @@ function App() {
         <Route path="/company/jobs/create" element={<CompanyJobCreate />} />
         <Route path="/company/jobs/:id/edit" element={<CompanyJobCreate />} />
         <Route path="/company/jobs/:id/preview" element={<CompanyJobPreview />} />
+        <Route path="/company/candidates" element={<CompanyAllCandidates />} />
         <Route path="/company/jobs/:id/candidates" element={<CompanyCandidates />} />
         <Route path="/company/candidates/:id" element={<CompanyCandidateProfile />} />
         <Route path="/company/analytics" element={<CompanyAnalytics />} />
         <Route path="/company/community" element={<CompanyCommunity />} />
+        <Route path="/company/settings" element={<CompanySettings />} />
       </Routes>
     </BrowserRouter>
   );

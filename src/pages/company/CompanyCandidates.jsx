@@ -122,9 +122,11 @@ function CompanyCandidates() {
     setActiveNav(navId);
     if (navId === "dashboard") navigate("/company/dashboard");
     if (navId === "jobs") navigate("/company/jobs");
+    if (navId === "candidates") navigate("/company/candidates");
     if (navId === "team") navigate("/company/team");
     if (navId === "analytics") navigate("/company/analytics");
     if (navId === "community") navigate("/company/community");
+    if (navId === "settings") navigate("/company/settings");
   };
 
   const updateCandidateStage = useCallback((cid, newStage) => {

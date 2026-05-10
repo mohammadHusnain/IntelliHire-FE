@@ -87,6 +87,24 @@
     scroll-behavior: smooth;
   }
 
+  /* Slightly smoother native scrolling on touch devices */
+  body {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Honor users who request reduced motion: collapse all transitions/animations
+     to a near-instant change while preserving final state and accessibility. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
     color: var(--text-primary);
@@ -248,6 +266,70 @@
     animation: shimmer 1.4s infinite;
     border-radius: 6px;
   }
+
+  /* ── Premium motion utilities ────────────────────────────────────
+     Ease curves chosen for a soft, enterprise-grade feel. Keep
+     transforms/opacity-only so animations stay GPU-accelerated. */
+
+  /* Standard interactive surface — buttons, chips, icon-buttons. */
+  .interactive {
+    transition:
+      background-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
+      color 180ms cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 200ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 150ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .interactive:active { transform: scale(0.98); }
+
+  /* Card surfaces — soft elevation lift on hover. */
+  .hover-elevate {
+    transition:
+      transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 240ms cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 180ms ease;
+    will-change: transform;
+  }
+  .hover-elevate:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+    border-color: var(--border-strong);
+  }
+
+  /* Subtle orange accent glow — for primary CTAs / focus features. */
+  .hover-glow {
+    transition:
+      box-shadow 240ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .hover-glow:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(240, 78, 35, 0.18);
+  }
+
+  /* Table / list row hover — colour-only, no layout shift. */
+  .row-hover {
+    transition: background-color 160ms ease, color 160ms ease;
+  }
+  .row-hover:hover { background-color: var(--bg-hover); }
+
+  /* Icon buttons — subtle scale + tint. */
+  .icon-btn {
+    transition:
+      background-color 160ms ease,
+      color 160ms ease,
+      transform 150ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .icon-btn:hover { transform: scale(1.06); }
+  .icon-btn:active { transform: scale(0.94); }
+
+  /* Animation helper classes (use with @keyframes already defined below) */
+  .animate-fade-in       { animation: fadeIn 280ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .animate-fade-in-up    { animation: wordFadeUp 420ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .animate-modal-in      { animation: modalIn 220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .animate-panel-in      { animation: panelIn 320ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .animate-toast-in      { animation: toastIn 260ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .animate-backdrop-in   { animation: fadeIn 200ms ease-out both; }
 }
 
 @layer utilities {
@@ -259,6 +341,11 @@
   @keyframes shimmer {
     from { background-position: 200% 0; }
     to   { background-position: -200% 0; }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
   }
 
   @keyframes toastIn {

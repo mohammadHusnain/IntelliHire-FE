@@ -19,6 +19,7 @@ import { Toast } from "../../components/shared/Toast";
 import { EmptyState } from "../../components/shared/EmptyState";
 import { SkeletonStatCard, SkeletonSessionCard } from "../../components/shared/SkeletonLoader";
 import IntelliHireLogo from "../../components/shared/IntelliHireLogo";
+import AnimatedCounter from "../../components/shared/AnimatedCounter";
 
 // Sidebar Navigation Item
 const NavItem = ({ icon: Icon, label, active, onClick }) => (
@@ -43,9 +44,13 @@ const StatCard = ({ value, label, trend, trendValue, sparkline, icon: Icon }) =>
     
     <div className="relative z-10">
       <div className="flex items-start justify-between mb-3">
-        <div className="text-[40px] font-bold text-[#111827] leading-none" style={{ fontFamily: 'Times New Roman, serif' }}>
-          {value}
-        </div>
+        <AnimatedCounter
+          value={value}
+          duration={1200}
+          as="div"
+          className="text-[40px] font-bold text-[#111827] leading-none"
+          style={{ fontFamily: 'Times New Roman, serif' }}
+        />
         {Icon && (
           <div className="w-10 h-10 rounded-[12px] bg-gradient-to-br from-[#FFF4F1] to-[#FFE4DC] flex items-center justify-center text-[#F04E23] group-hover:scale-105 transition-transform">
             <Icon size={20} />

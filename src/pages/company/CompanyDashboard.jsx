@@ -344,7 +344,11 @@ function CompanyDashboard() {
   const handleNavClick = (id) => {
     setActiveNav(id);
     if (id === "jobs") navigate("/company/jobs");
+    if (id === "candidates") navigate("/company/candidates");
     if (id === "team") navigate("/company/team");
+    if (id === "analytics") navigate("/company/analytics");
+    if (id === "community") navigate("/company/community");
+    if (id === "settings") navigate("/company/settings");
   };
 
   return (

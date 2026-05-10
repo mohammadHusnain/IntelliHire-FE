@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { Toast } from "../../components/shared/Toast";
 import IntelliHireLogo from "../../components/shared/IntelliHireLogo";
+import AnimatedCounter from "../../components/shared/AnimatedCounter";
 
 // Sidebar Navigation Item
 const NavItem = ({ icon: Icon, label, active, onClick }) => (
@@ -385,7 +386,7 @@ function CandidateReports() {
                   </div>
                   <div>
                     <p className="text-[12px] text-[#6B7280]">Average Score</p>
-                    <p className="text-[20px] font-bold text-[#111827]">{averageScore}/100</p>
+                    <AnimatedCounter as="p" value={`${averageScore}/100`} className="text-[20px] font-bold text-[#111827]" />
                   </div>
                 </div>
               </div>
@@ -396,7 +397,7 @@ function CandidateReports() {
                   </div>
                   <div>
                     <p className="text-[12px] text-[#6B7280]">Best Score</p>
-                    <p className="text-[20px] font-bold text-[#111827]">{bestScore}/100</p>
+                    <AnimatedCounter as="p" value={`${bestScore}/100`} className="text-[20px] font-bold text-[#111827]" />
                   </div>
                 </div>
               </div>
@@ -407,7 +408,7 @@ function CandidateReports() {
                   </div>
                   <div>
                     <p className="text-[12px] text-[#6B7280]">Interviews</p>
-                    <p className="text-[20px] font-bold text-[#111827]">{completedInterviews}</p>
+                    <AnimatedCounter as="p" value={completedInterviews} className="text-[20px] font-bold text-[#111827]" />
                   </div>
                 </div>
               </div>
@@ -418,7 +419,7 @@ function CandidateReports() {
                   </div>
                   <div>
                     <p className="text-[12px] text-[#6B7280]">Total Time</p>
-                    <p className="text-[20px] font-bold text-[#111827]">{totalTime} min</p>
+                    <AnimatedCounter as="p" value={`${totalTime} min`} className="text-[20px] font-bold text-[#111827]" />
                   </div>
                 </div>
               </div>
