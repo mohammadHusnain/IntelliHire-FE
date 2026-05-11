@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useLogout } from "@/hooks/useLogout";
 import {
   LayoutDashboard, Briefcase, Users, BarChart2, Globe, UserCheck, Settings, LogOut,
   Copy, Share2, ExternalLink, Download, Eye, X, MapPin, Clock, DollarSign, Layers,
@@ -63,6 +64,7 @@ const RenderText = ({ text }) => {
 
 function CompanyJobPreview() {
   const navigate = useNavigate();
+  const logout = useLogout();
   const { id } = useParams();
   const [activeNav, setActiveNav] = useState("jobs");
   const [copied, setCopied] = useState(false);
@@ -159,7 +161,7 @@ function CompanyJobPreview() {
               <p style={{ fontSize: "13px", fontWeight: 500, color: "#0D0D0D", margin: 0 }}>John Smith</p>
               <span style={{ fontSize: "11px", fontWeight: 500, color: "#F04E23", textTransform: "uppercase", letterSpacing: "0.06em", background: "#FFF4F1", borderRadius: "999px", padding: "1px 8px" }}>Owner</span>
             </div>
-            <button onClick={() => navigate("/login")} style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", padding: "4px", borderRadius: "4px", display: "flex", alignItems: "center" }} onMouseEnter={(e) => (e.currentTarget.style.color = "#DC2626")} onMouseLeave={(e) => (e.currentTarget.style.color = "#9CA3AF")}><LogOut size={15} /></button>
+            <button onClick={logout} style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", padding: "4px", borderRadius: "4px", display: "flex", alignItems: "center" }} onMouseEnter={(e) => (e.currentTarget.style.color = "#DC2626")} onMouseLeave={(e) => (e.currentTarget.style.color = "#9CA3AF")}><LogOut size={15} /></button>
           </div>
         </div>
       </aside>

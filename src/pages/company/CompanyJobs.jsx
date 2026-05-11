@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useLogout } from "@/hooks/useLogout";
 import {
   LayoutDashboard,
   Briefcase,
@@ -112,6 +113,7 @@ function getDeadlineStyle(deadline) {
 
 function CompanyJobs() {
   const navigate = useNavigate();
+  const logout = useLogout();
   const [activeNav, setActiveNav] = useState("jobs");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -244,7 +246,7 @@ function CompanyJobs() {
               <span style={{ fontSize: "11px", fontWeight: 500, color: "#F04E23", textTransform: "uppercase", letterSpacing: "0.06em", background: "#FFF4F1", borderRadius: "999px", padding: "1px 8px" }}>Owner</span>
             </div>
             <button
-              onClick={() => navigate("/login")}
+              onClick={logout}
               style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", padding: "4px", borderRadius: "4px", display: "flex", alignItems: "center", transition: "color 150ms" }}
               onMouseEnter={(e) => (e.currentTarget.style.color = "#DC2626")}
               onMouseLeave={(e) => (e.currentTarget.style.color = "#9CA3AF")}

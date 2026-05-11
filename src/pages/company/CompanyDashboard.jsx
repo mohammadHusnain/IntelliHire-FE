@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useLogout } from "@/hooks/useLogout";
 import {
   LayoutDashboard,
   Briefcase,
@@ -330,6 +331,7 @@ const navItems = [
 
 function CompanyDashboard() {
   const navigate = useNavigate();
+  const logout = useLogout();
   const [activeNav, setActiveNav] = useState("dashboard");
   const [showBanner, setShowBanner] = useState(true);
   const [bannerExiting, setBannerExiting] = useState(false);
@@ -532,7 +534,7 @@ function CompanyDashboard() {
               </span>
             </div>
             <button
-              onClick={() => navigate("/login")}
+              onClick={logout}
               style={{
                 background: "none",
                 border: "none",
@@ -667,7 +669,7 @@ function CompanyDashboard() {
                     Settings
                   </button>
                   <button
-                    onClick={() => navigate("/login")}
+                    onClick={logout}
                     style={{ ...dropdownItemStyle, color: "#DC2626" }}
                   >
                     Sign Out

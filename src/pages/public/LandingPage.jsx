@@ -454,7 +454,7 @@ function LandingPage() {
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6 lg:px-8">
           <a href="/" className="flex items-center gap-2.5">
             <IntelliHireLogo className="w-8 h-8" />
-            <span className="text-lg font-bold tracking-tight text-slate-900">IntelliHire</span>
+            <span className="text-[20px] font-bold text-slate-900" style={{ fontFamily: 'Times New Roman, serif' }}>IntelliHire</span>
           </a>
 
           <nav className="hidden items-center gap-8 text-sm font-medium text-slate-500 lg:flex">

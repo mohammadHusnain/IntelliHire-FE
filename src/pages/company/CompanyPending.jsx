@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useLogout } from "@/hooks/useLogout";
 import IntelliHireLogo from "../../components/shared/IntelliHireLogo";
 
 const HourglassIcon = () => (
@@ -43,6 +44,7 @@ const EnvelopeIcon = () => (
 
 function CompanyPending() {
   const navigate = useNavigate();
+  const logout = useLogout();
   const [cardVisible, setCardVisible] = useState(false);
   const [checkLoading, setCheckLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
@@ -257,7 +259,7 @@ function CompanyPending() {
           {/* Log Out Link */}
           <div className="flex justify-center" style={{ marginTop: "16px", paddingBottom: "28px" }}>
             <button
-              onClick={() => navigate("/login")}
+              onClick={logout}
               style={{
                 fontSize: "13px",
                 color: "#9CA3AF",

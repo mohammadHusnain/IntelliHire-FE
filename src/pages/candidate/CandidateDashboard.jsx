@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useLogout } from "@/hooks/useLogout";
 import { 
   LayoutDashboard, 
   User, 
   Mic2, 
   FileText, 
+  Globe,
+  Settings,
   LogOut,
   ArrowRight,
   TrendingUp,
@@ -166,6 +169,7 @@ const TipCard = ({ icon: Icon, title, description }) => (
 
 function CandidateDashboard() {
   const navigate = useNavigate();
+  const logout = useLogout();
   const [activeNav, setActiveNav] = useState("dashboard");
   const [greeting, setGreeting] = useState("");
   const [showUserDropdown, setShowUserDropdown] = useState(false);
@@ -207,10 +211,12 @@ function CandidateDashboard() {
   }, []);
 
   const navItems = [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { id: "profile", label: "My Profile", icon: User },
-    { id: "interview", label: "Start Interview", icon: Mic2 },
-    { id: "reports", label: "My Reports", icon: FileText },
+    { id: "dashboard",   label: "Dashboard",     icon: LayoutDashboard },
+    { id: "profile",     label: "My Profile",    icon: User },
+    { id: "interview",   label: "Interviews",    icon: Mic2 },
+    { id: "reports",     label: "My Reports",    icon: FileText },
+    { id: "communities", label: "Communities",   icon: Globe },
+    { id: "settings",    label: "Settings",      icon: Settings },
   ];
 
   const recentSessions = [
@@ -251,6 +257,12 @@ function CandidateDashboard() {
       showToast("Loading your reports...", "info");
       navigate("/candidate/reports");
     }
+    if (navId === "communities") {
+      navigate("/candidate/communities");
+    }
+    if (navId === "settings") {
+      navigate("/candidate/settings");
+    }
   };
   
   // Filter sessions based on search
@@ -269,13 +281,13 @@ function CandidateDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] font-['Times_New_Roman']">
+    <div className="min-h-screen bg-[#F9FAFB]">
       {/* Sidebar */}
-      <aside className="fixed left-0 top-0 w-[240px] h-full bg-white border-r border-[#EEEEEE] z-50">
+      <aside className="fixed left-0 top-0 w-[240px] h-full bg-white border-r border-[#E5E7EB] z-50">
         {/* Logo */}
-        <div className="h-16 flex items-center px-4 border-b border-[#EEEEEE]">
+        <div className="h-16 flex items-center px-4 border-b border-[#E5E7EB]">
           <IntelliHireLogo className="w-8 h-8 mr-2" />
-          <span className="text-[20px] font-bold text-[#111827]">IntelliHire</span>
+          <span className="text-[20px] font-bold text-[#111827]" style={{ fontFamily: 'Times New Roman, serif' }}>IntelliHire</span>
         </div>
 
         {/* Navigation */}
@@ -292,7 +304,7 @@ function CandidateDashboard() {
         </nav>
 
         {/* User Section */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-[#EEEEEE]">
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-[#E5E7EB]">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-[#F04E23] flex items-center justify-center text-white text-[12px] font-semibold">
               {userInitials}
@@ -301,7 +313,7 @@ function CandidateDashboard() {
               <p className="text-[14px] font-medium text-[#111827] truncate">{userName}</p>
             </div>
             <button 
-              onClick={() => navigate("/login")}
+              onClick={logout}
               className="p-1.5 text-[#6B7280] hover:text-[#DC2626] hover:bg-[#FEE2E2] rounded transition-colors"
               title="Log out"
             >
@@ -323,8 +335,8 @@ function CandidateDashboard() {
       {/* Main Content */}
       <main className="ml-[240px]">
         {/* Top Bar */}
-        <header className="h-16 bg-white border-b border-[#EEEEEE] flex items-center justify-between px-6 sticky top-0 z-40">
-          <h1 className="text-[20px] font-bold text-[#111827]">Dashboard</h1>
+        <header className="h-16 bg-white border-b border-[#E5E7EB] flex items-center justify-between px-8 sticky top-0 z-40">
+          <h1 className="text-[22px] font-bold text-[#111827]" style={{ fontFamily: 'Times New Roman, serif' }}>My <em className="text-[#F04E23] italic">Dashboard</em></h1>
           <div className="flex items-center gap-3">
             <span className="text-[14px] text-[#6B7280]">{greeting}, {userName.split(' ')[0]} 👋</span>
             
@@ -339,7 +351,7 @@ function CandidateDashboard() {
               
               {/* Dropdown Menu */}
               {showUserDropdown && (
-                <div className="absolute top-full right-0 mt-2 w-44 bg-white border border-[#EEEEEE] rounded-lg shadow-lg py-1 z-50">
+                <div className="absolute top-full right-0 mt-2 w-44 bg-white border border-[#E5E7EB] rounded-lg shadow-lg py-1 z-50">
                   <div className="px-3 py-2 border-b border-[#F3F4F6]">
                     <p className="text-[13px] font-medium text-[#111827]">{userName}</p>
                     <p className="text-[11px] text-[#6B7280]">ahmed.hassan@email.com</p>
@@ -351,7 +363,7 @@ function CandidateDashboard() {
                     <Pencil size={14} /> Edit Profile
                   </button>
                   <button 
-                    onClick={() => { navigate("/login"); setShowUserDropdown(false); }}
+                    onClick={() => { logout(); setShowUserDropdown(false); }}
                     className="w-full px-3 py-2 text-left text-[13px] text-[#DC2626] hover:bg-[#FEE2E2] flex items-center gap-2"
                   >
                     <LogOut size={14} /> Sign Out

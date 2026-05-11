@@ -1,6 +1,5 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import IntelliHireLogo from "../../components/shared/IntelliHireLogo";
 
 const BuildingIcon = () => (
   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -144,12 +143,6 @@ function CompanyOnboarding() {
       `}</style>
 
       <div className="w-full max-w-[560px] onboarding-card">
-        {/* Wordmark */}
-        <div className="flex items-center justify-center gap-2 mb-8">
-          <IntelliHireLogo className="w-8 h-8" />
-          <span style={{ fontSize: "18px", fontWeight: 700, color: "#0D0D0D", fontFamily: "Inter, sans-serif", letterSpacing: "-0.3px" }}>IntelliHire</span>
-        </div>
-
         {/* Progress Indicator */}
         <div className="mb-5">
           <p

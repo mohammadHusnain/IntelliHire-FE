@@ -1,11 +1,39 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useLogout } from "@/hooks/useLogout";
 import {
   LayoutDashboard, Briefcase, Users, BarChart2, Globe, UserCheck, Settings, LogOut,
   Lock, Unlock, X, Copy, Download, Search, Mail, Plus, Trash2, Edit3,
 } from "lucide-react";
 import IntelliHireLogo from "../../components/shared/IntelliHireLogo";
 import { getJobs } from "../../data/jobsStore";
+import { COMMUNITIES } from "../../data/communitiesData";
+
+const _SAMPLE_MEMBERS = [
+  { name: "Aisha Malik",    email: "aisha@intellihire.app",   status: "High Match",  baseEng: 91 },
+  { name: "Bilal Ahmed",    email: "bilal@intellihire.app",   status: "Member",      baseEng: 74 },
+  { name: "Fatima Noor",    email: "fatima@intellihire.app",  status: "Interviewed", baseEng: 87 },
+  { name: "Hassan Siddiq", email: "hassan@intellihire.app", status: "Pending",     baseEng: 61 },
+  { name: "Maryam Tariq",  email: "maryam@intellihire.app",  status: "Member",      baseEng: 55 },
+];
+const _DATES = ["Apr 10, 2025","Apr 14, 2025","Apr 18, 2025","Apr 22, 2025","Apr 26, 2025"];
+const _buildSeed = () =>
+  COMMUNITIES.map((c, i) => ({
+    id: c.id,
+    name: c.name,
+    description: c.description,
+    tags: c.tags,
+    targetGroup: c.category,
+    joinMode: c.isOpen ? "Open" : "Invite Only",
+    lastActive: ["1 day ago","2 days ago","3 days ago","5 days ago"][i % 4],
+    activeWeek: c.activeThisWeek,
+    interviewReady: Math.max(1, Math.round(c.activeThisWeek * 0.12)),
+    members: _SAMPLE_MEMBERS.slice(0, (i % 3) + 2).map((m, j) => ({
+      name: m.name, email: m.email, status: m.status,
+      joined: _DATES[(i + j) % _DATES.length],
+      engagement: ((m.baseEng + i * 7 + j * 11) % 30) + 60,
+    })),
+  }));
 
 // ─── Reusable Components ────────────────────────────────────────────────────
 const NavItem = ({ icon: Icon, label, active, onClick }) => (
@@ -36,28 +64,12 @@ const navItems = [
 ];
 const targetGroups = ["University Students", "University Alumni", "Tech Professionals", "Industry Experts", "Early Career", "Bootcamp Grads", "Diversity & Inclusion"];
 
-const seedCommunities = [
-  { id: "c1", name: "React & Frontend Talent Pool", description: "A community for experienced frontend developers skilled in React, TypeScript, and modern web technologies.", members: [
-    { name: "Alice Johnson", email: "alice@email.com", joined: "Apr 12, 2025", status: "Member", engagement: 87 },
-    { name: "Bob Williams", email: "bob@email.com", joined: "Apr 15, 2025", status: "High Match", engagement: 92 },
-    { name: "Claire Adams", email: "claire@email.com", joined: "Apr 18, 2025", status: "Interviewed", engagement: 78 },
-    { name: "David Chen", email: "david@email.com", joined: "Apr 20, 2025", status: "Member", engagement: 65 },
-  ], targetGroup: "Tech Professionals", joinMode: "Open", tags: ["React", "Frontend", "TypeScript"], lastActive: "2 days ago", activeWeek: 12, interviewReady: 5 },
-  { id: "c2", name: "Edinburgh CS Grads 2024", description: "Computer Science graduates from the University of Edinburgh, class of 2024.", members: [
-    { name: "Eva Martinez", email: "eva@email.com", joined: "Apr 22, 2025", status: "Member", engagement: 45 },
-    { name: "Frank Lee", email: "frank@email.com", joined: "Apr 25, 2025", status: "Pending", engagement: 30 },
-  ], targetGroup: "University Alumni", joinMode: "Invite Only", tags: ["Edinburgh", "CS", "2024"], lastActive: "5 days ago", activeWeek: 4, interviewReady: 2 },
-  { id: "c3", name: "Early Talent Pipeline", description: "University students across UK institutions exploring early career opportunities in tech.", members: [
-    { name: "Grace Kim", email: "grace@email.com", joined: "May 01, 2025", status: "High Match", engagement: 88 },
-    { name: "Henry Brown", email: "henry@email.com", joined: "May 02, 2025", status: "Member", engagement: 72 },
-    { name: "Isla Patel", email: "isla@email.com", joined: "May 03, 2025", status: "Interviewed", engagement: 91 },
-  ], targetGroup: "University Students", joinMode: "Open", tags: ["Early Career", "UK", "Students"], lastActive: "1 day ago", activeWeek: 18, interviewReady: 8 },
-];
-
+const seedCommunities = _buildSeed();
 let _nextId = 10;
 
 function CompanyCommunity() {
   const navigate = useNavigate();
+  const logout = useLogout();
   const [activeNav, setActiveNav] = useState("community");
   const [communities, setCommunities] = useState(seedCommunities);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -230,7 +242,7 @@ function CompanyCommunity() {
             <p style={{ fontSize: "13px", fontWeight: 500, color: "#0D0D0D", margin: 0 }}>John Smith</p>
             <span style={{ fontSize: "11px", fontWeight: 500, color: "#F04E23", textTransform: "uppercase", letterSpacing: "0.06em", background: "#FFF4F1", borderRadius: "999px", padding: "1px 8px" }}>Owner</span>
           </div>
-          <button onClick={() => navigate("/login")} style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", padding: "4px", borderRadius: "4px", display: "flex", alignItems: "center" }} onMouseEnter={(e) => (e.currentTarget.style.color = "#DC2626")} onMouseLeave={(e) => (e.currentTarget.style.color = "#9CA3AF")}><LogOut size={15} /></button>
+          <button onClick={logout} style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", padding: "4px", borderRadius: "4px", display: "flex", alignItems: "center" }} onMouseEnter={(e) => (e.currentTarget.style.color = "#DC2626")} onMouseLeave={(e) => (e.currentTarget.style.color = "#9CA3AF")}><LogOut size={15} /></button>
         </div>
       </div>
     </aside>

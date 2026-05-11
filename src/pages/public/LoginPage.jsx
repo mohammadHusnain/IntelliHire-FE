@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Eye, EyeOff, Loader2, X } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 const IntelliHireLogo = () => (
   <svg viewBox="0 0 40 40" className="w-10 h-10" fill="none">
@@ -11,16 +12,17 @@ const IntelliHireLogo = () => (
 );
 
 function LoginPage() {
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const { login, isLoading } = useAuth();
+  const location = useLocation();
+  const registeredEmail = location.state?.registered ? (location.state?.email || "") : "";
 
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(registeredEmail);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [authError, setAuthError] = useState("");
+  const justRegistered = !!location.state?.registered;
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetSent, setResetSent] = useState(false);
@@ -46,30 +48,15 @@ function LoginPage() {
     setPasswordError(passwordErr);
     setAuthError("");
     if (emailErr || passwordErr) return;
-    setIsLoading(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      const role = searchParams.get("mockRole") || "individual";
-      const status = searchParams.get("mockStatus") || "active";
-      const profileComplete = searchParams.get("mockProfileComplete") === "true";
-      if (role === "individual") navigate("/candidate/dashboard");
-      else if (role === "company") {
-        if (status === "pending") navigate("/company/pending");
-        else if (status === "active" && !profileComplete) navigate("/company/onboarding");
-        else navigate("/company/dashboard");
-      } else if (role === "hr_manager" || role === "recruiter") navigate("/company/dashboard");
-      else if (role === "admin") navigate("/admin/dashboard");
-      else navigate("/candidate/dashboard");
-    } catch (error) {
-      setAuthError("The email or password you entered is incorrect. Please try again.");
-    } finally {
-      setIsLoading(false);
+    const result = await login(email, password);
+    if (!result.success) {
+      setAuthError(result.error || "Invalid email or password. Please try again.");
     }
   };
 
   const handleForgotPassword = async (e) => {
     e.preventDefault();
-    if (!resetEmail || !validateEmail(resetEmail)) return;
+    if (!resetEmail || validateEmail(resetEmail)) return;
     setResetSent(true);
   };
 
@@ -95,6 +82,14 @@ function LoginPage() {
         {/* Heading */}
         <h2 className="mt-6 text-[30px] text-[#0D0D0D] text-center">Welcome back</h2>
         <p className="mt-2 text-[14px] text-[#6B7280] text-center">Log in to your account</p>
+
+        {/* Registration Success Banner */}
+        {justRegistered && (
+          <div className="mt-6 flex items-start gap-3 rounded-lg bg-green-50 border border-green-200 p-4">
+            <svg className="mt-0.5 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2"><path d="M20 6L9 17l-5-5"/></svg>
+            <span className="text-[14px] text-green-800">Account created! Log in below to continue.</span>
+          </div>
+        )}
 
         {/* Auth Error Banner */}
         {authError && (
@@ -148,8 +143,15 @@ function LoginPage() {
 
         <p className="mt-6 text-center text-[14px] text-[#6B7280]">
           Don't have an account?{" "}
-          <a href="/register" className="text-[#F04E23] hover:underline">Create one here</a>
+          <Link to="/register" className="text-[#F04E23] hover:underline">Create one here</Link>
         </p>
+        <div className="mt-5 p-3 rounded-lg bg-[#F9FAFB] border border-[#E5E7EB]">
+          <p className="text-[11px] font-semibold text-[#374151] mb-1.5 uppercase tracking-wide">Demo Credentials</p>
+          <div className="space-y-1 text-[11px] text-[#6B7280] font-mono">
+            <p>candidate@test.com / password123</p>
+            <p>company@test.com &nbsp;&nbsp;/ password123</p>
+          </div>
+        </div>
       </div>
 
       {/* Forgot Password Modal */}
