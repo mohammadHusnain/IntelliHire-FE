@@ -150,6 +150,7 @@ function LoginPage() {
           <div className="space-y-1 text-[11px] text-[#6B7280] font-mono">
             <p>candidate@test.com / password123</p>
             <p>company@test.com &nbsp;&nbsp;/ password123</p>
+            <p>admin@gmail.com &nbsp;&nbsp;&nbsp;/ 12345678</p>
           </div>
         </div>
       </div>

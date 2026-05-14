@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, GuestRoute, RoleProtectedRoute } from "@/components/auth";
 import { ROLES } from "@/config/routes";
 import { Loader2 } from "lucide-react";
@@ -35,6 +35,15 @@ const CompanyCandidateProfile = lazy(() => import("@/pages/company/CompanyCandid
 const CompanyAnalytics = lazy(() => import("@/pages/company/CompanyAnalytics"));
 const CompanyCommunity = lazy(() => import("@/pages/company/CompanyCommunity"));
 const CompanySettings = lazy(() => import("@/pages/company/CompanySettings"));
+
+// Admin
+const AdminDashboard = lazy(() => import("@/pages/admin/AdminDashboard"));
+const AdminUsers = lazy(() => import("@/pages/admin/AdminUsers"));
+const AdminCompanies = lazy(() => import("@/pages/admin/AdminCompanies"));
+const AdminCommunities = lazy(() => import("@/pages/admin/AdminCommunities"));
+const AdminReports = lazy(() => import("@/pages/admin/AdminReports"));
+const AdminSettings = lazy(() => import("@/pages/admin/AdminSettings"));
+const AdminManagement = lazy(() => import("@/pages/admin/AdminManagement"));
 
 // ─── Suspense Fallback ──────────────────────────────────────────────────────
 function PageLoader() {
@@ -85,6 +94,18 @@ function App() {
               <Route path="/company/analytics" element={<CompanyAnalytics />} />
               <Route path="/company/community" element={<CompanyCommunity />} />
               <Route path="/company/settings" element={<CompanySettings />} />
+            </Route>
+
+            {/* ── Admin Routes (role-guarded) ── */}
+            <Route element={<RoleProtectedRoute allowedRoles={[ROLES.ADMIN]} />}>
+              <Route path="/admin/dashboard" element={<AdminDashboard />} />
+              <Route path="/admin/users" element={<AdminUsers />} />
+              <Route path="/admin/companies" element={<AdminCompanies />} />
+              <Route path="/admin/communities" element={<AdminCommunities />} />
+              <Route path="/admin/reports" element={<AdminReports />} />
+              <Route path="/admin/settings" element={<AdminSettings />} />
+              <Route path="/admin/management" element={<AdminManagement />} />
+              <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
             </Route>
 
             {/* ── Catch-all 404 ── */}

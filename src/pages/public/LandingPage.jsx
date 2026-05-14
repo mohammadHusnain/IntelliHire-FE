@@ -467,6 +467,7 @@ function LandingPage() {
 
           <div className="flex items-center gap-3">
             <a href="/login" className="hidden sm:block text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors">Log in</a>
+            <a href="/login" className="hidden sm:block text-sm font-medium text-[#F04E23] hover:underline">Admin login</a>
             <a href="/register" className="rounded-full bg-[#F04E23] px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#F04E23]/20 transition hover:bg-[#D43D14] hover:shadow-lg">Get started free</a>
             <button className="lg:hidden p-2 text-slate-600" onClick={() => setMobileOpen(!mobileOpen)}>{mobileOpen ? <X size={22} /> : <Menu size={22} />}</button>
           </div>

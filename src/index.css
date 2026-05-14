@@ -259,6 +259,84 @@
     border-color: var(--border-strong);
   }
 
+  /* Admin dashboard helpers */
+  .admin-banner {
+    animation: adminSlideDown 150ms ease;
+  }
+
+  .admin-chart-line {
+    stroke-dasharray: 1000;
+    stroke-dashoffset: 1000;
+    animation: adminLineDraw 800ms ease forwards;
+  }
+
+  .admin-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--orange) #E5E7EB;
+  }
+
+  .admin-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .admin-scrollbar::-webkit-scrollbar-track {
+    background: #E5E7EB;
+    border-radius: 10px;
+  }
+
+  .admin-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--orange);
+    border-radius: 10px;
+  }
+
+  .admin-fade {
+    opacity: 0;
+    animation: adminFadeUp 320ms ease forwards;
+  }
+
+  .admin-pulse {
+    animation: adminPulse 2s infinite;
+  }
+
+  .admin-modal {
+    animation: adminModalIn 150ms ease;
+  }
+
+  .admin-drawer {
+    animation: adminDrawerIn 200ms ease;
+  }
+
+
+@keyframes adminLineDraw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes adminSlideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes adminFadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes adminPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes adminModalIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes adminDrawerIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
   /* Skeleton shimmer */
   .skeleton {
     background: linear-gradient(90deg, #F3F4F6 25%, #FAFAFA 50%, #F3F4F6 75%);

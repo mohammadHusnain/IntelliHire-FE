@@ -6,6 +6,20 @@ import { ROLE_DASHBOARDS, ROLES } from "@/config/routes";
 const TOKEN_KEY = "intellihire_access_token";
 const USER_KEY = "intellihire_user";
 
+// ─── Admin Credentials (frontend-only, temporary) ──────────────────────────
+export const ADMIN_CREDENTIALS = {
+  email: "admin@gmail.com",
+  password: "12345678",
+};
+
+const ADMIN_USER = {
+  id: "usr_admin",
+  email: ADMIN_CREDENTIALS.email,
+  name: "Super Admin",
+  role: ROLES.ADMIN,
+  status: "active",
+};
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 function persistSession(token, user) {
   localStorage.setItem(TOKEN_KEY, token);
@@ -40,6 +54,15 @@ export const useAuthStore = create((set, get) => ({
   login: async (email, password) => {
     set({ isLoading: true, error: null });
     try {
+      if (
+        email?.toLowerCase() === ADMIN_CREDENTIALS.email &&
+        password === ADMIN_CREDENTIALS.password
+      ) {
+        const adminToken = `admin|${Date.now()}`;
+        persistSession(adminToken, ADMIN_USER);
+        set({ user: ADMIN_USER, token: adminToken, isAuthenticated: true, isLoading: false });
+        return { success: true, user: ADMIN_USER };
+      }
       const { user, token } = await authApi.login(email, password);
       persistSession(token, user);
       set({ user, token, isAuthenticated: true, isLoading: false });
@@ -83,6 +106,11 @@ export const useAuthStore = create((set, get) => ({
       return;
     }
     try {
+      const storedUser = loadStoredUser();
+      if (storedUser?.role === ROLES.ADMIN) {
+        set({ user: storedUser, token, isAuthenticated: true, isInitialized: true });
+        return;
+      }
       const { user } = await authApi.validateToken(token);
       set({ user, token, isAuthenticated: true, isInitialized: true });
     } catch {

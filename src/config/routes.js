@@ -2,6 +2,7 @@
 export const ROLES = {
   CANDIDATE: "candidate",
   COMPANY: "company",
+  ADMIN: "admin",
 };
 
 // ─── Route Path Constants ───────────────────────────────────────────────────
@@ -39,10 +40,22 @@ export const ROUTES = {
     COMMUNITY: "/company/community",
     SETTINGS: "/company/settings",
   },
+
+  // Admin
+  ADMIN: {
+    DASHBOARD: "/admin/dashboard",
+    USERS: "/admin/users",
+    COMPANIES: "/admin/companies",
+    COMMUNITIES: "/admin/communities",
+    REPORTS: "/admin/reports",
+    SETTINGS: "/admin/settings",
+    MANAGEMENT: "/admin/management",
+  },
 };
 
 // ─── Role → Default Dashboard Mapping ───────────────────────────────────────
 export const ROLE_DASHBOARDS = {
   [ROLES.CANDIDATE]: ROUTES.CANDIDATE.DASHBOARD,
   [ROLES.COMPANY]: ROUTES.COMPANY.DASHBOARD,
+  [ROLES.ADMIN]: ROUTES.ADMIN.DASHBOARD,
 };
