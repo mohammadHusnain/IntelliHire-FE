@@ -1,419 +1,319 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useLogout } from "@/hooks/useLogout";
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
-  LayoutDashboard, User, Mic2, FileText, Globe, Settings, LogOut,
-  Bell, Shield, Eye, EyeOff, Save, X,
+  Bell, Check, ChevronRight, Database, Download, Eye, Laptop, Loader2, Lock, LogOut, Mic, Minus, Plus,
+  RotateCcw, ShieldCheck, UserRound,
 } from "lucide-react";
-import IntelliHireLogo from "../../components/shared/IntelliHireLogo";
+import { Badge, Card, CardHeader, PageHeader, Segmented, Toggle } from "@/components/app/primitives";
+import Reveal from "@/components/shared/Reveal";
+import AuthField from "@/components/shared/AuthField";
+import { useLogout } from "@/hooks/useLogout";
+import { useCandidateActions, useCandidateRecord } from "@/store/candidateStore";
+import { authApi } from "@/api/authApi";
+import { DIFFICULTIES, INTERVIEW_TYPES, LENGTHS } from "@/lib/interview/questionBank";
+import { speechRecognitionSupported } from "@/hooks/useSpeechRecognition";
+import { formatDate } from "@/lib/candidateStats";
+import { downloadFile } from "@/lib/csv";
+import { toast } from "@/store/toastStore";
 
-// ─── Nav Item ────────────────────────────────────────────────────────────────
-const NavItem = ({ icon: Icon, label, active, onClick }) => (
-  <button onClick={onClick}
-    style={{
-      width: "calc(100% - 16px)", height: "38px", display: "flex", alignItems: "center",
-      gap: "10px", padding: "0 14px", margin: "1px 8px", borderRadius: "6px",
-      fontSize: "14px", fontWeight: 500, fontFamily: "Inter, sans-serif", cursor: "pointer",
-      border: "none", borderLeft: active ? "2px solid #F04E23" : "2px solid transparent",
-      background: active ? "#FFF4F1" : "transparent",
-      color: active ? "#F04E23" : "#9CA3AF", transition: "all 150ms ease",
-    }}
-    onMouseEnter={(e) => { if (!active) { e.currentTarget.style.background = "#FFF4F1"; e.currentTarget.style.color = "#F04E23"; } }}
-    onMouseLeave={(e) => { if (!active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#9CA3AF"; } }}>
-    <Icon size={17} /><span>{label}</span>
-  </button>
-);
-
-const ToggleSwitch = ({ checked, onChange }) => (
-  <button onClick={onChange}
-    style={{ width: "38px", height: "22px", borderRadius: "999px", background: checked ? "#F04E23" : "#D1D5DB", border: "none", cursor: "pointer", position: "relative", transition: "background 150ms", flexShrink: 0 }}>
-    <span style={{ position: "absolute", top: "3px", left: checked ? "19px" : "3px", width: "16px", height: "16px", borderRadius: "50%", background: "white", transition: "left 150ms", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
-  </button>
-);
-
-const Toast = ({ message, type, onClose }) => {
-  const colors = { success: "#16A34A", error: "#DC2626", info: "#F04E23" };
-  return (
-    <div style={{ position: "fixed", top: "20px", right: "20px", zIndex: 9999, background: "#fff", border: "1px solid #E5E7EB", borderRadius: "10px", padding: "14px 18px", minWidth: "300px", borderLeft: `4px solid ${colors[type] || colors.success}`, fontSize: "14px", color: "#0D0D0D", fontFamily: "Inter, sans-serif", boxShadow: "0 4px 16px rgba(0,0,0,0.1)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
-      <span>{message}</span>
-      <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF" }}><X size={14} /></button>
-    </div>
-  );
-};
-
-const settingsTabs = [
-  { id: "profile",       label: "Profile",       icon: User },
+const TABS = [
+  { id: "account", label: "Account", icon: UserRound },
+  { id: "interview", label: "Interview defaults", icon: Mic },
   { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "privacy",       label: "Privacy",        icon: Eye },
-  { id: "security",      label: "Security",       icon: Shield },
+  { id: "privacy", label: "Privacy", icon: Eye },
+  { id: "security", label: "Security", icon: ShieldCheck },
+  { id: "data", label: "Your data", icon: Database },
 ];
 
-function CandidateSettings() {
-  const navigate  = useNavigate();
-  const logout    = useLogout();
-
-  const [activeNav,  setActiveNav]  = useState("settings");
-  const [activeTab,  setActiveTab]  = useState("profile");
-  const [toast,      setToast]      = useState(null);
-
-  // Profile fields
-  const [fullName,   setFullName]   = useState("Ahmed Hassan");
-  const [email,      setEmail]      = useState("ahmed.hassan@email.com");
-  const [location,   setLocation]   = useState("Lahore, Pakistan");
-  const [bio,        setBio]        = useState("");
-  const [linkedIn,   setLinkedIn]   = useState("");
-  const [github,     setGithub]     = useState("");
-  const [portfolio,  setPortfolio]  = useState("");
-
-  // Notification toggles
-  const [notif, setNotif] = useState({
-    emailJobMatch:    true,
-    emailInterviews:  true,
-    emailCommunities: false,
-    emailWeekly:      true,
-    inAppMessages:    true,
-    inAppReminders:   true,
-    inAppUpdates:     false,
-  });
-
-  // Privacy toggles
-  const [privacy, setPrivacy] = useState({
-    profilePublic:    true,
-    resumeVisible:    true,
-    showEmail:        false,
-    showActivity:     true,
-    allowRecruiter:   true,
-  });
-
-  // Security
-  const [currPwd,   setCurrPwd]   = useState("");
-  const [newPwd,    setNewPwd]    = useState("");
-  const [confirmPwd, setConfirmPwd] = useState("");
-  const [showCurr,   setShowCurr]  = useState(false);
-  const [showNew,    setShowNew]   = useState(false);
-  const [showConf,   setShowConf]  = useState(false);
-  const [pwdErrors,  setPwdErrors] = useState({});
-
-  const showToast = (msg, type = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
-  };
-
-  const handleNavClick = (navId) => {
-    setActiveNav(navId);
-    if (navId === "dashboard")   navigate("/candidate/dashboard");
-    if (navId === "profile")     navigate("/candidate/profile");
-    if (navId === "interview")   navigate("/candidate/interview/setup");
-    if (navId === "reports")     navigate("/candidate/reports");
-    if (navId === "communities") navigate("/candidate/communities");
-  };
-
-  const handleSaveProfile = () => {
-    showToast("Profile settings saved successfully!");
-  };
-
-  const handleSaveNotif = () => {
-    showToast("Notification preferences updated!");
-  };
-
-  const handleSavePrivacy = () => {
-    showToast("Privacy settings updated!");
-  };
-
-  const handleChangePassword = () => {
-    const e = {};
-    if (!currPwd)               e.currPwd    = "Enter your current password";
-    if (!newPwd)                e.newPwd     = "Enter a new password";
-    else if (newPwd.length < 8) e.newPwd     = "At least 8 characters required";
-    if (newPwd !== confirmPwd)  e.confirmPwd = "Passwords do not match";
-    setPwdErrors(e);
-    if (Object.keys(e).length) return;
-    setCurrPwd(""); setNewPwd(""); setConfirmPwd("");
-    showToast("Password changed successfully!");
-  };
-
-  // ── Input style ───────────────────────────────────────────────────────────
-  const inp = (err) => ({
-    width: "100%", height: "42px", padding: "0 14px", borderRadius: "8px",
-    border: `1px solid ${err ? "#DC2626" : "#E5E7EB"}`, fontSize: "14px",
-    fontFamily: "Inter, sans-serif", outline: "none", boxSizing: "border-box",
-    background: "white", color: "#111827",
-  });
-
-  const navItems = [
-    { id: "dashboard",   label: "Dashboard",   icon: LayoutDashboard },
-    { id: "profile",     label: "My Profile",  icon: User },
-    { id: "interview",   label: "Interviews",  icon: Mic2 },
-    { id: "reports",     label: "My Reports",  icon: FileText },
-    { id: "communities", label: "Communities", icon: Globe },
-    { id: "settings",    label: "Settings",    icon: Settings },
-  ];
-
-  // ── Tab content ───────────────────────────────────────────────────────────
-  const renderProfile = () => (
-    <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-        <div>
-          <label style={lbl}>Full Name</label>
-          <input style={inp()} value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Your full name" />
-        </div>
-        <div>
-          <label style={lbl}>Email Address</label>
-          <input style={{ ...inp(), background: "#F9FAFB", color: "#9CA3AF" }} value={email} readOnly />
-          <p style={{ fontSize: "11px", color: "#9CA3AF", marginTop: "4px" }}>Email cannot be changed here</p>
-        </div>
-        <div>
-          <label style={lbl}>Location</label>
-          <input style={inp()} value={location} onChange={(e) => setLocation(e.target.value)} placeholder="City, Country" />
-        </div>
-        <div>
-          <label style={lbl}>Portfolio URL</label>
-          <input style={inp()} value={portfolio} onChange={(e) => setPortfolio(e.target.value)} placeholder="https://yourportfolio.com" />
-        </div>
-      </div>
-      <div>
-        <label style={lbl}>Bio <span style={{ color: "#9CA3AF", fontWeight: 400 }}>({bio.length}/300)</span></label>
-        <textarea
-          value={bio} onChange={(e) => e.target.value.length <= 300 && setBio(e.target.value)}
-          placeholder="Write a short professional bio about yourself..."
-          style={{ width: "100%", height: "96px", padding: "10px 14px", borderRadius: "8px", border: "1px solid #E5E7EB", fontSize: "14px", fontFamily: "Inter, sans-serif", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-        <div>
-          <label style={lbl}>LinkedIn URL</label>
-          <input style={inp()} value={linkedIn} onChange={(e) => setLinkedIn(e.target.value)} placeholder="https://linkedin.com/in/..." />
-        </div>
-        <div>
-          <label style={lbl}>GitHub URL</label>
-          <input style={inp()} value={github} onChange={(e) => setGithub(e.target.value)} placeholder="https://github.com/..." />
-        </div>
-      </div>
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button onClick={handleSaveProfile} style={saveBtn}>
-          <Save size={15} /> Save Changes
-        </button>
-      </div>
-    </div>
-  );
-
-  const renderNotifications = () => (
-    <div style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
-      {[
-        { title: "Email Notifications", items: [
-          { key: "emailJobMatch",    label: "New job matches",           desc: "Get notified when a job matches your profile" },
-          { key: "emailInterviews",  label: "Interview reminders",       desc: "Reminders before scheduled AI interview sessions" },
-          { key: "emailCommunities", label: "Community activity",        desc: "Updates from communities you're a member of" },
-          { key: "emailWeekly",      label: "Weekly digest",             desc: "A weekly summary of activity and new opportunities" },
-        ]},
-        { title: "In-App Notifications", items: [
-          { key: "inAppMessages",   label: "New messages",              desc: "Notifications when a recruiter messages you" },
-          { key: "inAppReminders",  label: "Task reminders",            desc: "Reminders for incomplete profile or pending actions" },
-          { key: "inAppUpdates",    label: "Product updates",           desc: "Learn about new IntelliHire features" },
-        ]},
-      ].map(({ title, items }) => (
-        <div key={title}>
-          <p style={{ fontSize: "13px", fontWeight: 600, color: "#374151", marginBottom: "12px", textTransform: "uppercase", letterSpacing: "0.04em" }}>{title}</p>
-          <div style={{ display: "flex", flexDirection: "column", gap: "0px", border: "1px solid #E5E7EB", borderRadius: "10px", overflow: "hidden" }}>
-            {items.map((item, i) => (
-              <div key={item.key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", borderBottom: i < items.length - 1 ? "1px solid #F3F4F6" : "none", background: "white" }}>
-                <div>
-                  <p style={{ fontSize: "14px", fontWeight: 500, color: "#111827", margin: 0 }}>{item.label}</p>
-                  <p style={{ fontSize: "12px", color: "#9CA3AF", margin: "2px 0 0" }}>{item.desc}</p>
-                </div>
-                <ToggleSwitch checked={notif[item.key]} onChange={() => setNotif((n) => ({ ...n, [item.key]: !n[item.key] }))} />
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button onClick={handleSaveNotif} style={saveBtn}><Save size={15} /> Save Preferences</button>
-      </div>
-    </div>
-  );
-
-  const renderPrivacy = () => (
-    <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-      <div style={{ border: "1px solid #E5E7EB", borderRadius: "10px", overflow: "hidden" }}>
-        {[
-          { key: "profilePublic",  label: "Public Profile",         desc: "Allow anyone to view your candidate profile" },
-          { key: "resumeVisible",  label: "Resume Visibility",      desc: "Allow recruiters to download your uploaded CV" },
-          { key: "showEmail",      label: "Show Email to Recruiters", desc: "Display your email on your public profile" },
-          { key: "showActivity",   label: "Show Activity Status",   desc: "Let others see when you were last active" },
-          { key: "allowRecruiter", label: "Recruiter Outreach",     desc: "Allow recruiters to send you direct messages" },
-        ].map((item, i, arr) => (
-          <div key={item.key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", borderBottom: i < arr.length - 1 ? "1px solid #F3F4F6" : "none", background: "white" }}>
-            <div>
-              <p style={{ fontSize: "14px", fontWeight: 500, color: "#111827", margin: 0 }}>{item.label}</p>
-              <p style={{ fontSize: "12px", color: "#9CA3AF", margin: "2px 0 0" }}>{item.desc}</p>
-            </div>
-            <ToggleSwitch checked={privacy[item.key]} onChange={() => setPrivacy((p) => ({ ...p, [item.key]: !p[item.key] }))} />
-          </div>
-        ))}
-      </div>
-      <div style={{ padding: "16px", background: "#FFF4F1", borderRadius: "10px", border: "1px solid #FCA68A" }}>
-        <p style={{ fontSize: "13px", fontWeight: 600, color: "#92400E", margin: "0 0 4px" }}>Data & Account</p>
-        <p style={{ fontSize: "13px", color: "#B45309", margin: "0 0 12px" }}>You can request a copy of your data or permanently delete your account at any time.</p>
-        <div style={{ display: "flex", gap: "10px" }}>
-          <button onClick={() => showToast("Data export request sent. You'll receive an email within 24 hours.", "info")}
-            style={{ height: "34px", padding: "0 16px", borderRadius: "8px", border: "1px solid #FCA68A", background: "white", color: "#92400E", fontSize: "13px", fontWeight: 500, cursor: "pointer", fontFamily: "Inter, sans-serif" }}>
-            Export Data
-          </button>
-          <button onClick={() => showToast("Please contact support to delete your account.", "error")}
-            style={{ height: "34px", padding: "0 16px", borderRadius: "8px", border: "1px solid #FECACA", background: "#FEF2F2", color: "#DC2626", fontSize: "13px", fontWeight: 500, cursor: "pointer", fontFamily: "Inter, sans-serif" }}>
-            Delete Account
-          </button>
-        </div>
-      </div>
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button onClick={handleSavePrivacy} style={saveBtn}><Save size={15} /> Save Settings</button>
-      </div>
-    </div>
-  );
-
-  const renderSecurity = () => (
-    <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-      <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: "12px", padding: "24px" }}>
-        <p style={{ fontSize: "16px", fontWeight: 600, color: "#111827", margin: "0 0 4px" }}>Change Password</p>
-        <p style={{ fontSize: "13px", color: "#6B7280", margin: "0 0 20px" }}>Choose a strong password with at least 8 characters.</p>
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          {[
-            { label: "Current Password", value: currPwd, setter: setCurrPwd, show: showCurr, toggleShow: () => setShowCurr(!showCurr), errKey: "currPwd" },
-            { label: "New Password",     value: newPwd,  setter: setNewPwd,  show: showNew,  toggleShow: () => setShowNew(!showNew),   errKey: "newPwd" },
-            { label: "Confirm New Password", value: confirmPwd, setter: setConfirmPwd, show: showConf, toggleShow: () => setShowConf(!showConf), errKey: "confirmPwd" },
-          ].map(({ label, value, setter, show, toggleShow, errKey }) => (
-            <div key={errKey}>
-              <label style={lbl}>{label}</label>
-              <div style={{ position: "relative" }}>
-                <input type={show ? "text" : "password"} value={value} onChange={(e) => setter(e.target.value)}
-                  placeholder="••••••••" style={{ ...inp(pwdErrors[errKey]), paddingRight: "44px" }} />
-                <button onClick={toggleShow}
-                  style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", display: "flex", alignItems: "center" }}>
-                  {show ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-              {pwdErrors[errKey] && <p style={{ fontSize: "12px", color: "#DC2626", marginTop: "4px" }}>{pwdErrors[errKey]}</p>}
-            </div>
-          ))}
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <button onClick={handleChangePassword} style={saveBtn}><Shield size={15} /> Update Password</button>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: "12px", padding: "24px" }}>
-        <p style={{ fontSize: "16px", fontWeight: 600, color: "#111827", margin: "0 0 4px" }}>Active Sessions</p>
-        <p style={{ fontSize: "13px", color: "#6B7280", margin: "0 0 16px" }}>Devices currently logged into your account.</p>
-        {[
-          { device: "Chrome on Windows", location: "Lahore, PK", current: true,  lastSeen: "Now" },
-          { device: "Mobile Safari",     location: "Lahore, PK", current: false, lastSeen: "2 days ago" },
-        ].map((s) => (
-          <div key={s.device} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid #F3F4F6" }}>
-            <div>
-              <p style={{ fontSize: "14px", fontWeight: 500, color: "#111827", margin: 0 }}>{s.device}</p>
-              <p style={{ fontSize: "12px", color: "#9CA3AF", margin: "2px 0 0" }}>{s.location} · {s.lastSeen}</p>
-            </div>
-            {s.current
-              ? <span style={{ fontSize: "12px", fontWeight: 600, color: "#16A34A", background: "#F0FDF4", padding: "3px 10px", borderRadius: "999px", border: "1px solid #BBF7D0" }}>Current</span>
-              : <button onClick={() => showToast("Session revoked.", "info")}
-                  style={{ fontSize: "12px", color: "#DC2626", background: "#FEF2F2", border: "1px solid #FECACA", padding: "3px 10px", borderRadius: "999px", cursor: "pointer", fontFamily: "Inter, sans-serif" }}>
-                  Revoke
-                </button>
-            }
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  const lbl = { display: "block", fontSize: "13px", fontWeight: 500, color: "#374151", marginBottom: "6px" };
-  const saveBtn = { display: "flex", alignItems: "center", gap: "6px", height: "38px", padding: "0 20px", borderRadius: "8px", background: "#F04E23", color: "white", border: "none", fontSize: "14px", fontWeight: 600, cursor: "pointer", fontFamily: "Inter, sans-serif" };
-
-  const tabContent = { profile: renderProfile, notifications: renderNotifications, privacy: renderPrivacy, security: renderSecurity };
-
+function Saved({ tick }) {
+  if (!tick) return null;
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#F9FAFB", fontFamily: "Inter, sans-serif" }}>
-
-      {/* ── Sidebar ── */}
-      <aside style={{ width: "240px", background: "white", borderRight: "1px solid #E5E7EB", display: "flex", flexDirection: "column", position: "fixed", top: 0, left: 0, height: "100vh", zIndex: 40 }}>
-        <div style={{ height: "64px", display: "flex", alignItems: "center", padding: "0 16px", borderBottom: "1px solid #E5E7EB" }}>
-          <IntelliHireLogo className="w-8 h-8 mr-2" />
-          <span style={{ fontFamily: "Times New Roman, serif", fontSize: "20px", fontWeight: 700, color: "#111827" }}>IntelliHire</span>
-        </div>
-        <nav style={{ flex: 1, padding: "8px 0", overflowY: "auto" }}>
-          {navItems.map((item) => (
-            <NavItem key={item.id} icon={item.icon} label={item.label}
-              active={activeNav === item.id} onClick={() => handleNavClick(item.id)} />
-          ))}
-        </nav>
-        <div style={{ borderTop: "1px solid #E5E7EB", padding: "12px 16px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: "#F04E23", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: "12px", fontWeight: 600, flexShrink: 0 }}>AH</div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: "13px", fontWeight: 500, color: "#0D0D0D", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Ahmed Hassan</p>
-              <span style={{ fontSize: "11px", color: "#F04E23", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em", background: "#FFF4F1", borderRadius: "999px", padding: "1px 8px" }}>Candidate</span>
-            </div>
-            <button onClick={logout}
-              style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", padding: "4px", borderRadius: "4px", display: "flex", alignItems: "center" }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "#DC2626")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "#9CA3AF")}
-              title="Log out">
-              <LogOut size={15} />
-            </button>
-          </div>
-        </div>
-      </aside>
-
-      {/* ── Main ── */}
-      <div style={{ marginLeft: "240px", flex: 1, display: "flex", flexDirection: "column" }}>
-
-        {/* Header */}
-        <header style={{ height: "64px", background: "white", borderBottom: "1px solid #E5E7EB", display: "flex", alignItems: "center", padding: "0 32px", position: "sticky", top: 0, zIndex: 30 }}>
-          <h1 style={{ fontFamily: "Times New Roman, serif", fontSize: "22px", color: "#0D0D0D", margin: 0 }}>
-            Account <em style={{ color: "#F04E23", fontStyle: "italic" }}>Settings</em>
-          </h1>
-        </header>
-
-        {/* Content */}
-        <main style={{ padding: "32px", flex: 1 }}>
-
-          {/* Settings layout */}
-          <div style={{ display: "flex", gap: "28px", alignItems: "flex-start" }}>
-
-            {/* Sidebar tabs */}
-            <div style={{ width: "200px", flexShrink: 0, background: "white", border: "1px solid #E5E7EB", borderRadius: "12px", overflow: "hidden" }}>
-              {settingsTabs.map((tab) => {
-                const Icon = tab.icon;
-                const active = activeTab === tab.id;
-                return (
-                  <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                    style={{ width: "100%", display: "flex", alignItems: "center", gap: "10px", padding: "13px 16px", background: active ? "#FFF4F1" : "white", color: active ? "#F04E23" : "#374151", fontWeight: active ? 600 : 400, fontSize: "14px", border: "none", borderLeft: `3px solid ${active ? "#F04E23" : "transparent"}`, cursor: "pointer", fontFamily: "Inter, sans-serif", transition: "all 150ms" }}
-                    onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = "#F9FAFB"; }}
-                    onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = "white"; }}>
-                    <Icon size={16} />
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Tab content panel */}
-            <div style={{ flex: 1, background: "white", border: "1px solid #E5E7EB", borderRadius: "12px", padding: "28px" }}>
-              <div style={{ marginBottom: "24px" }}>
-                <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#111827", margin: "0 0 4px", fontFamily: "Times New Roman, serif" }}>
-                  {settingsTabs.find((t) => t.id === activeTab)?.label}
-                </h2>
-                <div style={{ height: "2px", width: "40px", background: "#F04E23", borderRadius: "2px" }} />
-              </div>
-              {tabContent[activeTab]?.()}
-            </div>
-          </div>
-        </main>
-      </div>
-
-      {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
-    </div>
+    <span key={tick} className="animate-saved inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[12px] font-semibold text-emerald-700" aria-live="polite">
+      <Check size={12} /> Saved
+    </span>
   );
 }
 
-export default CandidateSettings;
+function ToggleRow({ title, description, checked, onChange, disabled }) {
+  return (
+    <li className="flex items-center justify-between gap-4 px-4 py-4 sm:px-5">
+      <div className="min-w-0">
+        <p className="text-[14px] font-semibold text-ink">{title}</p>
+        <p className="mt-0.5 text-[13px] text-stone-500">{description}</p>
+      </div>
+      <Toggle checked={checked} onChange={onChange} disabled={disabled} label={title} />
+    </li>
+  );
+}
+
+function deviceLabel() {
+  const ua = navigator.userAgent;
+  const browser = /Edg\//.test(ua) ? "Edge" : /Chrome\//.test(ua) ? "Chrome" : /Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : "Browser";
+  const os = /Windows/.test(ua) ? "Windows" : /Mac OS X/.test(ua) ? "macOS" : /Android/.test(ua) ? "Android" : /iPhone|iPad/.test(ua) ? "iOS" : /Linux/.test(ua) ? "Linux" : "your device";
+  return `${browser} on ${os}`;
+}
+
+export default function CandidateSettings() {
+  const record = useCandidateRecord();
+  const { profile, prefs, sessions } = record;
+  const { updatePrefs, resetPractice } = useCandidateActions();
+  const logout = useLogout();
+  const [tab, setTab] = useState("account");
+  const [tick, setTick] = useState(0);
+  const [pwd, setPwd] = useState({ current: "", next: "", confirm: "" });
+  const [pwdErrors, setPwdErrors] = useState({});
+  const [pwdBusy, setPwdBusy] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const device = useMemo(() => deviceLabel(), []);
+
+  const save = (section, changes) => {
+    updatePrefs(section, changes);
+    setTick((t) => t + 1);
+  };
+
+  const changePassword = async (e) => {
+    e.preventDefault();
+    const errs = {};
+    if (!pwd.current) errs.current = "Enter your current password";
+    if (pwd.next.length < 8) errs.next = "Use at least 8 characters";
+    else if (pwd.next === pwd.current) errs.next = "Choose a different password";
+    if (pwd.confirm !== pwd.next) errs.confirm = "Passwords do not match";
+    setPwdErrors(errs);
+    if (Object.keys(errs).length) return;
+    setPwdBusy(true);
+    try {
+      await authApi.changePassword(profile.email, pwd.current, pwd.next);
+      setPwd({ current: "", next: "", confirm: "" });
+      toast({ title: "Password updated", message: "Use your new password the next time you log in." });
+    } catch (err) {
+      toast({ type: "error", title: "Password not changed", message: err.message });
+    } finally {
+      setPwdBusy(false);
+    }
+  };
+
+  const exportData = () => {
+    const payload = { exportedAt: new Date().toISOString(), profile: { ...profile, photo: profile.photo ? "[image omitted]" : null }, preferences: prefs, memberships: record.memberships, interviews: sessions };
+    const name = `intellihire-data-${new Date().toISOString().slice(0, 10)}.json`;
+    downloadFile(name, JSON.stringify(payload, null, 2), "application/json");
+    toast({ title: "Data exported", message: `${sessions.length} interviews and your profile saved to ${name}.` });
+  };
+
+  const doReset = () => {
+    resetPractice();
+    setConfirmReset(false);
+    toast({ type: "info", title: "Practice history cleared", message: "Your profile and settings were kept." });
+  };
+
+  const iv = prefs.interview;
+  const n = prefs.notifications;
+  const p = prefs.privacy;
+
+  const panels = {
+    account: (
+      <Card className="p-6">
+        <CardHeader icon={UserRound} title="Account" subtitle="Your sign-in details." action={<Saved tick={tick} />} />
+        <dl className="mt-6 divide-y divide-[var(--line)] rounded-2xl border border-[var(--line)]">
+          {[
+            ["Name", profile.fullName],
+            ["Email", profile.email],
+            ["Account type", <Badge key="t" tone="brand">Candidate</Badge>],
+            ["Member since", formatDate(profile.joinedAt, { day: "numeric", month: "long", year: "numeric" })],
+          ].map(([k, v]) => (
+            <div key={k} className="flex flex-col gap-1 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+              <dt className="text-[13px] text-stone-500">{k}</dt>
+              <dd className="truncate text-[14px] font-medium text-ink">{v}</dd>
+            </div>
+          ))}
+        </dl>
+        <Link to="/candidate/profile" className="group mt-4 flex items-center justify-between rounded-2xl bg-stone-50 p-4 transition-colors hover:bg-brand-soft">
+          <span>
+            <span className="block text-[14px] font-semibold text-ink">Edit your public profile</span>
+            <span className="text-[13px] text-stone-500">Name, headline, skills, links and CV live on your profile.</span>
+          </span>
+          <ChevronRight size={18} className="text-stone-400 transition-transform group-hover:translate-x-0.5 group-hover:text-brand" />
+        </Link>
+        <div className="mt-6 flex justify-end border-t border-[var(--line)] pt-5">
+          <button type="button" onClick={logout} className="btn-secondary">
+            <LogOut size={15} /> Log out
+          </button>
+        </div>
+      </Card>
+    ),
+    interview: (
+      <Card className="p-6">
+        <CardHeader icon={Mic} title="Interview defaults" subtitle="Pre-filled every time you start an interview." action={<Saved tick={tick} />} />
+        <div className="mt-6 space-y-6">
+          <div>
+            <p className="mb-2 text-[13px] font-medium text-stone-700">Interview type</p>
+            <div className="max-w-full overflow-x-auto">
+              <Segmented ariaLabel="Default interview type" value={iv.type} onChange={(v) => save("interview", { type: v })} options={INTERVIEW_TYPES.map((t) => ({ value: t.id, label: t.title }))} />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div>
+              <p className="mb-2 text-[13px] font-medium text-stone-700">Difficulty</p>
+              <Segmented ariaLabel="Default difficulty" className="w-full" value={iv.difficulty} onChange={(v) => save("interview", { difficulty: v })} options={DIFFICULTIES.map((d) => ({ value: d.id, label: d.label }))} />
+            </div>
+            <div>
+              <p className="mb-2 text-[13px] font-medium text-stone-700">Length</p>
+              <Segmented ariaLabel="Default length" className="w-full" value={iv.length} onChange={(v) => save("interview", { length: v })} options={LENGTHS.map((l) => ({ value: l.id, label: `${l.id} Qs` }))} />
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 text-[13px] font-medium text-stone-700">Weekly goal</p>
+            <div className="inline-flex items-center gap-3 rounded-2xl border border-[var(--line)] p-1.5">
+              <button type="button" onClick={() => save("weeklyGoal", Math.max(1, prefs.weeklyGoal - 1))} disabled={prefs.weeklyGoal <= 1} aria-label="Decrease weekly goal" className="icon-btn flex h-9 w-9 items-center justify-center rounded-xl bg-stone-100 text-ink disabled:opacity-40">
+                <Minus size={15} />
+              </button>
+              <span className="min-w-[110px] text-center text-[14px] font-semibold text-ink tabular-nums">{prefs.weeklyGoal} interview{prefs.weeklyGoal > 1 ? "s" : ""} / week</span>
+              <button type="button" onClick={() => save("weeklyGoal", Math.min(7, prefs.weeklyGoal + 1))} disabled={prefs.weeklyGoal >= 7} aria-label="Increase weekly goal" className="icon-btn flex h-9 w-9 items-center justify-center rounded-xl bg-stone-100 text-ink disabled:opacity-40">
+                <Plus size={15} />
+              </button>
+            </div>
+          </div>
+          <ul className="divide-y divide-[var(--line)] rounded-2xl border border-[var(--line)]">
+            <ToggleRow title="Read questions aloud" description="The interviewer speaks each question." checked={iv.readAloud} onChange={(v) => save("interview", { readAloud: v })} />
+            <ToggleRow
+              title="Live transcription"
+              description={speechRecognitionSupported ? "Transcribe spoken answers as you talk." : "Not supported in this browser. Use Chrome or Edge."}
+              checked={iv.autoTranscribe && speechRecognitionSupported}
+              disabled={!speechRecognitionSupported}
+              onChange={(v) => save("interview", { autoTranscribe: v })}
+            />
+          </ul>
+        </div>
+      </Card>
+    ),
+    notifications: (
+      <Card className="p-6">
+        <CardHeader icon={Bell} title="Notifications" subtitle="Choose what we tell you about, and where." action={<Saved tick={tick} />} />
+        <p className="mb-2 mt-6 text-[12px] font-semibold uppercase tracking-wide text-stone-400">Email</p>
+        <ul className="divide-y divide-[var(--line)] rounded-2xl border border-[var(--line)]">
+          <ToggleRow title="Report summaries" description="A summary each time you finish an interview." checked={n.emailReports} onChange={(v) => save("notifications", { emailReports: v })} />
+          <ToggleRow title="Weekly progress" description="Your scores and streak every Monday." checked={n.emailWeekly} onChange={(v) => save("notifications", { emailWeekly: v })} />
+          <ToggleRow title="Community digest" description="New roles and threads from your communities." checked={n.emailCommunities} onChange={(v) => save("notifications", { emailCommunities: v })} />
+        </ul>
+        <p className="mb-2 mt-6 text-[12px] font-semibold uppercase tracking-wide text-stone-400">In the app</p>
+        <ul className="divide-y divide-[var(--line)] rounded-2xl border border-[var(--line)]">
+          <ToggleRow title="Reports ready" description="When a new report is available." checked={n.inAppReports} onChange={(v) => save("notifications", { inAppReports: v })} />
+          <ToggleRow title="Practice reminders" description="A nudge when you're behind on your weekly goal." checked={n.inAppReminders} onChange={(v) => save("notifications", { inAppReminders: v })} />
+          <ToggleRow title="Community updates" description="Join request decisions and new roles." checked={n.inAppCommunities} onChange={(v) => save("notifications", { inAppCommunities: v })} />
+        </ul>
+      </Card>
+    ),
+    privacy: (
+      <Card className="p-6">
+        <CardHeader icon={Eye} title="Privacy" subtitle="Control what companies and communities can see." action={<Saved tick={tick} />} />
+        <ul className="mt-6 divide-y divide-[var(--line)] rounded-2xl border border-[var(--line)]">
+          <ToggleRow title="Visible to companies" description="Let hiring companies find your profile." checked={p.profileVisible} onChange={(v) => save("privacy", { profileVisible: v })} />
+          <ToggleRow title="Share my CV" description="Allow companies you apply to download your CV." checked={p.cvVisible} onChange={(v) => save("privacy", { cvVisible: v })} />
+          <ToggleRow title="Show practice scores" description="Display your best interview score on your profile." checked={p.showScores} onChange={(v) => save("privacy", { showScores: v })} />
+          <ToggleRow title="Recruiter contact" description="Allow recruiters from your communities to message you." checked={p.recruiterContact} onChange={(v) => save("privacy", { recruiterContact: v })} />
+        </ul>
+      </Card>
+    ),
+    security: (
+      <div className="space-y-6">
+        <Card className="p-6">
+          <CardHeader icon={Lock} title="Change password" subtitle="At least 8 characters, different from your current one." />
+          <form onSubmit={changePassword} noValidate className="mt-6 max-w-md space-y-4">
+            <AuthField label="Current password" icon={Lock} type="password" autoComplete="current-password" value={pwd.current} onChange={(e) => { setPwd((x) => ({ ...x, current: e.target.value })); setPwdErrors((er) => ({ ...er, current: "" })); }} error={pwdErrors.current} />
+            <AuthField label="New password" icon={Lock} type="password" autoComplete="new-password" value={pwd.next} onChange={(e) => { setPwd((x) => ({ ...x, next: e.target.value })); setPwdErrors((er) => ({ ...er, next: "" })); }} error={pwdErrors.next} />
+            <AuthField label="Confirm new password" icon={Lock} type="password" autoComplete="new-password" value={pwd.confirm} onChange={(e) => { setPwd((x) => ({ ...x, confirm: e.target.value })); setPwdErrors((er) => ({ ...er, confirm: "" })); }} error={pwdErrors.confirm} />
+            <button type="submit" disabled={pwdBusy} className="btn-primary">
+              {pwdBusy ? <><Loader2 size={16} className="animate-spin" /> Updating…</> : "Update password"}
+            </button>
+          </form>
+        </Card>
+        <Card className="p-6">
+          <CardHeader icon={Laptop} title="Where you're signed in" subtitle="Sessions are stored in this browser." />
+          <div className="mt-5 flex items-center gap-4 rounded-2xl border border-[var(--line)] p-4">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-stone-600">
+              <Laptop size={19} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[14px] font-semibold text-ink">{device}</p>
+              <p className="text-[12.5px] text-stone-500">Active now</p>
+            </div>
+            <Badge tone="success">This device</Badge>
+          </div>
+          <div className="mt-5 flex justify-end">
+            <button type="button" onClick={logout} className="btn-secondary">
+              <LogOut size={15} /> Sign out
+            </button>
+          </div>
+        </Card>
+      </div>
+    ),
+    data: (
+      <div className="space-y-6">
+        <Card className="p-6">
+          <CardHeader icon={Download} title="Export your data" subtitle="Your profile, preferences and every interview, as JSON." />
+          <div className="mt-5 flex flex-col gap-4 rounded-2xl bg-stone-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-[13.5px] text-stone-600">
+              {sessions.length} interviews, {Object.keys(record.memberships).length} community memberships and your full profile.
+            </p>
+            <button type="button" onClick={exportData} className="btn-secondary shrink-0">
+              <Download size={15} /> Download JSON
+            </button>
+          </div>
+        </Card>
+        <Card className="!border-red-200 p-6">
+          <CardHeader icon={RotateCcw} title="Reset practice history" subtitle="Deletes every interview and report. Your profile and settings stay." />
+          {confirmReset ? (
+            <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 animate-fade-in-up">
+              <p className="text-[14px] text-red-800">This permanently deletes {sessions.length} interview{sessions.length === 1 ? "" : "s"}. It can't be undone.</p>
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                <button type="button" onClick={() => setConfirmReset(false)} className="btn-secondary">Cancel</button>
+                <button type="button" onClick={doReset} className="btn-dark !bg-red-600 hover:!bg-red-700">Delete all interviews</button>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-5 flex justify-end">
+              <button type="button" onClick={() => setConfirmReset(true)} disabled={!sessions.length} className="btn-secondary !text-red-600 hover:!border-red-300 disabled:opacity-50">
+                <RotateCcw size={15} /> Reset history
+              </button>
+            </div>
+          )}
+        </Card>
+      </div>
+    ),
+  };
+
+  return (
+    <div>
+      <PageHeader eyebrow="Settings" title={<>Account <em>settings</em></>} subtitle="Preferences save automatically as you change them." />
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
+        <Reveal className="min-w-0">
+          <nav aria-label="Settings sections" className="lg:sticky lg:top-24">
+            <ul className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1 lg:mx-0 lg:flex-col lg:px-0 lg:pb-0">
+              {TABS.map((t) => {
+                const Icon = t.icon;
+                const on = tab === t.id;
+                return (
+                  <li key={t.id} className="shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setTab(t.id)}
+                      aria-current={on ? "page" : undefined}
+                      className={`flex w-full items-center gap-2.5 whitespace-nowrap rounded-xl px-3.5 py-2.5 text-left text-[14px] font-medium transition-all duration-200 ${
+                        on ? "bg-white text-ink shadow-[0_1px_2px_rgba(13,13,13,0.06)] ring-1 ring-[var(--line)]" : "text-stone-500 hover:bg-white/70 hover:text-ink"
+                      }`}
+                    >
+                      <Icon size={17} className={on ? "text-brand" : ""} /> {t.label}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+        </Reveal>
+        <div key={tab} className="min-w-0 animate-fade-in-up">
+          {panels[tab]}
+        </div>
+      </div>
+    </div>
+  );
+}

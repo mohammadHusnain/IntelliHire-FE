@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "intellihire-web",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "--port", "5181", "--strictPort", "--host", "localhost"],
+      "port": 5181,
+      "autoPort": false
+    }
+  ]
+}

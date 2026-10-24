@@ -1,196 +1,198 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Eye, EyeOff, Loader2, X } from "lucide-react";
+import { ArrowRight, Building2, CheckCircle2, ChevronDown, Loader2, Lock, Mail, ShieldCheck, User, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import AuthLayout from "@/components/layout/AuthLayout";
+import AuthField from "@/components/shared/AuthField";
+import ForgotPasswordModal from "@/components/shared/ForgotPasswordModal";
+import { DEMO_USERS } from "@/api/authApi";
+import { ADMIN_CREDENTIALS } from "@/store/authStore";
 
-const IntelliHireLogo = () => (
-  <svg viewBox="0 0 40 40" className="w-10 h-10" fill="none">
-    <rect width="40" height="40" rx="10" fill="#F04E23" fillOpacity="0.1" />
-    <path d="M12 12h4v16h-4zM18 16h4v12h-4zM24 8h4v20h-4z" fill="#F04E23" />
-    <circle cx="30" cy="30" r="4" fill="#F04E23" />
-  </svg>
-);
+const EMAIL_RX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function LoginPage() {
+const ROLE_META = {
+  candidate: { label: "Candidate", icon: User },
+  company: { label: "Company", icon: Building2 },
+  admin: { label: "Admin", icon: ShieldCheck },
+};
+
+const DEMO_ACCOUNTS = [
+  ...DEMO_USERS,
+  { email: ADMIN_CREDENTIALS.email, password: ADMIN_CREDENTIALS.password, role: "admin", name: "Super Admin" },
+];
+
+const validateEmail = (v) => (!v ? "Email is required" : !EMAIL_RX.test(v) ? "Enter a valid email address" : "");
+const validatePassword = (v) => (!v ? "Password is required" : v.length < 6 ? "Password must be at least 6 characters" : "");
+
+export default function LoginPage() {
   const { login, isLoading } = useAuth();
   const location = useLocation();
-  const registeredEmail = location.state?.registered ? (location.state?.email || "") : "";
-
-  const [email, setEmail] = useState(registeredEmail);
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [emailError, setEmailError] = useState("");
-  const [passwordError, setPasswordError] = useState("");
-  const [authError, setAuthError] = useState("");
   const justRegistered = !!location.state?.registered;
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [resetEmail, setResetEmail] = useState("");
-  const [resetSent, setResetSent] = useState(false);
 
-  const validateEmail = (value) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!value) return "Email is required";
-    if (!emailRegex.test(value)) return "Please enter a valid email address";
-    return "";
-  };
+  const [email, setEmail] = useState(justRegistered ? location.state?.email || "" : "");
+  const [password, setPassword] = useState("");
+  const [errors, setErrors] = useState({});
+  const [authError, setAuthError] = useState("");
+  const [shakeKey, setShakeKey] = useState(0);
+  const [showDemo, setShowDemo] = useState(false);
+  const [showForgot, setShowForgot] = useState(false);
 
-  const validatePassword = (value) => {
-    if (!value) return "Password is required";
-    if (value.length < 6) return "Password must be at least 6 characters";
-    return "";
-  };
-
-  const handleLogin = async (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-    const emailErr = validateEmail(email);
-    const passwordErr = validatePassword(password);
-    setEmailError(emailErr);
-    setPasswordError(passwordErr);
+    const next = { email: validateEmail(email), password: validatePassword(password) };
+    setErrors(next);
     setAuthError("");
-    if (emailErr || passwordErr) return;
-    const result = await login(email, password);
+    if (next.email || next.password) return;
+    const result = await login(email.trim(), password);
     if (!result.success) {
-      setAuthError(result.error || "Invalid email or password. Please try again.");
+      setAuthError(result.error || "Invalid email or password.");
+      setShakeKey((k) => k + 1);
     }
   };
 
-  const handleForgotPassword = async (e) => {
-    e.preventDefault();
-    if (!resetEmail || validateEmail(resetEmail)) return;
-    setResetSent(true);
+  const fillDemo = (acc) => {
+    setEmail(acc.email);
+    setPassword(acc.password);
+    setErrors({});
+    setAuthError("");
   };
 
-  const handleEmailBlur = () => setEmailError(validateEmail(email));
-  const handlePasswordBlur = () => setPasswordError(validatePassword(password));
-
-  const inputCls = (err) =>
-    `w-full h-[44px] px-4 rounded-lg border text-[15px] outline-none transition-all ${
-      err
-        ? "border-[#DC2626] focus:border-[#DC2626] focus:ring-2 focus:ring-red-100"
-        : "border-[#E5E7EB] focus:border-[#F04E23] focus:ring-2 focus:ring-orange-100"
-    }`;
-
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center px-4 py-8">
-      <div className="w-full max-w-[420px] bg-white rounded-xl p-[48px_40px] border border-[#E5E7EB]">
-        {/* Logo */}
-        <div className="flex items-center justify-center gap-2.5 mb-1">
-          <IntelliHireLogo />
-          <span className="text-[24px] font-extrabold tracking-tight text-[#111827]">IntelliHire</span>
-        </div>
-
-        {/* Heading */}
-        <h2 className="mt-6 text-[30px] text-[#0D0D0D] text-center">Welcome back</h2>
-        <p className="mt-2 text-[14px] text-[#6B7280] text-center">Log in to your account</p>
-
-        {/* Registration Success Banner */}
-        {justRegistered && (
-          <div className="mt-6 flex items-start gap-3 rounded-lg bg-green-50 border border-green-200 p-4">
-            <svg className="mt-0.5 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2"><path d="M20 6L9 17l-5-5"/></svg>
-            <span className="text-[14px] text-green-800">Account created! Log in below to continue.</span>
-          </div>
-        )}
-
-        {/* Auth Error Banner */}
-        {authError && (
-          <div className="mt-6 flex items-start gap-3 rounded-lg bg-amber-50 border border-amber-200 p-4">
-            <span className="flex-1 text-[14px] text-amber-800">{authError}</span>
-            <button onClick={() => setAuthError("")} className="text-amber-600 hover:text-amber-800">
-              <X size={18} />
-            </button>
-          </div>
-        )}
-
-        {/* Form */}
-        <form onSubmit={handleLogin} className="mt-6 space-y-5">
-          <div>
-            <label className="block text-[14px] text-[#374151] mb-2">Email</label>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} onBlur={handleEmailBlur}
-              placeholder="you@example.com" className={inputCls(emailError)} />
-            {emailError && <p className="mt-1 text-[13px] text-[#DC2626]">{emailError}</p>}
-          </div>
-
-          <div>
-            <label className="block text-[14px] text-[#374151] mb-2">Password</label>
-            <div className="relative">
-              <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)}
-                onBlur={handlePasswordBlur} placeholder="Your password" className={inputCls(passwordError) + " pr-12"} />
-              <button type="button" onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#374151] transition-colors">
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
-            </div>
-            {passwordError && <p className="mt-1 text-[13px] text-[#DC2626]">{passwordError}</p>}
-          </div>
-
-          <div className="text-right">
-            <button type="button" onClick={() => setShowForgotPassword(true)}
-              className="text-[13px] text-[#F04E23] hover:underline">Forgot password?</button>
-          </div>
-
-          <button type="submit" disabled={isLoading}
-            className="w-full h-[44px] bg-[#F04E23] hover:bg-[#D43D14] disabled:opacity-60 disabled:cursor-not-allowed text-white text-[15px] rounded-lg transition-all flex items-center justify-center">
-            {isLoading ? <Loader2 className="animate-spin" size={20} /> : "Log In"}
-          </button>
-        </form>
-
-        {/* Divider */}
-        <div className="mt-6 flex items-center gap-4">
-          <div className="flex-1 h-px bg-[#E5E7EB]" />
-          <span className="text-[14px] text-[#9CA3AF]">or</span>
-          <div className="flex-1 h-px bg-[#E5E7EB]" />
-        </div>
-
-        <p className="mt-6 text-center text-[14px] text-[#6B7280]">
-          Don't have an account?{" "}
-          <Link to="/register" className="text-[#F04E23] hover:underline">Create one here</Link>
+    <AuthLayout
+      headline={<>Welcome back to <em className="!text-white/90">smarter hiring.</em></>}
+      points={["AI screening and technical interviews", "Clear, explainable candidate reports", "Every final decision stays human"]}
+      topRight={
+        <p className="hidden text-[13px] text-stone-500 sm:block">
+          New here?{" "}
+          <Link to="/register" className="link-brand">
+            Create an account
+          </Link>
         </p>
-        <div className="mt-5 p-3 rounded-lg bg-[#F9FAFB] border border-[#E5E7EB]">
-          <p className="text-[11px] font-semibold text-[#374151] mb-1.5 uppercase tracking-wide">Demo Credentials</p>
-          <div className="space-y-1 text-[11px] text-[#6B7280] font-mono">
-            <p>candidate@test.com / password123</p>
-            <p>company@test.com &nbsp;&nbsp;/ password123</p>
-            <p>admin@gmail.com &nbsp;&nbsp;&nbsp;/ 12345678</p>
+      }
+    >
+      <h1 className="display text-[34px] sm:text-[40px]">Welcome back</h1>
+      <p className="mt-2 text-[15px] text-stone-500">Log in to continue to your IntelliHire workspace.</p>
+
+      {justRegistered && (
+        <div className="mt-6 flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 animate-fade-in-up">
+          <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-emerald-600" />
+          <p className="text-[14px] text-emerald-800">
+            <span className="font-semibold">Account created.</span> Log in below to get started.
+          </p>
+        </div>
+      )}
+
+      {authError && (
+        <div
+          key={shakeKey}
+          role="alert"
+          className="mt-6 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 animate-shake"
+        >
+          <p className="flex-1 text-[14px] text-red-700">{authError}</p>
+          <button
+            type="button"
+            onClick={() => setAuthError("")}
+            aria-label="Dismiss"
+            className="icon-btn -m-1 flex h-7 w-7 items-center justify-center rounded-full text-red-400 hover:bg-red-100 hover:text-red-700"
+          >
+            <X size={15} />
+          </button>
+        </div>
+      )}
+
+      <form onSubmit={submit} noValidate className="mt-8 space-y-5">
+        <AuthField
+          label="Email"
+          icon={Mail}
+          type="email"
+          autoComplete="email"
+          placeholder="you@company.com"
+          value={email}
+          onChange={(e) => { setEmail(e.target.value); setErrors((er) => ({ ...er, email: "" })); }}
+          onBlur={() => email && setErrors((er) => ({ ...er, email: validateEmail(email) }))}
+          error={errors.email}
+        />
+        <AuthField
+          label="Password"
+          icon={Lock}
+          type="password"
+          autoComplete="current-password"
+          placeholder="Enter your password"
+          value={password}
+          onChange={(e) => { setPassword(e.target.value); setErrors((er) => ({ ...er, password: "" })); }}
+          onBlur={() => password && setErrors((er) => ({ ...er, password: validatePassword(password) }))}
+          error={errors.password}
+          trailing={
+            <button type="button" onClick={() => setShowForgot(true)} className="link-brand text-[13px]">
+              Forgot password?
+            </button>
+          }
+        />
+
+        <button type="submit" disabled={isLoading} className="btn-primary btn-lg w-full">
+          {isLoading ? (
+            <>
+              <Loader2 size={18} className="animate-spin" /> Signing in…
+            </>
+          ) : (
+            <>
+              Log in <ArrowRight size={18} className="btn-arrow" />
+            </>
+          )}
+        </button>
+      </form>
+
+      {/* Demo accounts */}
+      <div className="mt-6 overflow-hidden rounded-2xl border border-dashed border-stone-300 bg-stone-50/60">
+        <button
+          type="button"
+          onClick={() => setShowDemo((v) => !v)}
+          aria-expanded={showDemo}
+          className="flex w-full items-center justify-between px-4 py-3 text-left text-[13px] font-semibold text-stone-700 transition-colors hover:bg-stone-100/70"
+        >
+          Exploring? Use a demo account
+          <ChevronDown size={16} className={`text-stone-400 transition-transform duration-300 ${showDemo ? "rotate-180" : ""}`} />
+        </button>
+        <div className="accordion-panel" data-open={showDemo}>
+          <div>
+            <div className="grid grid-cols-3 gap-2 px-3 pb-3">
+              {DEMO_ACCOUNTS.map((acc) => {
+                const meta = ROLE_META[acc.role] || ROLE_META.candidate;
+                const Icon = meta.icon;
+                const active = email === acc.email;
+                return (
+                  <button
+                    key={acc.email}
+                    type="button"
+                    onClick={() => fillDemo(acc)}
+                    tabIndex={showDemo ? 0 : -1}
+                    className={`flex flex-col items-center gap-1.5 rounded-xl border bg-white px-2 py-3 text-[12px] font-semibold transition-all duration-200 hover:-translate-y-0.5 ${
+                      active
+                        ? "border-brand text-brand shadow-[0_8px_18px_-10px_rgba(240,78,35,0.6)]"
+                        : "border-[var(--line)] text-stone-600 hover:border-stone-300"
+                    }`}
+                  >
+                    <Icon size={17} />
+                    {meta.label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="px-4 pb-3 text-[12px] text-stone-500">Fills the form for you. Press Log in to continue.</p>
           </div>
         </div>
       </div>
 
-      {/* Forgot Password Modal */}
-      {showForgotPassword && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => { setShowForgotPassword(false); setResetSent(false); setResetEmail(""); }} />
-          <div className="relative w-full max-w-[400px] bg-white rounded-xl p-8 border border-[#E5E7EB]">
-            <button onClick={() => { setShowForgotPassword(false); setResetSent(false); setResetEmail(""); }}
-              className="absolute right-4 top-4 text-[#9CA3AF] hover:text-[#374151]"><X size={20} /></button>
-            {resetSent ? (
-              <div className="text-center py-4">
-                <div className="mx-auto w-12 h-12 rounded-full bg-[#F0FDF4] flex items-center justify-center mb-4">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2"><path d="M20 6L9 17l-5-5" /></svg>
-                </div>
-                <h3 className="text-[20px] font-semibold text-[#0D0D0D] mb-2">Check your email</h3>
-                <p className="text-[14px] text-[#6B7280]">We've sent a password reset link to {resetEmail}</p>
-              </div>
-            ) : (
-              <>
-                <h3 className="text-[20px] font-semibold text-[#0D0D0D] mb-2">Reset your password</h3>
-                <p className="text-[14px] text-[#6B7280] mb-6">Enter your email address and we'll send you a link to reset your password.</p>
-                <form onSubmit={handleForgotPassword}>
-                  <label className="block text-[14px] text-[#374151] mb-2">Email</label>
-                  <input type="email" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    className="w-full h-[44px] px-4 rounded-lg border border-[#E5E7EB] text-[15px] outline-none focus:border-[#F04E23] focus:ring-2 focus:ring-orange-100 mb-4" />
-                  <button type="submit" disabled={!resetEmail}
-                    className="w-full h-[44px] bg-[#F04E23] hover:bg-[#D43D14] disabled:opacity-60 text-white text-[15px] rounded-lg transition-all">
-                    Send Reset Link
-                  </button>
-                </form>
-              </>
-            )}
-          </div>
-        </div>
+      <p className="mt-8 text-center text-[14px] text-stone-500">
+        Don&apos;t have an account?{" "}
+        <Link to="/register" className="link-brand">
+          Create one free
+        </Link>
+      </p>
+
+      {showForgot && (
+        <ForgotPasswordModal open onClose={() => setShowForgot(false)} initialEmail={EMAIL_RX.test(email) ? email : ""} />
       )}
-    </div>
+    </AuthLayout>
   );
 }
-
-export default LoginPage;

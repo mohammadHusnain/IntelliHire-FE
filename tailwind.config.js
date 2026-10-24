@@ -7,6 +7,17 @@ export default {
   theme: {
     extend: {
       colors: {
+        brand: {
+          DEFAULT: "rgb(var(--brand-rgb) / <alpha-value>)",
+          hover: "rgb(var(--brand-hover-rgb) / <alpha-value>)",
+          soft: "rgb(var(--brand-soft-rgb) / <alpha-value>)",
+          muted: "rgb(var(--brand-muted-rgb) / <alpha-value>)",
+          art: "rgb(var(--brand-art-rgb) / <alpha-value>)",
+        },
+        ink: {
+          DEFAULT: "rgb(var(--ink-rgb) / <alpha-value>)",
+          soft: "rgb(var(--ink-soft-rgb) / <alpha-value>)",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -47,7 +58,11 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        sans: ["'Geist Variable'", "sans-serif"],
+        sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "'Segoe UI'", "sans-serif"],
+        display: ["Fraunces", "Georgia", "'Times New Roman'", "serif"],
+      },
+      screens: {
+        xs: "22rem",
       },
     },
   },

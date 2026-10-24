@@ -1,384 +1,362 @@
-import { useMemo, useState } from "react";
-import { FileText, ShieldAlert, Timer, UserPlus } from "lucide-react";
-import AdminLayout from "./AdminLayout";
-import AdminPageHeader from "@/components/admin/AdminPageHeader";
-import AdminDataTable from "@/components/admin/AdminDataTable";
-import AdminModal from "@/components/admin/AdminModal";
-import { useToast } from "@/components/shared/Toast";
+import { useCallback, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import {
+  Award, Building2, Download, Globe, Mail, PauseCircle, PlayCircle, SearchX, Trash2, TrendingUp, UserRound, Users,
+} from "lucide-react";
+import { Badge, Card, EmptyState, PageHeader, StatTile } from "@/components/app/primitives";
+import { ActionDialog, DataTable, Drawer, Field, SearchField, SelectField, Tabs } from "@/components/admin/primitives";
+import { Avatar } from "@/components/app/HeaderMenus";
+import Reveal from "@/components/shared/Reveal";
+import { accountsApi } from "@/api/authApi";
+import { ACCOUNT_STATUS, allAccounts, practiceSummaryFor } from "@/lib/adminStats";
+import { logAudit } from "@/store/auditStore";
+import { formatDate, relativeTime } from "@/lib/candidateStats";
+import { downloadFile, toCsv } from "@/lib/csv";
+import { toast } from "@/store/toastStore";
 
-const initialUsers = [
-  {
-    id: "usr_1",
-    name: "Sarah Johnson",
-    email: "sarah.johnson@email.com",
-    role: "Candidate",
-    registered: "Apr 18, 2025",
-    lastActive: "2h ago",
-    verification: "Verified",
-    status: "Active",
-  },
-  {
-    id: "usr_2",
-    name: "David Chen",
-    email: "david.chen@email.com",
-    role: "Recruiter",
-    registered: "Apr 21, 2025",
-    lastActive: "1d ago",
-    verification: "Pending",
-    status: "Restricted",
-  },
-  {
-    id: "usr_3",
-    name: "Amira Patel",
-    email: "amira.patel@email.com",
-    role: "HR Manager",
-    registered: "Apr 25, 2025",
-    lastActive: "3d ago",
-    verification: "Failed",
-    status: "Suspended",
-  },
-];
-
-const roles = ["Candidate", "Recruiter", "HR Manager", "Company Owner", "Admin"];
-const statuses = ["Active", "Suspended", "Restricted", "Pending Verification"];
-const verifications = ["Verified", "Pending", "Failed"];
-
-const badgeStyles = {
-  Verified: "bg-[#F0FDF4] text-[#059669]",
-  Pending: "bg-[#FFFBEB] text-[#D97706]",
-  Failed: "bg-[#FEF2F2] text-[#DC2626]",
-  Active: "bg-[#F0FDF4] text-[#059669]",
-  Suspended: "bg-[#FEF2F2] text-[#DC2626]",
-  Restricted: "bg-[#FFFBEB] text-[#D97706]",
-  "Pending Verification": "bg-[#FFFBEB] text-[#D97706]",
+const SORTS = {
+  newest: { label: "Newest first", fn: (a, b) => b.createdAt - a.createdAt },
+  oldest: { label: "Oldest first", fn: (a, b) => a.createdAt - b.createdAt },
+  name: { label: "Name A–Z", fn: (a, b) => a.name.localeCompare(b.name) },
 };
 
+const ACTIONS = {
+  suspend: { status: "suspended", title: (n) => `Suspend ${n}?`, message: "They are signed out immediately and cannot sign back in.", confirm: "Suspend account", reason: true, tone: "danger", audit: "suspend", toast: "suspended" },
+  activate: { status: "active", title: (n) => `Reactivate ${n}?`, message: "They regain access to their workspace straight away.", confirm: "Reactivate", reason: false, audit: "activate", toast: "reactivated" },
+  delete: { title: (n) => `Delete ${n}?`, message: "This permanently removes the account and cannot be undone. Their practice data stays on their own device.", confirm: "Delete account", reason: true, tone: "danger", audit: "delete", toast: "deleted" },
+};
+
+const StatusBadge = ({ status }) => <Badge tone={ACCOUNT_STATUS[status]?.tone || "neutral"}>{ACCOUNT_STATUS[status]?.label || status}</Badge>;
+
+function RowActions({ a, full, setDialog }) {
+  return (
+    <div className={`flex flex-wrap items-center gap-2 ${full ? "" : "justify-end"}`} onClick={(e) => e.stopPropagation()}>
+      {a.status === "suspended" ? (
+        <button type="button" onClick={() => setDialog({ kind: "activate", targets: [a] })} className={`btn-secondary !h-9 !px-3.5 text-[12.5px] ${full ? "flex-1" : ""}`}>
+          <PlayCircle size={15} /> Reactivate
+        </button>
+      ) : (
+        <button type="button" onClick={() => setDialog({ kind: "suspend", targets: [a] })} className={`btn-secondary !h-9 !px-3.5 text-[12.5px] hover:!border-red-300 hover:!text-red-600 ${full ? "flex-1" : ""}`}>
+          <PauseCircle size={15} /> Suspend
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={() => setDialog({ kind: "delete", targets: [a] })}
+        aria-label={`Delete ${a.name}`}
+        className="icon-btn flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--line)] text-stone-400 hover:border-red-200 hover:text-red-600"
+      >
+        <Trash2 size={15} />
+      </button>
+    </div>
+  );
+}
+
 export default function AdminUsers() {
-  const { addToast, ToastContainer } = useToast();
-  const [users, setUsers] = useState(initialUsers);
-  const [filters, setFilters] = useState({ search: "", role: "", status: "", verification: "" });
-  const [appliedFilters, setAppliedFilters] = useState(filters);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [selectedRows, setSelectedRows] = useState([]);
-  const [drawerUser, setDrawerUser] = useState(null);
-  const [formModal, setFormModal] = useState(null);
-  const [confirmModal, setConfirmModal] = useState(null);
-  const [formValues, setFormValues] = useState({ name: "", email: "", role: "Candidate", status: "Active", verification: "Verified" });
-  const [formErrors, setFormErrors] = useState({});
-  const [reason, setReason] = useState("");
+  const [version, setVersion] = useState(0);
+  const [tab, setTab] = useState("all");
+  const [role, setRole] = useState("all");
+  const [sort, setSort] = useState("newest");
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState([]);
+  const [openId, setOpenId] = useState(null);
+  const [dialog, setDialog] = useState(null);
+  const [busy, setBusy] = useState(false);
 
-  const filteredUsers = useMemo(() => {
-    const search = appliedFilters.search.toLowerCase();
-    return users.filter((user) => {
-      const matchesSearch = !search || user.name.toLowerCase().includes(search) || user.email.toLowerCase().includes(search);
-      const matchesRole = !appliedFilters.role || user.role === appliedFilters.role;
-      const matchesStatus = !appliedFilters.status || user.status === appliedFilters.status;
-      const matchesVerification = !appliedFilters.verification || user.verification === appliedFilters.verification;
-      return matchesSearch && matchesRole && matchesStatus && matchesVerification;
+  const accounts = useMemo(() => {
+    void version;
+    return allAccounts();
+  }, [version]);
+
+  const counts = useMemo(
+    () => ({
+      all: accounts.length,
+      active: accounts.filter((a) => a.status === "active").length,
+      pending: accounts.filter((a) => a.status === "pending").length,
+      suspended: accounts.filter((a) => a.status === "suspended").length,
+      candidates: accounts.filter((a) => a.role === "candidate").length,
+      companies: accounts.filter((a) => a.role === "company").length,
+    }),
+    [accounts],
+  );
+
+  const rows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return accounts
+      .filter((a) => (tab === "all" || a.status === tab) && (role === "all" || a.role === role))
+      .filter((a) => !q || `${a.name} ${a.email} ${a.companyName || ""}`.toLowerCase().includes(q))
+      .sort(SORTS[sort].fn);
+  }, [accounts, tab, role, query, sort]);
+
+  const open = accounts.find((a) => a.id === openId);
+  const openPractice = open?.role === "candidate" ? practiceSummaryFor(open.id) : null;
+
+  const run = useCallback(async (kind, targets, reason) => {
+    const cfg = ACTIONS[kind];
+    setBusy(true);
+    const ok = [];
+    const failed = [];
+    for (const t of targets) {
+      try {
+        if (kind === "delete") await accountsApi.remove(t.id);
+        else await accountsApi.setStatus(t.id, cfg.status, reason);
+        logAudit({ action: cfg.audit, targetType: t.role, targetId: t.id, targetName: t.name, reason });
+        ok.push(t);
+      } catch (err) {
+        failed.push({ name: t.name, message: err.message });
+      }
+    }
+    if (ok.length) {
+      toast({
+        type: cfg.tone === "danger" ? "warning" : "success",
+        title: ok.length === 1 ? `${ok[0].name} ${cfg.toast}` : `${ok.length} accounts ${cfg.toast}`,
+        message: kind === "activate" ? "Access restored." : kind === "delete" ? "The account is gone for good." : "They can no longer sign in.",
+      });
+    }
+    if (failed.length) toast({ type: "error", title: `${failed.length} could not be ${cfg.toast}`, message: failed[0].message });
+    setVersion((v) => v + 1);
+    setSelected([]);
+    setDialog(null);
+    setOpenId(null);
+    setBusy(false);
+  }, []);
+
+  const exportCsv = () => {
+    const headers = ["Name", "Email", "Role", "Status", "Registered", "Company", "Target role", "Interviews", "Average score"];
+    const data = rows.map((a) => {
+      const p = a.role === "candidate" ? practiceSummaryFor(a.id) : null;
+      return [
+        a.name, a.email, a.role, ACCOUNT_STATUS[a.status]?.label || a.status,
+        new Date(a.createdAt).toISOString().slice(0, 10),
+        a.companyName || "", p?.targetRole || a.desiredRole || "", p?.sessions ?? "", p?.avg ?? "",
+      ];
     });
-  }, [users, appliedFilters]);
-
-  const applyFilters = () => {
-    setIsLoading(true);
-    setTimeout(() => {
-      setAppliedFilters(filters);
-      setIsLoading(false);
-    }, 400);
-  };
-
-  const resetFilters = () => {
-    const reset = { search: "", role: "", status: "", verification: "" };
-    setFilters(reset);
-    setAppliedFilters(reset);
-  };
-
-  const openCreate = () => {
-    setFormValues({ name: "", email: "", role: "Candidate", status: "Active", verification: "Verified" });
-    setFormErrors({});
-    setFormModal({ mode: "create" });
-  };
-
-  const openEdit = (user) => {
-    setFormValues({ name: user.name, email: user.email, role: user.role, status: user.status, verification: user.verification });
-    setFormErrors({});
-    setFormModal({ mode: "edit", user });
-  };
-
-  const validateForm = () => {
-    const nextErrors = {};
-    if (!formValues.name.trim()) nextErrors.name = "Name is required";
-    if (!formValues.email.trim() || !/\S+@\S+\.\S+/.test(formValues.email)) nextErrors.email = "Valid email required";
-    setFormErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
-  };
-
-  const submitForm = () => {
-    if (!validateForm()) return;
-    if (formModal.mode === "create") {
-      const newUser = {
-        id: `usr_${Date.now()}`,
-        registered: "Today",
-        lastActive: "Just now",
-        ...formValues,
-      };
-      setUsers((prev) => [newUser, ...prev]);
-      addToast("User created successfully.", "success");
-    } else {
-      setUsers((prev) => prev.map((user) => (user.id === formModal.user.id ? { ...user, ...formValues } : user)));
-      addToast("User updated successfully.", "info");
-    }
-    setFormModal(null);
-  };
-
-  const openConfirm = (type, user) => {
-    setReason("");
-    setConfirmModal({ type, user });
-  };
-
-  const handleConfirm = () => {
-    if (!confirmModal) return;
-    if (confirmModal.type === "delete" && reason.trim().length < 10) return;
-    if (confirmModal.type === "suspend" && reason.trim().length < 10) return;
-
-    if (confirmModal.type === "delete") {
-      setUsers((prev) => prev.filter((user) => user.id !== confirmModal.user.id));
-      addToast("User deleted.", "error");
-    }
-    if (confirmModal.type === "suspend") {
-      setUsers((prev) => prev.map((user) => (user.id === confirmModal.user.id ? { ...user, status: "Suspended" } : user)));
-      addToast("User suspended.", "warning");
-    }
-    if (confirmModal.type === "activate") {
-      setUsers((prev) => prev.map((user) => (user.id === confirmModal.user.id ? { ...user, status: "Active" } : user)));
-      addToast("User reactivated.", "success");
-    }
-    setConfirmModal(null);
-  };
-
-  const toggleSelection = (id) => {
-    setSelectedRows((prev) => (prev.includes(id) ? prev.filter((row) => row !== id) : [...prev, id]));
-  };
-
-  const toggleAll = (checked) => {
-    setSelectedRows(checked ? filteredUsers.map((row) => row.id) : []);
+    const name = `intellihire-accounts-${new Date().toISOString().slice(0, 10)}.csv`;
+    downloadFile(name, toCsv(headers, data));
+    toast({ title: "Accounts exported", message: `${data.length} accounts saved to ${name}.` });
   };
 
   const columns = [
     {
       key: "name",
-      label: "User Name",
-      sortable: true,
-      onSort: () => setUsers((prev) => [...prev].reverse()),
-      render: (row) => <span className="font-medium text-[#0D0D0D]">{row.name}</span>,
-    },
-    { key: "email", label: "Email", render: (row) => <span className="text-[#6B7280]">{row.email}</span> },
-    { key: "role", label: "Role", render: (row) => <span className="text-[#6B7280]">{row.role}</span> },
-    { key: "registered", label: "Registered", render: (row) => <span className="text-[#6B7280]">{row.registered}</span> },
-    { key: "lastActive", label: "Last Active", render: (row) => <span className="text-[#6B7280]">{row.lastActive}</span> },
-    {
-      key: "verification",
-      label: "Verification",
-      render: (row) => <span className={`px-3 py-1 rounded-full text-[11px] ${badgeStyles[row.verification]}`}>{row.verification}</span>,
-    },
-    {
-      key: "status",
-      label: "Status",
-      render: (row) => <span className={`px-3 py-1 rounded-full text-[11px] ${badgeStyles[row.status]}`}>{row.status}</span>,
-    },
-    {
-      key: "actions",
-      label: "Actions",
-      render: (row) => (
-        <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
-          <button className="text-[12px] text-[#F04E23] hover:underline" onClick={() => openEdit(row)}>Edit</button>
-          {row.status === "Suspended" ? (
-            <button className="text-[12px] text-[#059669]" onClick={() => openConfirm("activate", row)}>Activate</button>
-          ) : (
-            <button className="text-[12px] text-[#DC2626]" onClick={() => openConfirm("suspend", row)}>Suspend</button>
-          )}
-          <button className="text-[12px] text-[#DC2626]" onClick={() => openConfirm("delete", row)}>Delete</button>
+      label: "Account",
+      cell: (a) => (
+        <div className="flex items-center gap-3">
+          <Avatar name={a.name} size={36} tone={a.role === "company" ? "dark" : "brand"} />
+          <div className="min-w-0">
+            <p className="truncate font-semibold text-ink">{a.name}</p>
+            <p className="truncate text-[12.5px] text-stone-500">{a.email}</p>
+          </div>
         </div>
       ),
     },
+    {
+      key: "role",
+      label: "Role",
+      cell: (a) => (
+        <Badge tone={a.role === "company" ? "dark" : "brand"}>
+          {a.role === "company" ? <Building2 size={11} /> : <UserRound size={11} />} {a.role === "company" ? "Company" : "Candidate"}
+        </Badge>
+      ),
+    },
+    { key: "detail", label: "Detail", cell: (a) => <span className="truncate text-stone-600">{a.companyName || a.desiredRole || "—"}</span> },
+    { key: "registered", label: "Registered", cell: (a) => <span className="whitespace-nowrap text-stone-600">{formatDate(a.createdAt)}</span> },
+    { key: "status", label: "Status", cell: (a) => <StatusBadge status={a.status} /> },
+    { key: "actions", label: "", className: "text-right", cell: (a) => <RowActions a={a} setDialog={setDialog} /> },
   ];
 
+  const card = (a) => (
+    <Card interactive className="p-4" onClick={() => setOpenId(a.id)}>
+      <div className="flex items-start gap-3">
+        <Avatar name={a.name} size={40} tone={a.role === "company" ? "dark" : "brand"} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[15px] font-semibold text-ink">{a.name}</p>
+          <p className="truncate text-[12.5px] text-stone-500">{a.email}</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <StatusBadge status={a.status} />
+            <Badge tone={a.role === "company" ? "dark" : "brand"}>{a.role === "company" ? "Company" : "Candidate"}</Badge>
+          </div>
+        </div>
+      </div>
+      <div className="mt-3 border-t border-[var(--line)] pt-3">
+        <RowActions a={a} full setDialog={setDialog} />
+      </div>
+    </Card>
+  );
+
+  const cfg = dialog ? ACTIONS[dialog.kind] : null;
+  const dialogName = dialog ? (dialog.targets.length === 1 ? dialog.targets[0].name : `${dialog.targets.length} accounts`) : "";
+
   return (
-    <AdminLayout title="User Management" pendingCount={3}>
-      <AdminPageHeader
-        icon="👤"
-        title="User"
-        accent="Management"
-        subtitle="Manage users, verification status, and access across the IntelliHire platform."
-        actions={[
-          { label: "Create User", icon: UserPlus, onClick: openCreate, className: "btn-primary" },
-          { label: "Export Report", icon: FileText },
-          { label: "Admin Audit Logs", icon: Timer },
-          { label: "Quick Review", icon: ShieldAlert },
-        ]}
-        chips={[
-          { label: "7 accounts require review today", className: "bg-[#FFF4F1] text-[#F04E23]" },
-          { label: "Last synced 3 mins ago", className: "text-[#9CA3AF]" },
-        ]}
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Accounts"
+        title={<>Every <em>account</em> on the platform</>}
+        subtitle="Candidates and employers, their status, and what they have done here."
+        actions={
+          <button type="button" onClick={exportCsv} className="btn-secondary">
+            <Download size={16} /> Export CSV
+          </button>
+        }
       />
 
-      {error ? (
-        <div className="border border-[#FCA68A] bg-[#FFF4F1] rounded-xl p-6 text-[#9A3412]">
-          {error}
-          <button className="ml-4 text-[#F04E23] hover:underline" onClick={() => setError(null)}>Retry</button>
-        </div>
-      ) : (
-        <>
-          <div className="border border-[#E5E7EB] rounded-xl bg-white p-4 mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-              <input className="input-field" placeholder="Search by Name / Email" value={filters.search} onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))} />
-              <select className="input-field" value={filters.role} onChange={(e) => setFilters((prev) => ({ ...prev, role: e.target.value }))}>
-                <option value="">Role: All</option>
-                {roles.map((role) => <option key={role}>{role}</option>)}
-              </select>
-              <select className="input-field" value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))}>
-                <option value="">Status: All</option>
-                {statuses.map((status) => <option key={status}>{status}</option>)}
-              </select>
-              <select className="input-field" value={filters.verification} onChange={(e) => setFilters((prev) => ({ ...prev, verification: e.target.value }))}>
-                <option value="">Verification: All</option>
-                {verifications.map((item) => <option key={item}>{item}</option>)}
-              </select>
-            </div>
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <button className="btn-primary" onClick={applyFilters}>Apply Filters</button>
-              <button className="btn-ghost" onClick={resetFilters}>Reset</button>
-              <button className="btn-secondary h-[36px] px-4 text-[12px]">Save Filter View</button>
-            </div>
-          </div>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatTile icon={Users} label="Accounts" value={counts.all} hint={`${counts.active} active`} />
+        <StatTile icon={UserRound} label="Candidates" value={counts.candidates} delay={60} />
+        <StatTile icon={Building2} label="Companies" value={counts.companies} delay={120} />
+        <StatTile icon={PauseCircle} label="Suspended" value={counts.suspended} delay={180} />
+      </div>
 
-          {selectedRows.length > 0 && (
-            <div className="mb-4 border border-[#FCA68A] bg-[#FFF4F1] rounded-xl p-3 flex flex-wrap items-center gap-3 text-[12px]">
-              <span className="font-semibold text-[#F04E23]">{selectedRows.length} selected</span>
-              <button className="px-3 py-1 rounded-full bg-white border border-[#FCA68A] text-[#F04E23]">Suspend Selected</button>
-              <button className="px-3 py-1 rounded-full bg-white border border-[#FCA68A] text-[#F04E23]">Export Selected</button>
-              <button onClick={() => setSelectedRows([])} className="ml-auto text-[#9CA3AF]">Clear</button>
-            </div>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <Tabs
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: "all", label: "All", count: counts.all },
+            { value: "active", label: "Active", count: counts.active },
+            { value: "pending", label: "Pending", count: counts.pending, alert: true },
+            { value: "suspended", label: "Suspended", count: counts.suspended },
+          ]}
+        />
+        <SearchField value={query} onChange={setQuery} placeholder="Search name, email or company" className="flex-1" />
+        <SelectField label="Role" value={role} onChange={setRole} options={[{ value: "all", label: "All roles" }, { value: "candidate", label: "Candidates" }, { value: "company", label: "Companies" }]} />
+        <SelectField label="Sort" value={sort} onChange={setSort} options={Object.entries(SORTS).map(([k, v]) => ({ value: k, label: v.label }))} />
+      </div>
+
+      {selected.length > 0 && (
+        <div className="animate-fade-in-up flex flex-wrap items-center gap-3 rounded-2xl border border-brand/20 bg-brand-soft p-3 pl-4">
+          <p className="text-[13px] font-semibold text-ink">{selected.length} selected</p>
+          <button type="button" onClick={() => setDialog({ kind: "suspend", targets: rows.filter((r) => selected.includes(r.id)) })} className="btn-secondary !h-9 !px-3.5 text-[12.5px]">
+            Suspend
+          </button>
+          <button type="button" onClick={() => setDialog({ kind: "activate", targets: rows.filter((r) => selected.includes(r.id)) })} className="btn-secondary !h-9 !px-3.5 text-[12.5px]">
+            Reactivate
+          </button>
+          <button type="button" onClick={() => setSelected([])} className="ml-auto text-[12.5px] font-semibold text-stone-500 hover:text-ink">
+            Clear
+          </button>
+        </div>
+      )}
+
+      <p className="text-[13px] text-stone-500">
+        Showing <span className="font-semibold text-ink">{rows.length}</span> of {counts.all}
+      </p>
+
+      <Reveal>
+        <DataTable
+          columns={columns}
+          rows={rows}
+          rowKey={(a) => a.id}
+          onRowClick={(a) => setOpenId(a.id)}
+          selected={selected}
+          onToggle={(id) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))}
+          onToggleAll={(on) => setSelected(on ? rows.map((r) => r.id) : [])}
+          renderCard={card}
+          empty={
+            <EmptyState
+              icon={SearchX}
+              title="No accounts match"
+              message="Try a different search, tab or role filter."
+              action={
+                <button type="button" onClick={() => { setQuery(""); setTab("all"); setRole("all"); }} className="btn-secondary">
+                  Clear filters
+                </button>
+              }
+            />
+          }
+        />
+      </Reveal>
+
+      {open && (
+        <Drawer
+          title={open.name}
+          subtitle={open.role === "company" ? open.companyName || "Company account" : open.desiredRole || "Candidate account"}
+          accent={<Avatar name={open.name} size={44} tone={open.role === "company" ? "dark" : "brand"} />}
+          onClose={() => setOpenId(null)}
+          footer={<RowActions a={open} full setDialog={setDialog} />}
+        >
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <StatusBadge status={open.status} />
+            <Badge tone={open.role === "company" ? "dark" : "brand"}>{open.role === "company" ? "Company" : "Candidate"}</Badge>
+            {open.statusChangedAt && <span className="text-[12px] text-stone-500">Changed {relativeTime(open.statusChangedAt)}</span>}
+          </div>
+          {open.statusReason && (
+            <p className="mb-4 rounded-xl bg-stone-50 p-3 text-[13px] leading-relaxed text-stone-600">
+              <span className="font-semibold text-ink">Reason on file:</span> {open.statusReason}
+            </p>
           )}
 
-          <AdminDataTable
-            columns={columns}
-            rows={filteredUsers}
-            onRowClick={setDrawerUser}
-            selectedRows={selectedRows}
-            onToggleRow={toggleSelection}
-            onToggleAll={toggleAll}
-            isLoading={isLoading}
-            emptyLabel="No users match the current filters."
-          />
-        </>
-      )}
+          {openPractice ? (
+            <div className="mb-5 grid grid-cols-3 gap-2">
+              {[
+                { icon: TrendingUp, label: "Interviews", value: openPractice.sessions },
+                { icon: Award, label: "Average", value: openPractice.avg || "–" },
+                { icon: Globe, label: "Communities", value: openPractice.memberships },
+              ].map((s) => {
+                const Icon = s.icon;
+                return (
+                  <div key={s.label} className="rounded-2xl border border-[var(--line)] bg-stone-50/60 p-3 text-center">
+                    <Icon size={15} className="mx-auto text-stone-400" />
+                    <p className="mt-1 font-display text-[20px] font-medium tabular-nums text-ink">{s.value}</p>
+                    <p className="text-[11.5px] text-stone-500">{s.label}</p>
+                  </div>
+                );
+              })}
+            </div>
+          ) : open.role === "candidate" ? (
+            <p className="mb-5 rounded-xl bg-stone-50 p-3 text-[13px] text-stone-500">No practice data yet — this candidate has not signed in on this device.</p>
+          ) : null}
 
-      {drawerUser && (
-        <div className="fixed inset-0 z-[90]">
-          <div className="absolute inset-0 bg-black/30" onClick={() => setDrawerUser(null)} />
-          <aside className="absolute right-0 top-0 h-full w-full max-w-[360px] bg-white border-l border-[#E5E7EB] p-6 admin-drawer">
-            <div className="flex items-center justify-between">
-              <h3 className="text-[18px] text-[#0D0D0D]" style={{ fontFamily: "Times New Roman, serif" }}>
-                {drawerUser.name}
-              </h3>
-              <button onClick={() => setDrawerUser(null)} className="text-[#9CA3AF] hover:text-[#374151]">✕</button>
-            </div>
-            <div className="mt-4 space-y-4 text-[13px] text-[#6B7280]">
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.12em] text-[#9CA3AF]">Role</div>
-                <div className="text-[#374151] font-medium">{drawerUser.role}</div>
-              </div>
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.12em] text-[#9CA3AF]">Activity</div>
-                <div className="text-[#374151] font-medium">Last active {drawerUser.lastActive}</div>
-              </div>
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.12em] text-[#9CA3AF]">Risk Flags</div>
-                <div className="text-[#374151] font-medium">No critical alerts</div>
-              </div>
-            </div>
-            <button className="mt-6 w-full h-[40px] rounded-lg border border-[#E5E7EB] text-[13px] font-semibold text-[#374151]" onClick={() => setDrawerUser(null)}>
-              Close Drawer
-            </button>
-          </aside>
-        </div>
-      )}
-
-      {formModal && (
-        <AdminModal
-          title={formModal.mode === "create" ? "Create new user" : `Edit ${formModal.user.name}`}
-          description="All fields are required for account provisioning."
-          confirmLabel={formModal.mode === "create" ? "Create User" : "Save Changes"}
-          onConfirm={submitForm}
-          onClose={() => setFormModal(null)}
-        >
-          <div className="space-y-3 text-[13px]">
-            <div>
-              <label className="input-label">Name</label>
-              <input className="input-field" value={formValues.name} onChange={(e) => setFormValues((prev) => ({ ...prev, name: e.target.value }))} />
-              {formErrors.name && <div className="text-[11px] text-[#DC2626] mt-1">{formErrors.name}</div>}
-            </div>
-            <div>
-              <label className="input-label">Email</label>
-              <input className="input-field" value={formValues.email} onChange={(e) => setFormValues((prev) => ({ ...prev, email: e.target.value }))} />
-              {formErrors.email && <div className="text-[11px] text-[#DC2626] mt-1">{formErrors.email}</div>}
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="input-label">Role</label>
-                <select className="input-field" value={formValues.role} onChange={(e) => setFormValues((prev) => ({ ...prev, role: e.target.value }))}>
-                  {roles.map((role) => <option key={role}>{role}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="input-label">Status</label>
-                <select className="input-field" value={formValues.status} onChange={(e) => setFormValues((prev) => ({ ...prev, status: e.target.value }))}>
-                  {statuses.map((status) => <option key={status}>{status}</option>)}
-                </select>
-              </div>
-            </div>
-            <div>
-              <label className="input-label">Verification</label>
-              <select className="input-field" value={formValues.verification} onChange={(e) => setFormValues((prev) => ({ ...prev, verification: e.target.value }))}>
-                {verifications.map((item) => <option key={item}>{item}</option>)}
-              </select>
-            </div>
-          </div>
-        </AdminModal>
-      )}
-
-      {confirmModal && (
-        <AdminModal
-          title={
-            confirmModal.type === "delete"
-              ? `Delete ${confirmModal.user.name}?`
-              : confirmModal.type === "suspend"
-                ? `Suspend ${confirmModal.user.name}?`
-                : `Reactivate ${confirmModal.user.name}?`
-          }
-          description="Provide a reason to log in the audit trail."
-          confirmLabel={confirmModal.type === "delete" ? "Confirm Delete" : confirmModal.type === "suspend" ? "Confirm Suspension" : "Confirm Reactivation"}
-          onConfirm={handleConfirm}
-          onClose={() => setConfirmModal(null)}
-          confirmDisabled={confirmModal.type !== "activate" && reason.trim().length < 10}
-          tone={confirmModal.type === "activate" ? "primary" : "danger"}
-        >
-          {confirmModal.type !== "activate" && (
+          <Field label="Email">
+            <a href={`mailto:${open.email}`} className="link-brand inline-flex items-center gap-1.5">
+              <Mail size={13} /> {open.email}
+            </a>
+          </Field>
+          {open.role === "company" ? (
             <>
-              <textarea
-                className="input-field min-h-[90px]"
-                placeholder="Reason (min 10 characters)"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-              />
-              <div className="text-[11px] text-[#9CA3AF] mt-1">{reason.length} / 10</div>
+              <Field label="Company">{open.companyName}</Field>
+              <Field label="Industry">{open.industry}</Field>
+              <Field label="Team size">{open.companySize}</Field>
+              <Field label="Website">{open.website}</Field>
+            </>
+          ) : (
+            <>
+              <Field label="Target role">{openPractice?.targetRole || open.desiredRole}</Field>
+              <Field label="Skills">
+                {(openPractice?.profile.skills || open.skills || []).length ? (
+                  <span className="flex flex-wrap gap-1.5">
+                    {(openPractice?.profile.skills || open.skills).map((s) => (
+                      <span key={s} className="rounded-full bg-stone-100 px-2.5 py-0.5 text-[12px] font-medium text-stone-600">{s}</span>
+                    ))}
+                  </span>
+                ) : null}
+              </Field>
+              <Field label="LinkedIn">{openPractice?.profile.links?.linkedin || open.linkedIn}</Field>
+              <Field label="CV">{openPractice?.profile.cv?.name || open.cvFileName}</Field>
+              <Field label="Last practice">{openPractice?.lastAt ? relativeTime(openPractice.lastAt) : null}</Field>
             </>
           )}
-        </AdminModal>
+          <Field label="Registered">{formatDate(open.createdAt, { day: "numeric", month: "long", year: "numeric" })}</Field>
+          {open.role === "company" && (
+            <Link to="/admin/companies" className="btn-secondary mt-4 w-full">
+              Manage in Companies
+            </Link>
+          )}
+        </Drawer>
       )}
 
-      <ToastContainer />
-    </AdminLayout>
+      {dialog && cfg && (
+        <ActionDialog
+          title={cfg.title(dialogName)}
+          message={cfg.message}
+          confirmLabel={cfg.confirm}
+          tone={cfg.tone}
+          requireReason={cfg.reason}
+          busy={busy}
+          onConfirm={(reason) => run(dialog.kind, dialog.targets, reason)}
+          onClose={() => setDialog(null)}
+        />
+      )}
+    </div>
   );
 }

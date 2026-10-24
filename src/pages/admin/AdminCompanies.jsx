@@ -1,382 +1,298 @@
-import { useMemo, useState } from "react";
-import { FileText, ShieldAlert, Timer, Building2 } from "lucide-react";
-import AdminLayout from "./AdminLayout";
-import AdminPageHeader from "@/components/admin/AdminPageHeader";
-import AdminDataTable from "@/components/admin/AdminDataTable";
-import AdminModal from "@/components/admin/AdminModal";
-import { useToast } from "@/components/shared/Toast";
+import { useCallback, useMemo, useState } from "react";
+import {
+  Building2, CheckCircle2, Download, ExternalLink, Globe, Mail, PauseCircle, PlayCircle, SearchX, ShieldX, Users,
+} from "lucide-react";
+import { Badge, Card, EmptyState, PageHeader, StatTile } from "@/components/app/primitives";
+import { ActionDialog, DataTable, Drawer, Field, SearchField, SelectField, Tabs } from "@/components/admin/primitives";
+import Reveal from "@/components/shared/Reveal";
+import { accountsApi } from "@/api/authApi";
+import { ACCOUNT_STATUS, allAccounts } from "@/lib/adminStats";
+import { logAudit } from "@/store/auditStore";
+import { formatDate, relativeTime } from "@/lib/candidateStats";
+import { downloadFile, toCsv } from "@/lib/csv";
+import { toast } from "@/store/toastStore";
+import { getJobs } from "@/data/jobsStore";
 
-const initialCompanies = [
-  {
-    id: "cmp_1",
-    name: "NexusTech Ltd",
-    ownerEmail: "ceo@nexustech.com",
-    industry: "Technology",
-    registered: "May 06, 2025",
-    activity: "High",
-    recruiters: 12,
-    status: "Pending",
-    verification: "Review Required",
-  },
-  {
-    id: "cmp_2",
-    name: "BuildCo Staffing",
-    ownerEmail: "hr@buildco.com",
-    industry: "Recruitment",
-    registered: "May 07, 2025",
-    activity: "Medium",
-    recruiters: 6,
-    status: "Approved",
-    verification: "Fully Verified",
-  },
-  {
-    id: "cmp_3",
-    name: "AlphaMedia Group",
-    ownerEmail: "talent@alphamedia.com",
-    industry: "Media",
-    registered: "May 07, 2025",
-    activity: "Low",
-    recruiters: 4,
-    status: "Rejected",
-    verification: "Partial",
-  },
+const TABS = [
+  { value: "pending", label: "Pending" },
+  { value: "active", label: "Active" },
+  { value: "suspended", label: "Suspended" },
+  { value: "rejected", label: "Rejected" },
+  { value: "all", label: "All" },
 ];
 
-const industries = ["Technology", "Recruitment", "Media", "Healthcare", "Finance"];
-const activities = ["High", "Medium", "Low", "Inactive"];
-const statuses = ["Pending", "Approved", "Rejected", "Suspended"];
-const verificationLevels = ["Fully Verified", "Partial", "Review Required"];
-
-const badgeStyles = {
-  Approved: "bg-[#F0FDF4] text-[#059669]",
-  Pending: "bg-[#FFFBEB] text-[#D97706]",
-  Rejected: "bg-[#FEF2F2] text-[#DC2626]",
-  Suspended: "bg-[#111111] text-white",
-  "Fully Verified": "bg-[#F0FDF4] text-[#059669]",
-  Partial: "bg-[#FFF4F1] text-[#F04E23]",
-  "Review Required": "bg-[#FFFBEB] text-[#D97706]",
+const ACTIONS = {
+  approve: { status: "active", title: (c) => `Approve ${c}?`, message: "They will be able to sign in, post roles and review candidates.", confirm: "Approve company", reason: false, audit: "approve", toast: "approved" },
+  reject: { status: "rejected", title: (c) => `Reject ${c}?`, message: "They will not be able to sign in. The reason is kept in the audit log.", confirm: "Reject company", reason: true, tone: "danger", audit: "reject", toast: "rejected" },
+  suspend: { status: "suspended", title: (c) => `Suspend ${c}?`, message: "They are signed out immediately and cannot sign back in.", confirm: "Suspend company", reason: true, tone: "danger", audit: "suspend", toast: "suspended" },
+  activate: { status: "active", title: (c) => `Reactivate ${c}?`, message: "They regain full access to their workspace.", confirm: "Reactivate", reason: false, audit: "activate", toast: "reactivated" },
 };
 
+const CompanyLogo = ({ company, size = 40 }) => (
+  <span
+    className="flex shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-ink to-stone-600 font-semibold text-white"
+    style={{ width: size, height: size, fontSize: size * 0.34 }}
+  >
+    {(company.companyName || company.name || "?").slice(0, 2).toUpperCase()}
+  </span>
+);
+
+const StatusBadge = ({ status }) => <Badge tone={ACCOUNT_STATUS[status]?.tone || "neutral"}>{ACCOUNT_STATUS[status]?.label || status}</Badge>;
+
+function Actions({ c, full = false, setDialog }) {
+  return (
+    <div className={`flex flex-wrap items-center gap-2 ${full ? "" : "justify-end"}`} onClick={(e) => e.stopPropagation()}>
+      {c.status === "pending" && (
+        <>
+          <button type="button" onClick={() => setDialog({ kind: "approve", company: c })} className={`btn-primary !h-9 !px-3.5 text-[12.5px] ${full ? "flex-1" : ""}`}>
+            <CheckCircle2 size={15} /> Approve
+          </button>
+          <button type="button" onClick={() => setDialog({ kind: "reject", company: c })} className={`btn-secondary !h-9 !px-3.5 text-[12.5px] hover:!border-red-300 hover:!text-red-600 ${full ? "flex-1" : ""}`}>
+            Reject
+          </button>
+        </>
+      )}
+      {c.status === "active" && (
+        <button type="button" onClick={() => setDialog({ kind: "suspend", company: c })} className="btn-secondary !h-9 !px-3.5 text-[12.5px] hover:!border-red-300 hover:!text-red-600">
+          <PauseCircle size={15} /> Suspend
+        </button>
+      )}
+      {(c.status === "suspended" || c.status === "rejected") && (
+        <button type="button" onClick={() => setDialog({ kind: "activate", company: c })} className="btn-secondary !h-9 !px-3.5 text-[12.5px]">
+          <PlayCircle size={15} /> Reactivate
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function AdminCompanies() {
-  const { addToast, ToastContainer } = useToast();
-  const [companies, setCompanies] = useState(initialCompanies);
-  const [filters, setFilters] = useState({ search: "", industry: "", activity: "", status: "", verification: "" });
-  const [appliedFilters, setAppliedFilters] = useState(filters);
-  const [isLoading, setIsLoading] = useState(false);
-  const [selectedRows, setSelectedRows] = useState([]);
-  const [drawerCompany, setDrawerCompany] = useState(null);
-  const [formModal, setFormModal] = useState(null);
-  const [confirmModal, setConfirmModal] = useState(null);
-  const [formValues, setFormValues] = useState({ name: "", ownerEmail: "", industry: "Technology", activity: "Medium", recruiters: 1, status: "Pending", verification: "Review Required" });
-  const [formErrors, setFormErrors] = useState({});
-  const [reason, setReason] = useState("");
+  const [version, setVersion] = useState(0);
+  const [tab, setTab] = useState("pending");
+  const [query, setQuery] = useState("");
+  const [industry, setIndustry] = useState("all");
+  const [openId, setOpenId] = useState(null);
+  const [dialog, setDialog] = useState(null);
+  const [busy, setBusy] = useState(false);
 
-  const filteredCompanies = useMemo(() => {
-    const search = appliedFilters.search.toLowerCase();
-    return companies.filter((company) => {
-      const matchesSearch = !search || company.name.toLowerCase().includes(search) || company.ownerEmail.toLowerCase().includes(search);
-      const matchesIndustry = !appliedFilters.industry || company.industry === appliedFilters.industry;
-      const matchesActivity = !appliedFilters.activity || company.activity === appliedFilters.activity;
-      const matchesStatus = !appliedFilters.status || company.status === appliedFilters.status;
-      const matchesVerification = !appliedFilters.verification || company.verification === appliedFilters.verification;
-      return matchesSearch && matchesIndustry && matchesActivity && matchesStatus && matchesVerification;
-    });
-  }, [companies, appliedFilters]);
+  const companies = useMemo(() => {
+    void version;
+    return allAccounts().filter((a) => a.role === "company");
+  }, [version]);
 
-  const applyFilters = () => {
-    setIsLoading(true);
-    setTimeout(() => {
-      setAppliedFilters(filters);
-      setIsLoading(false);
-    }, 400);
-  };
+  const jobs = useMemo(() => getJobs(), []);
+  const counts = useMemo(
+    () => ({
+      pending: companies.filter((c) => c.status === "pending").length,
+      active: companies.filter((c) => c.status === "active").length,
+      suspended: companies.filter((c) => c.status === "suspended").length,
+      rejected: companies.filter((c) => c.status === "rejected").length,
+      all: companies.length,
+    }),
+    [companies],
+  );
 
-  const resetFilters = () => {
-    const reset = { search: "", industry: "", activity: "", status: "", verification: "" };
-    setFilters(reset);
-    setAppliedFilters(reset);
-  };
+  const industries = useMemo(() => [...new Set(companies.map((c) => c.industry).filter(Boolean))].sort(), [companies]);
 
-  const openCreate = () => {
-    setFormValues({ name: "", ownerEmail: "", industry: "Technology", activity: "Medium", recruiters: 1, status: "Pending", verification: "Review Required" });
-    setFormErrors({});
-    setFormModal({ mode: "create" });
-  };
+  const rows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return companies
+      .filter((c) => (tab === "all" || c.status === tab) && (industry === "all" || c.industry === industry))
+      .filter((c) => !q || `${c.companyName || ""} ${c.name} ${c.email}`.toLowerCase().includes(q))
+      .sort((a, b) => b.createdAt - a.createdAt);
+  }, [companies, tab, industry, query]);
 
-  const openEdit = (company) => {
-    setFormValues({ name: company.name, ownerEmail: company.ownerEmail, industry: company.industry, activity: company.activity, recruiters: company.recruiters, status: company.status, verification: company.verification });
-    setFormErrors({});
-    setFormModal({ mode: "edit", company });
-  };
+  const open = companies.find((c) => c.id === openId);
 
-  const validateForm = () => {
-    const nextErrors = {};
-    if (!formValues.name.trim()) nextErrors.name = "Company name is required";
-    if (!formValues.ownerEmail.trim() || !/\S+@\S+\.\S+/.test(formValues.ownerEmail)) nextErrors.ownerEmail = "Valid owner email required";
-    setFormErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
-  };
-
-  const submitForm = () => {
-    if (!validateForm()) return;
-    if (formModal.mode === "create") {
-      const newCompany = { id: `cmp_${Date.now()}`, registered: "Today", ...formValues };
-      setCompanies((prev) => [newCompany, ...prev]);
-      addToast("Company created successfully.", "success");
-    } else {
-      setCompanies((prev) => prev.map((company) => (company.id === formModal.company.id ? { ...company, ...formValues } : company)));
-      addToast("Company updated successfully.", "info");
+  const run = useCallback(async (kind, company, reason) => {
+    const cfg = ACTIONS[kind];
+    setBusy(true);
+    try {
+      await accountsApi.setStatus(company.id, cfg.status, reason);
+      logAudit({ action: cfg.audit, targetType: "company", targetId: company.id, targetName: company.companyName || company.name, reason });
+      toast({
+        type: cfg.tone === "danger" ? "warning" : "success",
+        title: `${company.companyName || company.name} ${cfg.toast}`,
+        message: kind === "approve" ? "They can now sign in and post roles." : kind === "activate" ? "Access restored." : "They can no longer sign in.",
+      });
+      setVersion((v) => v + 1);
+      setDialog(null);
+      setOpenId(null);
+    } catch (err) {
+      toast({ type: "error", title: "Action failed", message: err.message });
+    } finally {
+      setBusy(false);
     }
-    setFormModal(null);
+  }, []);
+
+  const exportCsv = () => {
+    const headers = ["Company", "Owner", "Email", "Industry", "Size", "Website", "Status", "Registered"];
+    const data = rows.map((c) => [
+      c.companyName || "",
+      c.name,
+      c.email,
+      c.industry || "",
+      c.companySize || "",
+      c.website || "",
+      ACCOUNT_STATUS[c.status]?.label || c.status,
+      new Date(c.createdAt).toISOString().slice(0, 10),
+    ]);
+    const name = `intellihire-companies-${new Date().toISOString().slice(0, 10)}.csv`;
+    downloadFile(name, toCsv(headers, data));
+    toast({ title: "Companies exported", message: `${data.length} companies saved to ${name}.` });
   };
 
-  const openConfirm = (type, company) => {
-    setReason("");
-    setConfirmModal({ type, company });
-  };
-
-  const handleConfirm = () => {
-    if (!confirmModal) return;
-    if (["reject", "suspend", "delete"].includes(confirmModal.type) && reason.trim().length < 10) return;
-
-    if (confirmModal.type === "approve") {
-      setCompanies((prev) => prev.map((company) => (company.id === confirmModal.company.id ? { ...company, status: "Approved" } : company)));
-      addToast("Company approved.", "success");
-    }
-    if (confirmModal.type === "reject") {
-      setCompanies((prev) => prev.map((company) => (company.id === confirmModal.company.id ? { ...company, status: "Rejected" } : company)));
-      addToast("Company rejected.", "error");
-    }
-    if (confirmModal.type === "suspend") {
-      setCompanies((prev) => prev.map((company) => (company.id === confirmModal.company.id ? { ...company, status: "Suspended" } : company)));
-      addToast("Company suspended.", "warning");
-    }
-    if (confirmModal.type === "delete") {
-      setCompanies((prev) => prev.filter((company) => company.id !== confirmModal.company.id));
-      addToast("Company deleted.", "error");
-    }
-    setConfirmModal(null);
-  };
-
-  const toggleSelection = (id) => {
-    setSelectedRows((prev) => (prev.includes(id) ? prev.filter((row) => row !== id) : [...prev, id]));
-  };
-
-  const toggleAll = (checked) => {
-    setSelectedRows(checked ? filteredCompanies.map((row) => row.id) : []);
-  };
+  const jobCount = (c) => jobs.filter((j) => j.companyId === c.id).length;
 
   const columns = [
-    { key: "name", label: "Company Name", render: (row) => <span className="font-medium text-[#0D0D0D]">{row.name}</span> },
-    { key: "ownerEmail", label: "Owner Email", render: (row) => <span className="text-[#6B7280]">{row.ownerEmail}</span> },
-    { key: "industry", label: "Industry", render: (row) => <span className="text-[#6B7280]">{row.industry}</span> },
-    { key: "registered", label: "Registered", render: (row) => <span className="text-[#6B7280]">{row.registered}</span> },
     {
-      key: "activity",
-      label: "Hiring Activity",
-      render: (row) => (
-        <span className={`px-3 py-1 rounded-full text-[11px] ${row.activity === "High" ? "bg-[#F0FDF4] text-[#059669]" : row.activity === "Medium" ? "bg-[#FFFBEB] text-[#D97706]" : "bg-[#F3F4F6] text-[#6B7280]"}`}>
-          {row.activity}
-        </span>
-      ),
-    },
-    { key: "recruiters", label: "Recruiter Count", render: (row) => <span className="text-[#6B7280]">{row.recruiters}</span> },
-    { key: "status", label: "Approval Status", render: (row) => <span className={`px-3 py-1 rounded-full text-[11px] ${badgeStyles[row.status]}`}>{row.status}</span> },
-    { key: "verification", label: "Verification Level", render: (row) => <span className={`px-3 py-1 rounded-full text-[11px] ${badgeStyles[row.verification]}`}>{row.verification}</span> },
-    {
-      key: "actions",
-      label: "Actions",
-      render: (row) => (
-        <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
-          <button className="text-[12px] text-[#F04E23] hover:underline" onClick={() => openEdit(row)}>Edit</button>
-          <button className="text-[12px] text-[#059669]" onClick={() => openConfirm("approve", row)}>Approve</button>
-          <button className="text-[12px] text-[#DC2626]" onClick={() => openConfirm("reject", row)}>Reject</button>
-          <button className="text-[12px] text-[#DC2626]" onClick={() => openConfirm("suspend", row)}>Suspend</button>
+      key: "company",
+      label: "Company",
+      cell: (c) => (
+        <div className="flex items-center gap-3">
+          <CompanyLogo company={c} size={36} />
+          <div className="min-w-0">
+            <p className="truncate font-semibold text-ink">{c.companyName || c.name}</p>
+            <p className="truncate text-[12.5px] text-stone-500">{c.email}</p>
+          </div>
         </div>
       ),
     },
+    { key: "industry", label: "Industry", cell: (c) => <span className="text-stone-600">{c.industry || "—"}</span> },
+    { key: "size", label: "Size", cell: (c) => <span className="whitespace-nowrap text-stone-600">{c.companySize || "—"}</span> },
+    { key: "jobs", label: "Roles", className: "text-center", cell: (c) => <span className="tabular-nums text-stone-600">{jobCount(c)}</span> },
+    { key: "registered", label: "Registered", cell: (c) => <span className="whitespace-nowrap text-stone-600">{formatDate(c.createdAt)}</span> },
+    { key: "status", label: "Status", cell: (c) => <StatusBadge status={c.status} /> },
+    { key: "actions", label: "", className: "text-right", cell: (c) => <Actions c={c} setDialog={setDialog} /> },
   ];
 
-  return (
-    <AdminLayout title="Company Management" pendingCount={3}>
-      <AdminPageHeader
-        icon="🏢"
-        title="Company"
-        accent="Management"
-        subtitle="Approve, manage, and audit employer accounts across the IntelliHire platform."
-        actions={[
-          { label: "Create Company", icon: Building2, onClick: openCreate, className: "btn-primary" },
-          { label: "Export Report", icon: FileText },
-          { label: "Admin Audit Logs", icon: Timer },
-          { label: "Quick Review", icon: ShieldAlert },
-        ]}
-        chips={[
-          { label: "5 companies pending review", className: "bg-[#FFF4F1] text-[#F04E23]" },
-          { label: "Last synced 2 mins ago", className: "text-[#9CA3AF]" },
-        ]}
-      />
-
-      <div className="border border-[#E5E7EB] rounded-xl bg-white p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-          <input className="input-field" placeholder="Search by Company Name / Owner Email" value={filters.search} onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))} />
-          <select className="input-field" value={filters.industry} onChange={(e) => setFilters((prev) => ({ ...prev, industry: e.target.value }))}>
-            <option value="">Industry: All</option>
-            {industries.map((item) => <option key={item}>{item}</option>)}
-          </select>
-          <select className="input-field" value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))}>
-            <option value="">Approval: All</option>
-            {statuses.map((item) => <option key={item}>{item}</option>)}
-          </select>
-          <select className="input-field" value={filters.activity} onChange={(e) => setFilters((prev) => ({ ...prev, activity: e.target.value }))}>
-            <option value="">Activity: All</option>
-            {activities.map((item) => <option key={item}>{item}</option>)}
-          </select>
-          <select className="input-field" value={filters.verification} onChange={(e) => setFilters((prev) => ({ ...prev, verification: e.target.value }))}>
-            <option value="">Verification: All</option>
-            {verificationLevels.map((item) => <option key={item}>{item}</option>)}
-          </select>
-          <input className="input-field" placeholder="Registration range" />
-        </div>
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <button className="btn-primary" onClick={applyFilters}>Apply Filters</button>
-          <button className="btn-ghost" onClick={resetFilters}>Reset</button>
-          <button className="btn-secondary h-[36px] px-4 text-[12px]">Save Filter View</button>
+  const card = (c) => (
+    <Card interactive className="p-4" onClick={() => setOpenId(c.id)}>
+      <div className="flex items-start gap-3">
+        <CompanyLogo company={c} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[15px] font-semibold text-ink">{c.companyName || c.name}</p>
+          <p className="truncate text-[12.5px] text-stone-500">{c.email}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <StatusBadge status={c.status} />
+            {c.industry && <Badge tone="neutral">{c.industry}</Badge>}
+          </div>
         </div>
       </div>
+      <p className="mt-3 text-[12.5px] text-stone-500">Registered {relativeTime(c.createdAt)} · {jobCount(c)} roles</p>
+      <div className="mt-3 border-t border-[var(--line)] pt-3">
+        <Actions c={c} full setDialog={setDialog} />
+      </div>
+    </Card>
+  );
 
-      {selectedRows.length > 0 && (
-        <div className="mb-4 border border-[#FCA68A] bg-[#FFF4F1] rounded-xl p-3 flex flex-wrap items-center gap-3 text-[12px]">
-          <span className="font-semibold text-[#F04E23]">{selectedRows.length} selected</span>
-          <button className="px-3 py-1 rounded-full bg-white border border-[#FCA68A] text-[#F04E23]">Approve Selected</button>
-          <button className="px-3 py-1 rounded-full bg-white border border-[#FCA68A] text-[#F04E23]">Suspend Selected</button>
-          <button onClick={() => setSelectedRows([])} className="ml-auto text-[#9CA3AF]">Clear</button>
-        </div>
-      )}
+  const cfg = dialog ? ACTIONS[dialog.kind] : null;
 
-      <AdminDataTable
-        columns={columns}
-        rows={filteredCompanies}
-        onRowClick={setDrawerCompany}
-        selectedRows={selectedRows}
-        onToggleRow={toggleSelection}
-        onToggleAll={toggleAll}
-        isLoading={isLoading}
-        emptyLabel="No companies match the current filters."
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Companies"
+        title={<>Employer <em>accounts</em></>}
+        subtitle={counts.pending ? `${counts.pending} ${counts.pending === 1 ? "company is" : "companies are"} waiting for a decision.` : "Every employer account on the platform."}
+        actions={
+          <button type="button" onClick={exportCsv} className="btn-secondary">
+            <Download size={16} /> Export CSV
+          </button>
+        }
       />
 
-      {drawerCompany && (
-        <div className="fixed inset-0 z-[90]">
-          <div className="absolute inset-0 bg-black/30" onClick={() => setDrawerCompany(null)} />
-          <aside className="absolute right-0 top-0 h-full w-full max-w-[360px] bg-white border-l border-[#E5E7EB] p-6 admin-drawer">
-            <div className="flex items-center justify-between">
-              <h3 className="text-[18px] text-[#0D0D0D]" style={{ fontFamily: "Times New Roman, serif" }}>{drawerCompany.name}</h3>
-              <button onClick={() => setDrawerCompany(null)} className="text-[#9CA3AF] hover:text-[#374151]">✕</button>
-            </div>
-            <div className="mt-4 space-y-4 text-[13px] text-[#6B7280]">
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.12em] text-[#9CA3AF]">Hiring Activity</div>
-                <div className="text-[#374151] font-medium">{drawerCompany.activity}</div>
-              </div>
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.12em] text-[#9CA3AF]">Recruiter Count</div>
-                <div className="text-[#374151] font-medium">{drawerCompany.recruiters} recruiters</div>
-              </div>
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.12em] text-[#9CA3AF]">Verification</div>
-                <div className="text-[#374151] font-medium">{drawerCompany.verification}</div>
-              </div>
-            </div>
-            <button className="mt-6 w-full h-[40px] rounded-lg border border-[#E5E7EB] text-[13px] font-semibold text-[#374151]" onClick={() => setDrawerCompany(null)}>
-              Close Drawer
-            </button>
-          </aside>
-        </div>
-      )}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatTile icon={Building2} label="Companies" value={counts.all} hint={`${counts.active} active`} />
+        <StatTile icon={ShieldX} label="Awaiting approval" value={counts.pending} hint={counts.pending ? "Needs review" : "All clear"} delay={60} />
+        <StatTile icon={PauseCircle} label="Suspended" value={counts.suspended} delay={120} />
+        <StatTile icon={Users} label="Roles posted" value={jobs.length} delay={180} />
+      </div>
 
-      {formModal && (
-        <AdminModal
-          title={formModal.mode === "create" ? "Create new company" : `Edit ${formModal.company.name}`}
-          description="Provide core company details for the employer account."
-          confirmLabel={formModal.mode === "create" ? "Create Company" : "Save Changes"}
-          onConfirm={submitForm}
-          onClose={() => setFormModal(null)}
-        >
-          <div className="space-y-3 text-[13px]">
-            <div>
-              <label className="input-label">Company Name</label>
-              <input className="input-field" value={formValues.name} onChange={(e) => setFormValues((prev) => ({ ...prev, name: e.target.value }))} />
-              {formErrors.name && <div className="text-[11px] text-[#DC2626] mt-1">{formErrors.name}</div>}
-            </div>
-            <div>
-              <label className="input-label">Owner Email</label>
-              <input className="input-field" value={formValues.ownerEmail} onChange={(e) => setFormValues((prev) => ({ ...prev, ownerEmail: e.target.value }))} />
-              {formErrors.ownerEmail && <div className="text-[11px] text-[#DC2626] mt-1">{formErrors.ownerEmail}</div>}
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="input-label">Industry</label>
-                <select className="input-field" value={formValues.industry} onChange={(e) => setFormValues((prev) => ({ ...prev, industry: e.target.value }))}>
-                  {industries.map((item) => <option key={item}>{item}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="input-label">Activity</label>
-                <select className="input-field" value={formValues.activity} onChange={(e) => setFormValues((prev) => ({ ...prev, activity: e.target.value }))}>
-                  {activities.map((item) => <option key={item}>{item}</option>)}
-                </select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="input-label">Approval Status</label>
-                <select className="input-field" value={formValues.status} onChange={(e) => setFormValues((prev) => ({ ...prev, status: e.target.value }))}>
-                  {statuses.map((item) => <option key={item}>{item}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="input-label">Verification</label>
-                <select className="input-field" value={formValues.verification} onChange={(e) => setFormValues((prev) => ({ ...prev, verification: e.target.value }))}>
-                  {verificationLevels.map((item) => <option key={item}>{item}</option>)}
-                </select>
-              </div>
-            </div>
-          </div>
-        </AdminModal>
-      )}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <Tabs value={tab} onChange={setTab} options={TABS.map((t) => ({ ...t, count: counts[t.value], alert: t.value === "pending" }))} />
+        <SearchField value={query} onChange={setQuery} placeholder="Search company, owner or email" className="flex-1" />
+        <SelectField
+          label="Industry"
+          value={industry}
+          onChange={setIndustry}
+          options={[{ value: "all", label: "All industries" }, ...industries.map((i) => ({ value: i, label: i }))]}
+        />
+      </div>
 
-      {confirmModal && (
-        <AdminModal
-          title={
-            confirmModal.type === "approve"
-              ? `Approve ${confirmModal.company.name}?`
-              : confirmModal.type === "reject"
-                ? `Reject ${confirmModal.company.name}?`
-                : confirmModal.type === "suspend"
-                  ? `Suspend ${confirmModal.company.name}?`
-                  : `Delete ${confirmModal.company.name}?`
+      <Reveal>
+        <DataTable
+          columns={columns}
+          rows={rows}
+          rowKey={(c) => c.id}
+          onRowClick={(c) => setOpenId(c.id)}
+          renderCard={card}
+          empty={
+            <EmptyState
+              icon={tab === "pending" ? CheckCircle2 : SearchX}
+              title={tab === "pending" ? "No companies waiting" : "No companies match"}
+              message={tab === "pending" ? "Every employer account has been reviewed." : "Try a different search, tab or industry."}
+              action={
+                query || industry !== "all" ? (
+                  <button type="button" onClick={() => { setQuery(""); setIndustry("all"); }} className="btn-secondary">
+                    Clear filters
+                  </button>
+                ) : null
+              }
+            />
           }
-          description="Provide a reason to log in the audit trail."
-          confirmLabel={confirmModal.type === "approve" ? "Confirm Approval" : confirmModal.type === "reject" ? "Reject Company" : confirmModal.type === "suspend" ? "Confirm Suspension" : "Confirm Delete"}
-          onConfirm={handleConfirm}
-          onClose={() => setConfirmModal(null)}
-          confirmDisabled={confirmModal.type !== "approve" && reason.trim().length < 10}
-          tone={confirmModal.type === "approve" ? "primary" : "danger"}
+        />
+      </Reveal>
+
+      {open && (
+        <Drawer
+          title={open.companyName || open.name}
+          subtitle={open.industry || "Company account"}
+          accent={<CompanyLogo company={open} size={44} />}
+          onClose={() => setOpenId(null)}
+          footer={<Actions c={open} full setDialog={setDialog} />}
         >
-          {confirmModal.type !== "approve" && (
-            <>
-              <textarea
-                className="input-field min-h-[90px]"
-                placeholder="Reason (min 10 characters)"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-              />
-              <div className="text-[11px] text-[#9CA3AF] mt-1">{reason.length} / 10</div>
-            </>
+          <div className="mb-4 flex items-center gap-2">
+            <StatusBadge status={open.status} />
+            {open.statusChangedAt && <span className="text-[12px] text-stone-500">Changed {relativeTime(open.statusChangedAt)}</span>}
+          </div>
+          {open.statusReason && (
+            <p className="mb-4 rounded-xl bg-stone-50 p-3 text-[13px] leading-relaxed text-stone-600">
+              <span className="font-semibold text-ink">Reason on file:</span> {open.statusReason}
+            </p>
           )}
-        </AdminModal>
+          <Field label="Owner">{open.name}</Field>
+          <Field label="Email">
+            <a href={`mailto:${open.email}`} className="link-brand inline-flex items-center gap-1.5">
+              <Mail size={13} /> {open.email}
+            </a>
+          </Field>
+          <Field label="Industry">{open.industry}</Field>
+          <Field label="Team size">{open.companySize}</Field>
+          <Field label="Website">
+            {open.website ? (
+              <a href={open.website} target="_blank" rel="noreferrer noopener" className="link-brand inline-flex items-center gap-1.5">
+                <Globe size={13} /> {open.website} <ExternalLink size={12} />
+              </a>
+            ) : null}
+          </Field>
+          <Field label="About">{open.description}</Field>
+          <Field label="Roles posted">{jobCount(open)}</Field>
+          <Field label="Registered">{formatDate(open.createdAt, { day: "numeric", month: "long", year: "numeric" })}</Field>
+        </Drawer>
       )}
 
-      <ToastContainer />
-    </AdminLayout>
+      {dialog && cfg && (
+        <ActionDialog
+          title={cfg.title(dialog.company.companyName || dialog.company.name)}
+          message={cfg.message}
+          confirmLabel={cfg.confirm}
+          tone={cfg.tone}
+          requireReason={cfg.reason}
+          busy={busy}
+          onConfirm={(reason) => run(dialog.kind, dialog.company, reason)}
+          onClose={() => setDialog(null)}
+        />
+      )}
+    </div>
   );
 }

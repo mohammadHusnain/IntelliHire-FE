@@ -1,605 +1,387 @@
-import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import { useLogout } from "@/hooks/useLogout";
-import { 
-  LayoutDashboard, 
-  User, 
-  Mic2, 
-  FileText, 
-  Globe,
-  Settings,
-  LogOut,
-  ArrowRight,
-  TrendingUp,
-  Calendar,
-  Award,
-  Lightbulb,
-  ChevronRight,
-  Search,
-  RefreshCw
+import { useMemo } from "react";
+import { Link } from "react-router-dom";
+import {
+  ArrowRight, Award, CalendarCheck, CheckCircle2, ChevronRight, Circle, Clock, FileBarChart2, Flame,
+  Globe2, Lightbulb, Mic, Target, TrendingUp, UserRound,
 } from "lucide-react";
-import { Toast } from "../../components/shared/Toast";
-import { EmptyState } from "../../components/shared/EmptyState";
-import { SkeletonStatCard, SkeletonSessionCard } from "../../components/shared/SkeletonLoader";
-import IntelliHireLogo from "../../components/shared/IntelliHireLogo";
-import AnimatedCounter from "../../components/shared/AnimatedCounter";
+import { Badge, Card, CardHeader, EmptyState, ProgressBar, ScoreRing, StatTile, TrendChart } from "@/components/app/primitives";
+import Reveal from "@/components/shared/Reveal";
+import { useCandidateRecord } from "@/store/candidateStore";
+import {
+  TYPE_LABEL, formatDate, formatDuration, profileCompletion, relativeTime, scoreTone, sessionStats, toneFor,
+} from "@/lib/candidateStats";
+import { DIMENSION_LABEL, verdictFor } from "@/lib/interview/evaluate";
+import { categoryOf } from "@/lib/interview/questionBank";
+import { useVisibleCommunities } from "@/store/communityStore";
 
-// Sidebar Navigation Item
-const NavItem = ({ icon: Icon, label, active, onClick }) => (
-  <button
-    onClick={onClick}
-    className={`w-full flex items-center gap-3 px-4 h-[40px] text-[14px] transition-all ${
-      active 
-        ? "border-l-[3px] border-[#F04E23] bg-[#FFF4F1] text-[#F04E23] font-medium" 
-        : "border-l-[3px] border-transparent text-[#374151] hover:bg-[#F9FAFB]"
-    }`}
-  >
-    <Icon size={18} />
-    <span>{label}</span>
-  </button>
-);
-
-// Enhanced Stat Card Component
-const StatCard = ({ value, label, trend, trendValue, sparkline, icon: Icon }) => (
-  <div className="relative bg-gradient-to-br from-white to-[#F8FAFC] border border-[#E5E7EB] rounded-[14px] p-5 overflow-hidden group hover:shadow-[0_8px_30px_rgba(240,78,35,0.08)] hover:border-[#FCA68A] transition-all duration-300">
-    {/* Decorative background shape */}
-    <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-[#F04E23]/5 to-transparent rounded-full blur-2xl -translate-y-1/2 translate-x-1/4" />
-    
-    <div className="relative z-10">
-      <div className="flex items-start justify-between mb-3">
-        <AnimatedCounter
-          value={value}
-          duration={1200}
-          as="div"
-          className="text-[40px] font-bold text-[#111827] leading-none"
-          style={{ fontFamily: 'Times New Roman, serif' }}
-        />
-        {Icon && (
-          <div className="w-10 h-10 rounded-[12px] bg-gradient-to-br from-[#FFF4F1] to-[#FFE4DC] flex items-center justify-center text-[#F04E23] group-hover:scale-105 transition-transform">
-            <Icon size={20} />
-          </div>
-        )}
-      </div>
-      
-      <div className="text-[13px] text-[#6B7280]">{label}</div>
-      
-      {trend && (
-        <div className={`flex items-center gap-1.5 mt-3 px-2 py-1 rounded-full text-[12px] font-medium w-fit ${
-          trend === 'up' ? 'bg-[#FFF4F1] text-[#F04E23]' : 'bg-[#FEF2F2] text-[#DC2626]'
-        }`}>
-          <TrendingUp size={12} />
-          <span>{trendValue}</span>
-        </div>
-      )}
-      
-      {sparkline && (
-        <div className="mt-4 h-10 flex items-end gap-[3px]">
-          {[40, 60, 45, 70, 55, 80, 65, 75].map((h, i) => (
-            <div key={i} 
-              className="flex-1 bg-gradient-to-t from-[#FFA07A] to-[#F04E23]/30 rounded-t-[2px] transition-all duration-300 group-hover:from-[#F04E23] group-hover:to-[#FFA07A]" 
-              style={{ height: `${h}%` }} 
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  </div>
-);
-
-// Enhanced Session Card Component
-const SessionCard = ({ role, date, type, score, onClick }) => {
-  const getScoreStyle = (s) => {
-    if (s >= 80) return {
-      badge: 'bg-gradient-to-r from-[#DCFCE7] to-[#BBF7D0] text-[#166534] border border-[#86EFAC]',
-      ring: 'shadow-[0_0_0_3px_#DCFCE7]',
-      color: '#16A34A'
-    };
-    if (s >= 60) return {
-      badge: 'bg-gradient-to-r from-[#FEF3C7] to-[#FDE68A] text-[#92400E] border border-[#FCD34D]',
-      ring: 'shadow-[0_0_0_3px_#FEF3C7]',
-      color: '#F59E0B'
-    };
-    return {
-      badge: 'bg-gradient-to-r from-[#FEE2E2] to-[#FECACA] text-[#991B1B] border border-[#FCA5A5]',
-      ring: 'shadow-[0_0_0_3px_#FEE2E2]',
-      color: '#DC2626'
-    };
-  };
-  
-  const scoreStyle = getScoreStyle(score);
-  
-  const typeBadge = type === 'Technical' ? 'bg-[#FFF4F1] text-[#F04E23] border border-[#FCA68A]' :
-                    type === 'Role-Specific' ? 'bg-[#FFF4F1] text-[#F04E23] border border-[#FCA68A]' :
-                    'bg-[#F0FDF4] text-[#15803D] border border-[#BBF7D0]';
-
-  return (
-    <div 
-      onClick={onClick}
-      className="group relative bg-gradient-to-br from-white to-[#FAFAFA] border border-[#E5E7EB] rounded-[14px] p-4 hover:shadow-[0_8px_24px_rgba(240,78,35,0.1)] hover:border-[#FCA68A] transition-all duration-300 cursor-pointer overflow-hidden"
-    >
-      {/* Decorative gradient on hover */}
-      <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-[#F04E23]/5 to-transparent rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-      
-      <div className="relative z-10">
-        <div className="flex items-start justify-between mb-2">
-          <div className="flex-1 min-w-0">
-            <h4 className="text-[16px] font-semibold text-[#111827] truncate" style={{ fontFamily: 'Times New Roman, serif' }}>
-              {role}
-            </h4>
-            <p className="text-[13px] text-[#6B7280] mt-1 flex items-center gap-1.5">
-              <Calendar size={13} className="text-[#9CA3AF]" />
-              {date}
-            </p>
-          </div>
-          <div className={`flex-shrink-0 ml-3 w-14 h-14 rounded-full flex flex-col items-center justify-center ${scoreStyle.ring} transition-shadow`}>
-            <span className="text-[18px] font-bold" style={{ color: scoreStyle.color, fontFamily: 'Times New Roman, serif' }}>
-              {score}
-            </span>
-            <span className="text-[9px] text-[#9CA3AF]">/100</span>
-          </div>
-        </div>
-        
-        <div className="flex items-center justify-between pt-3 border-t border-[#F0F0F0]">
-          <span className={`px-2.5 py-1 rounded-[6px] text-[11px] font-medium ${typeBadge}`}>
-            {type}
-          </span>
-          <button className="flex items-center gap-1 text-[13px] text-[#F04E23] font-medium group-hover:gap-2 transition-all">
-            View Report <ChevronRight size={14} />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+const FOCUS_TIPS = {
+  communication: { title: "Tighten your delivery", text: "Aim for 60 to 120 seconds per answer: headline first, then detail.", type: "general" },
+  structure: { title: "Lead with STAR", text: "Situation, task, action, result. Always close with what changed because of you.", type: "general" },
+  confidence: { title: "Cut the hedging", text: "Replace 'I think' and 'maybe' with what you actually did. Pause instead of 'um'.", type: "general" },
+  technical: { title: "Name the tools", text: "Mention the specific technology and one trade-off you weighed in every technical answer.", type: "technical" },
 };
 
-// Enhanced Tip Card Component
-const TipCard = ({ icon: Icon, title, description }) => (
-  <div className="flex gap-4 py-3 group">
-    <div className="w-10 h-10 rounded-[12px] bg-gradient-to-br from-[#FFA07A] to-[#F04E23] flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform shadow-sm">
-      <Icon size={18} className="text-white" />
-    </div>
-    <div className="flex-1">
-      <h5 className="text-[15px] font-semibold text-[#111827] mb-1" style={{ fontFamily: 'Times New Roman, serif' }}>
-        {title}
-      </h5>
-      <p className="text-[13px] text-[#6B7280] leading-relaxed">{description}</p>
-    </div>
-  </div>
-);
+function greeting() {
+  const h = new Date().getHours();
+  return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+}
 
-function CandidateDashboard() {
-  const navigate = useNavigate();
-  const logout = useLogout();
-  const [activeNav, setActiveNav] = useState("dashboard");
-  const [greeting, setGreeting] = useState("");
-  const [showUserDropdown, setShowUserDropdown] = useState(false);
-  
-  // Loading states
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  
-  // Toast notification
-  const [toast, setToast] = useState(null);
-  
-  // Search
-  const [searchQuery, setSearchQuery] = useState("");
-  
-  // Notification indicator
-  const [hasNotifications, setHasNotifications] = useState(true);
-  
-  // Show toast helper
-  const showToast = useCallback((message, type = "success") => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  }, []);
-  
-  // Simulate loading
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 800);
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Muslim name user
-  const userName = "Ahmed Hassan";
-  const userInitials = "AH";
-
-  useEffect(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) setGreeting("Good morning");
-    else if (hour < 18) setGreeting("Good afternoon");
-    else setGreeting("Good evening");
-  }, []);
-
-  const navItems = [
-    { id: "dashboard",   label: "Dashboard",     icon: LayoutDashboard },
-    { id: "profile",     label: "My Profile",    icon: User },
-    { id: "interview",   label: "Interviews",    icon: Mic2 },
-    { id: "reports",     label: "My Reports",    icon: FileText },
-    { id: "communities", label: "Communities",   icon: Globe },
-    { id: "settings",    label: "Settings",      icon: Settings },
-  ];
-
-  const recentSessions = [
-    { role: "Frontend Developer", date: "Apr 28, 2025", type: "Technical", score: 82 },
-    { role: "Product Manager", date: "Apr 21, 2025", type: "Role-Specific", score: 69 },
-    { role: "Data Analyst", date: "Apr 14, 2025", type: "General", score: 61 },
-  ];
-
-  const tips = [
-    { 
-      icon: Award, 
-      title: "Use the STAR method", 
-      description: "STAR structures your answers clearly for behavioural questions." 
-    },
-    { 
-      icon: Lightbulb, 
-      title: "Practise pausing", 
-      description: "2 seconds of pause shows confidence before answering." 
-    },
-    { 
-      icon: User, 
-      title: "Complete your profile", 
-      description: "CV-matched questions dramatically improve relevance." 
-    },
-  ];
-
-  const handleNavClick = (navId) => {
-    setActiveNav(navId);
-    if (navId === "profile") {
-      showToast("Navigating to profile...", "info");
-      navigate("/candidate/profile");
-    }
-    if (navId === "interview") {
-      showToast("Starting interview setup...", "info");
-      navigate("/candidate/interview/setup");
-    }
-    if (navId === "reports") {
-      showToast("Loading your reports...", "info");
-      navigate("/candidate/reports");
-    }
-    if (navId === "communities") {
-      navigate("/candidate/communities");
-    }
-    if (navId === "settings") {
-      navigate("/candidate/settings");
-    }
-  };
-  
-  // Filter sessions based on search
-  const filteredSessions = recentSessions.filter(session => 
-    session.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    session.type.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  
-  // Refresh data handler
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-    setTimeout(() => {
-      setIsRefreshing(false);
-      showToast("Dashboard refreshed successfully!", "success");
-    }, 1000);
-  };
-
+function WeeklyGoal({ stats }) {
+  const { thisWeek, weeklyGoal, weekStreak } = stats;
+  const done = Math.min(thisWeek, weeklyGoal);
+  const left = Math.max(0, weeklyGoal - thisWeek);
   return (
-    <div className="min-h-screen bg-[#F9FAFB]">
-      {/* Sidebar */}
-      <aside className="fixed left-0 top-0 w-[240px] h-full bg-white border-r border-[#E5E7EB] z-50">
-        {/* Logo */}
-        <div className="h-16 flex items-center px-4 border-b border-[#E5E7EB]">
-          <IntelliHireLogo className="w-8 h-8 mr-2" />
-          <span className="text-[20px] font-bold text-[#111827]" style={{ fontFamily: 'Times New Roman, serif' }}>IntelliHire</span>
+    <Card className="flex h-full flex-col p-6">
+      <CardHeader
+        icon={CalendarCheck}
+        title="Weekly goal"
+        subtitle={`${weeklyGoal} interviews a week`}
+        action={
+          <Link to="/candidate/settings" className="text-[12.5px] font-semibold text-stone-500 transition-colors hover:text-brand">
+            Edit
+          </Link>
+        }
+      />
+      <div className="mt-6 flex items-center gap-2">
+        {Array.from({ length: weeklyGoal }).map((_, i) => (
+          <span
+            key={i}
+            className={`h-2.5 flex-1 rounded-full transition-colors duration-700 ${i < done ? "bg-brand" : "bg-stone-100"}`}
+            style={{ transitionDelay: `${i * 120}ms` }}
+          />
+        ))}
+      </div>
+      <p className="mt-4 text-[14px] text-stone-600">
+        {left === 0 ? (
+          <span className="font-semibold text-emerald-700">Goal reached this week. Great consistency.</span>
+        ) : (
+          <>
+            <span className="font-semibold text-ink">{thisWeek}</span> of {weeklyGoal} done. {left} more to hit your goal.
+          </>
+        )}
+      </p>
+      <div className="mt-auto flex items-center gap-3 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 p-4 pt-4">
+        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-orange-500 shadow-sm">
+          <Flame size={20} className={weekStreak ? "animate-pulse" : ""} />
+        </span>
+        <div>
+          <p className="text-[15px] font-semibold text-ink">
+            {weekStreak} week{weekStreak === 1 ? "" : "s"} streak
+          </p>
+          <p className="text-[12.5px] text-stone-500">{weekStreak ? "Practise this week to keep it going." : "Complete an interview to start one."}</p>
         </div>
+      </div>
+    </Card>
+  );
+}
 
-        {/* Navigation */}
-        <nav className="py-4">
-          {navItems.map((item) => (
-            <NavItem
-              key={item.id}
-              icon={item.icon}
-              label={item.label}
-              active={activeNav === item.id}
-              onClick={() => handleNavClick(item.id)}
-            />
-          ))}
-        </nav>
-
-        {/* User Section */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-[#E5E7EB]">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-[#F04E23] flex items-center justify-center text-white text-[12px] font-semibold">
-              {userInitials}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[14px] font-medium text-[#111827] truncate">{userName}</p>
-            </div>
-            <button 
-              onClick={logout}
-              className="p-1.5 text-[#6B7280] hover:text-[#DC2626] hover:bg-[#FEE2E2] rounded transition-colors"
-              title="Log out"
-            >
-              <LogOut size={16} />
-            </button>
-          </div>
-        </div>
-      </aside>
-
-      {/* Toast Notification */}
-      {toast && (
-        <Toast 
-          message={toast.message} 
-          type={toast.type} 
-          onClose={() => setToast(null)} 
-        />
-      )}
-
-      {/* Main Content */}
-      <main className="ml-[240px]">
-        {/* Top Bar */}
-        <header className="h-16 bg-white border-b border-[#E5E7EB] flex items-center justify-between px-8 sticky top-0 z-40">
-          <h1 className="text-[22px] font-bold text-[#111827]" style={{ fontFamily: 'Times New Roman, serif' }}>My <em className="text-[#F04E23] italic">Dashboard</em></h1>
-          <div className="flex items-center gap-3">
-            <span className="text-[14px] text-[#6B7280]">{greeting}, {userName.split(' ')[0]} 👋</span>
-            
-            {/* Avatar with Dropdown */}
-            <div className="relative">
-              <button 
-                onClick={() => setShowUserDropdown(!showUserDropdown)}
-                className="w-8 h-8 rounded-full bg-gradient-to-br from-[#F04E23] to-[#FFA07A] flex items-center justify-center text-white text-[12px] font-semibold hover:shadow-md transition-shadow"
-              >
-                {userInitials}
-              </button>
-              
-              {/* Dropdown Menu */}
-              {showUserDropdown && (
-                <div className="absolute top-full right-0 mt-2 w-44 bg-white border border-[#E5E7EB] rounded-lg shadow-lg py-1 z-50">
-                  <div className="px-3 py-2 border-b border-[#F3F4F6]">
-                    <p className="text-[13px] font-medium text-[#111827]">{userName}</p>
-                    <p className="text-[11px] text-[#6B7280]">ahmed.hassan@email.com</p>
-                  </div>
-                  <button 
-                    onClick={() => { navigate("/candidate/profile"); setShowUserDropdown(false); }}
-                    className="w-full px-3 py-2 text-left text-[13px] text-[#374151] hover:bg-[#F9FAFB] flex items-center gap-2"
-                  >
-                    <Pencil size={14} /> Edit Profile
-                  </button>
-                  <button 
-                    onClick={() => { logout(); setShowUserDropdown(false); }}
-                    className="w-full px-3 py-2 text-left text-[13px] text-[#DC2626] hover:bg-[#FEE2E2] flex items-center gap-2"
-                  >
-                    <LogOut size={14} /> Sign Out
-                  </button>
-                </div>
+function Onboarding({ profile }) {
+  const completion = profileCompletion(profile).percent;
+  const steps = [
+    { icon: UserRound, title: "Complete your profile", text: "Target role, skills and CV make every question relevant.", to: "/candidate/profile", cta: "Open profile", done: completion >= 70 },
+    { icon: Mic, title: "Run your first interview", text: "Eight questions, about fifteen minutes, answered out loud.", to: "/candidate/interview/setup", cta: "Start interview", done: false },
+    { icon: FileBarChart2, title: "Review your report", text: "Scores, strengths and exactly what to practise next.", to: "/candidate/reports", cta: "See reports", done: false },
+  ];
+  return (
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      {steps.map((s, i) => {
+        const Icon = s.icon;
+        return (
+          <Reveal key={s.title} delay={i * 90}>
+            <Card interactive className="flex h-full flex-col p-6">
+              <div className="flex items-center justify-between">
+                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-soft text-brand">
+                  <Icon size={20} />
+                </span>
+                <span className="text-[12px] font-semibold text-stone-400">Step {i + 1}</span>
+              </div>
+              <h3 className="mt-5 font-sans text-[16px] font-semibold text-ink">{s.title}</h3>
+              <p className="mt-1.5 flex-1 text-[14px] leading-relaxed text-stone-500">{s.text}</p>
+              {s.done ? (
+                <span className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-semibold text-emerald-600">
+                  <CheckCircle2 size={16} /> Done
+                </span>
+              ) : (
+                <Link to={s.to} className={`${i === 1 ? "btn-primary" : "btn-secondary"} mt-5`}>
+                  {s.cta} <ArrowRight size={15} className="btn-arrow" />
+                </Link>
               )}
-            </div>
-          </div>
-        </header>
-
-        {/* Dashboard Content */}
-        <div className="p-6">
-          {/* Enhanced Welcome Banner */}
-          <div className="relative bg-gradient-to-br from-white to-[#F8FAFC] border border-[#E5E7EB] rounded-[16px] p-6 mb-6 overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
-            {/* Decorative background shapes */}
-            <div className="absolute top-0 right-0 w-72 h-72 bg-gradient-to-bl from-[#F04E23]/8 to-transparent rounded-full blur-3xl -translate-y-1/3 translate-x-1/4" />
-            <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-[#F04E23]/5 to-transparent rounded-full blur-2xl translate-y-1/2 -translate-x-1/4" />
-            
-            <div className="relative z-10 flex items-center justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-[#F0FDF4] to-[#DCFCE7] border border-[#BBF7D0] rounded-full">
-                    <div className="w-2 h-2 rounded-full bg-[#16A34A] animate-pulse" />
-                    <span className="text-[12px] font-medium text-[#166534]">+12 points improvement</span>
-                  </div>
-                  <button
-                    onClick={handleRefresh}
-                    disabled={isRefreshing}
-                    className="p-2 text-[#6B7280] hover:text-[#F04E23] hover:bg-[#FFF4F1] rounded-full transition-all disabled:opacity-50"
-                    title="Refresh dashboard"
-                  >
-                    <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} />
-                  </button>
-                </div>
-                
-                <h2 className="text-[26px] font-semibold text-[#111827] leading-tight" style={{ fontFamily: 'Times New Roman, serif' }}>
-                  Ready for your next interview,<br />{userName.split(' ')[0]}?
-                </h2>
-                <p className="text-[15px] text-[#6B7280] mt-3 max-w-md italic">
-                  You've shown great progress in the last 7 days. Keep practicing to reach your target score of <span className="font-bold text-[#F04E23] not-italic">85/100</span>.
-                </p>
-              </div>
-              
-              <button 
-                onClick={() => {
-                  showToast("Starting interview setup...", "info");
-                  navigate("/candidate/interview/setup");
-                }}
-                className="relative bg-gradient-to-r from-[#F04E23] to-[#FFA07A] hover:bg-[#D43D14] hover:to-[#FFA07A] text-white px-6 py-3 rounded-[12px] text-[15px] font-medium flex items-center gap-2 transition-all shadow-[0_4px_16px_rgba(240,78,35,0.3)] hover:shadow-[0_6px_20px_rgba(240,78,35,0.4)] hover:-translate-y-0.5 active:translate-y-0"
-              >
-                Start New Interview <ArrowRight size={18} />
-              </button>
-            </div>
-          </div>
-
-          {/* Enhanced Stats Row */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            {isLoading ? (
-              <>
-                <SkeletonStatCard />
-                <SkeletonStatCard />
-                <SkeletonStatCard />
-              </>
-            ) : (
-              <>
-                <StatCard 
-                  value="14" 
-                  label="Sessions Completed" 
-                  sparkline={true}
-                  icon={Calendar}
-                />
-                <StatCard 
-                  value="73/100" 
-                  label="Avg. Interview Score" 
-                  sparkline={true}
-                  icon={Award}
-                />
-                <StatCard 
-                  value="+18%" 
-                  label="Score Improvement" 
-                  trend="up"
-                  trendValue="Up from 55%"
-                  icon={TrendingUp}
-                />
-              </>
-            )}
-          </div>
-
-          {/* Main Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
-            {/* Left Column - Recent Sessions */}
-            <div>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-                <h3 className="text-[16px] font-medium text-[#111827]">Recent Sessions</h3>
-                <div className="flex items-center gap-2">
-                  {/* Search */}
-                  <div className="relative">
-                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
-                    <input
-                      type="text"
-                      placeholder="Search sessions..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-48 h-9 pl-9 pr-3 rounded-lg border border-[#E5E7EB] text-[13px] outline-none focus:border-[#F04E23] focus:ring-2 focus:ring-orange-100 transition-all"
-                    />
-                  </div>
-                  <button 
-                    onClick={() => navigate("/candidate/reports")}
-                    className="text-[14px] text-[#F04E23] hover:bg-[#FFF4F1] px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
-                  >
-                    View All <ChevronRight size={16} />
-                  </button>
-                </div>
-              </div>
-              
-              <div className="space-y-3">
-                {isLoading ? (
-                  <>
-                    <SkeletonSessionCard />
-                    <SkeletonSessionCard />
-                    <SkeletonSessionCard />
-                  </>
-                ) : filteredSessions.length > 0 ? (
-                  filteredSessions.map((session, index) => (
-                    <SessionCard
-                      key={index}
-                      role={session.role}
-                      date={session.date}
-                      type={session.type}
-                      score={session.score}
-                      onClick={() => {
-                        showToast(`Opening report for ${session.role}...`, "info");
-                        navigate(`/candidate/report/${index + 1}`);
-                      }}
-                    />
-                  ))
-                ) : (
-                  <EmptyState
-                    icon="search"
-                    title="No sessions found"
-                    description={`No sessions match "${searchQuery}". Try a different search term.`}
-                    action={searchQuery !== ""}
-                    actionLabel="Clear Search"
-                    onAction={() => setSearchQuery("")}
-                  />
-                )}
-              </div>
-            </div>
-
-            {/* Right Column - Quick Tips & Notifications */}
-            <div className="space-y-4">
-              {/* Notifications Widget */}
-              <div className="relative bg-white border border-[#E5E7EB] rounded-[14px] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-[14px] font-medium text-[#111827]">Notifications</h3>
-                    {hasNotifications && (
-                      <span className="w-2 h-2 rounded-full bg-[#DC2626] animate-pulse" />
-                    )}
-                  </div>
-                  <button 
-                    onClick={() => setHasNotifications(false)}
-                    className="text-[12px] text-[#6B7280] hover:text-[#F04E23] transition-colors"
-                  >
-                    Mark all read
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {hasNotifications ? (
-                    <>
-                      <div className="flex items-start gap-2 p-2 bg-[#FFF4F1] rounded-lg cursor-pointer hover:bg-[#FFF4F1] transition-colors">
-                        <div className="w-2 h-2 rounded-full bg-[#F04E23] mt-1.5 flex-shrink-0" />
-                        <div>
-                          <p className="text-[13px] text-[#374151]">New feedback available for your last interview</p>
-                          <p className="text-[11px] text-[#6B7280] mt-0.5">2 hours ago</p>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-2 p-2 hover:bg-[#F9FAFB] rounded-lg cursor-pointer transition-colors">
-                        <div className="w-2 h-2 rounded-full bg-[#9CA3AF] mt-1.5 flex-shrink-0" />
-                        <div>
-                          <p className="text-[13px] text-[#374151]">Complete your profile to unlock CV-matched questions</p>
-                          <p className="text-[11px] text-[#6B7280] mt-0.5">1 day ago</p>
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <p className="text-[13px] text-[#6B7280] text-center py-4">No new notifications</p>
-                  )}
-                </div>
-              </div>
-              
-              {/* Quick Tips */}
-              <div className="bg-white border border-[#E5E7EB] rounded-[14px] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-                <div className="flex items-center gap-2 mb-3">
-                  <Lightbulb size={16} className="text-[#F59E0B]" />
-                  <h3 className="text-[14px] font-medium text-[#6B7280]">Suggested for You</h3>
-                </div>
-                <div className="divide-y divide-[#F0F0F0]">
-                  {tips.map((tip, index) => (
-                    <TipCard
-                      key={index}
-                      icon={tip.icon}
-                      title={tip.title}
-                      description={tip.description}
-                    />
-                  ))}
-                </div>
-              </div>
-              
-              {/* Quick Actions */}
-              <div className="bg-gradient-to-br from-[#F04E23] to-[#FFA07A] rounded-[14px] p-4 text-white hover:shadow-[0_8px_30px_rgba(240,78,35,0.2)] transition-all duration-300">
-                <h3 className="text-[14px] font-bold mb-1">Quick Actions</h3>
-                <p className="text-[11px] text-white/70 italic mb-3">Jump back in where you left off.</p>
-                <div className="space-y-2">
-                  <button 
-                    onClick={() => navigate("/candidate/interview/setup")}
-                    className="w-full flex items-center gap-2 p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors text-[13px]"
-                  >
-                    <Mic2 size={14} />
-                    Start Practice Interview
-                  </button>
-                  <button 
-                    onClick={() => navigate("/candidate/profile")}
-                    className="w-full flex items-center gap-2 p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors text-[13px]"
-                  >
-                    <User size={14} />
-                    Update Profile
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
+            </Card>
+          </Reveal>
+        );
+      })}
     </div>
   );
 }
 
-export default CandidateDashboard;
+export default function CandidateDashboard() {
+  const record = useCandidateRecord();
+  const COMMUNITIES = useVisibleCommunities();
+  const { profile, sessions, prefs, memberships } = record;
+  const stats = useMemo(() => sessionStats(sessions, prefs.weeklyGoal), [sessions, prefs.weeklyGoal]);
+  const completion = useMemo(() => profileCompletion(profile), [profile]);
+  const first = profile.fullName.split(" ")[0] || "there";
+  const role = profile.targetRole || "your target role";
+  const hasHistory = stats.count > 0;
+
+  const readiness = hasHistory ? Math.round(stats.trend.slice(-3).reduce((s, t) => s + t.score, 0) / Math.min(3, stats.trend.length)) : 0;
+  const verdict = verdictFor(readiness);
+  const weakest = hasHistory ? Object.entries(stats.dimensions).sort((a, b) => a[1] - b[1])[0][0] : "structure";
+  const tip = FOCUS_TIPS[weakest];
+  const recent = [...sessions].sort((a, b) => b.completedAt - a.completedAt).slice(0, 5);
+  const joined = COMMUNITIES.filter((c) => memberships[c.id]?.status === "joined");
+  const suggested = COMMUNITIES.find((c) => !memberships[c.id] && c.category === categoryOf(profile.targetRole)) || COMMUNITIES.find((c) => !memberships[c.id]);
+
+  return (
+    <div className="space-y-6">
+      {/* Hero + weekly goal */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        <Reveal className="min-w-0 lg:col-span-8">
+          <Card className="relative h-full overflow-hidden p-6 sm:p-8">
+            <div aria-hidden className="bg-dot-grid pointer-events-none absolute inset-0 opacity-60 [mask-image:radial-gradient(ellipse_at_top_right,#000_10%,transparent_60%)]" />
+            <div aria-hidden className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-brand/10 blur-3xl" />
+            <div className="relative flex flex-col gap-8 md:flex-row md:items-center md:justify-between">
+              <div className="min-w-0 max-w-xl">
+                <p className="text-[14px] font-medium text-stone-500">
+                  {greeting()}, {first}
+                </p>
+                <h1 className="display mt-2 text-[30px] sm:text-[38px]">
+                  {hasHistory ? (
+                    <>
+                      You are <em>{verdict.label.toLowerCase()}</em> for {role} interviews.
+                    </>
+                  ) : (
+                    <>
+                      Let&apos;s run your <em>first practice</em> interview.
+                    </>
+                  )}
+                </h1>
+                <p className="mt-3 text-[15px] leading-relaxed text-stone-500">
+                  {hasHistory
+                    ? `${verdict.text} Your next best step: ${tip.title.toLowerCase()}.`
+                    : "Answer questions out loud, get scored on communication, structure, confidence and technical depth, then improve with every round."}
+                </p>
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                  <Link to="/candidate/interview/setup" className="btn-primary btn-lg">
+                    <Mic size={17} /> Start interview
+                  </Link>
+                  {stats.latest ? (
+                    <Link to={`/candidate/report/${stats.latest.id}`} className="btn-secondary btn-lg">
+                      Latest report <ArrowRight size={16} className="btn-arrow" />
+                    </Link>
+                  ) : (
+                    <Link to="/candidate/profile" className="btn-secondary btn-lg">
+                      Complete profile
+                    </Link>
+                  )}
+                </div>
+              </div>
+              {hasHistory && (
+                <div className="flex shrink-0 flex-col items-center gap-2 self-center">
+                  <ScoreRing score={readiness} size={148} stroke={11} label="readiness" />
+                  <Badge tone={toneFor(readiness)}>Last {Math.min(3, stats.count)} sessions</Badge>
+                </div>
+              )}
+            </div>
+          </Card>
+        </Reveal>
+        <Reveal delay={100} className="min-w-0 lg:col-span-4">
+          <WeeklyGoal stats={stats} />
+        </Reveal>
+      </div>
+
+      {!hasHistory && <Onboarding profile={profile} />}
+
+      {hasHistory && (
+        <>
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <StatTile icon={Mic} label="Interviews" value={stats.count} hint="completed" />
+            <StatTile icon={TrendingUp} label="Average score" value={stats.avg} suffix="/100" delta={stats.improvement || null} hint={stats.improvement ? "since you started" : undefined} delay={60} />
+            <StatTile icon={Award} label="Best score" value={stats.best} suffix="/100" delay={120} />
+            <StatTile icon={Clock} label="Practice time" value={stats.minutes} suffix="min" delay={180} />
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+            <Reveal className="min-w-0 lg:col-span-8">
+              <Card className="h-full p-6">
+                <CardHeader
+                  icon={TrendingUp}
+                  title="Score trend"
+                  subtitle={`${stats.count} interviews · ${stats.improvement >= 0 ? "+" : ""}${stats.improvement} points overall`}
+                  action={
+                    <Link to="/candidate/reports" className="inline-flex items-center gap-1 text-[13px] font-semibold text-stone-500 hover:text-brand">
+                      All reports <ChevronRight size={15} />
+                    </Link>
+                  }
+                />
+                <div className="mt-6">
+                  <TrendChart
+                    points={stats.trend.map((t) => ({ label: formatDate(t.at, { day: "numeric", month: "short" }), value: t.score, sub: t.role }))}
+                    height={220}
+                  />
+                </div>
+              </Card>
+            </Reveal>
+
+            <Reveal delay={100} className="min-w-0 lg:col-span-4">
+              <Card className="flex h-full flex-col p-6">
+                <CardHeader icon={Target} title="Skill breakdown" subtitle="Average of your last three interviews" />
+                <ul className="mt-6 space-y-4">
+                  {Object.entries(stats.dimensions).map(([k, v]) => (
+                    <li key={k}>
+                      <div className="mb-1.5 flex justify-between text-[13px]">
+                        <span className={`font-medium ${k === weakest ? "text-brand" : "text-stone-600"}`}>{DIMENSION_LABEL[k]}</span>
+                        <span className="font-semibold tabular-nums text-ink">{v}</span>
+                      </div>
+                      <ProgressBar value={v} tone={k === weakest ? "bg-brand" : "bg-ink"} />
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-auto rounded-2xl border border-brand/15 bg-brand-soft p-4 pt-4">
+                  <p className="flex items-center gap-2 text-[13px] font-semibold text-ink">
+                    <Lightbulb size={15} className="text-brand" /> Focus next: {tip.title}
+                  </p>
+                  <p className="mt-1.5 text-[13px] leading-relaxed text-stone-600">{tip.text}</p>
+                  <Link to={`/candidate/interview/setup?type=${tip.type}`} className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold text-brand hover:text-brand-hover">
+                    Practise this <ArrowRight size={14} />
+                  </Link>
+                </div>
+              </Card>
+            </Reveal>
+          </div>
+        </>
+      )}
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        <Reveal className="min-w-0 lg:col-span-8">
+          <Card className="h-full p-6">
+            <CardHeader
+              icon={FileBarChart2}
+              title="Recent interviews"
+              subtitle={hasHistory ? "Open any session for the full breakdown" : "Your sessions will appear here"}
+              action={
+                hasHistory && (
+                  <Link to="/candidate/reports" className="inline-flex items-center gap-1 text-[13px] font-semibold text-stone-500 hover:text-brand">
+                    View all <ChevronRight size={15} />
+                  </Link>
+                )
+              }
+            />
+            {hasHistory ? (
+              <ul className="mt-5 divide-y divide-[var(--line)]">
+                {recent.map((s, i) => {
+                  const tone = scoreTone(s.summary.overall);
+                  return (
+                    <li key={s.id} className="animate-fade-in-up" style={{ animationDelay: `${i * 60}ms` }}>
+                      <Link to={`/candidate/report/${s.id}`} className="group -mx-3 flex items-center gap-4 rounded-xl px-3 py-3.5 transition-colors hover:bg-stone-50">
+                        <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl font-display text-[17px] font-semibold tabular-nums ${tone.bg} ${tone.text}`}>
+                          {s.summary.overall}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[14.5px] font-semibold text-ink">{s.role}</span>
+                          <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12.5px] text-stone-500">
+                            <span>{TYPE_LABEL[s.type]}</span>
+                            <span className="text-stone-300">•</span>
+                            <span>{relativeTime(s.completedAt)}</span>
+                            <span className="hidden text-stone-300 xs:inline">•</span>
+                            <span className="hidden xs:inline">{formatDuration(s.durationSec)}</span>
+                          </span>
+                        </span>
+                        <Badge tone={toneFor(s.summary.overall)} className="hidden sm:inline-flex">
+                          {s.summary.verdict.label}
+                        </Badge>
+                        <ChevronRight size={17} className="shrink-0 text-stone-300 transition-transform group-hover:translate-x-0.5 group-hover:text-brand" />
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <EmptyState
+                className="mt-5"
+                icon={Mic}
+                title="No interviews yet"
+                message="Your first session takes about fifteen minutes. You will get a full report the moment you finish."
+                action={
+                  <Link to="/candidate/interview/setup" className="btn-primary">
+                    Start interview <ArrowRight size={15} className="btn-arrow" />
+                  </Link>
+                }
+              />
+            )}
+          </Card>
+        </Reveal>
+
+        <div className="min-w-0 space-y-6 lg:col-span-4">
+          {completion.percent < 100 && (
+            <Reveal delay={80}>
+              <Card className="p-6">
+                <CardHeader
+                  icon={UserRound}
+                  title="Profile checklist"
+                  subtitle={`${completion.percent}% complete`}
+                  action={<ScoreRing score={completion.percent} size={44} stroke={5} label="" color="#F04E23" />}
+                />
+                <ul className="mt-5 space-y-1">
+                  {completion.items.map((it) => (
+                    <li key={it.key}>
+                      <Link
+                        to="/candidate/profile"
+                        className={`flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-[13.5px] transition-colors ${it.done ? "text-stone-400 line-through" : "text-stone-700 hover:bg-stone-50 hover:text-ink"}`}
+                      >
+                        {it.done ? <CheckCircle2 size={16} className="text-emerald-500" /> : <Circle size={16} className="text-stone-300" />}
+                        {it.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            </Reveal>
+          )}
+
+          <Reveal delay={140}>
+            <Card className="p-6">
+              <CardHeader
+                icon={Globe2}
+                title="Communities"
+                subtitle={joined.length ? `Member of ${joined.length}` : "Find your people"}
+                action={
+                  <Link to="/candidate/communities" className="text-[12.5px] font-semibold text-stone-500 hover:text-brand">
+                    Browse
+                  </Link>
+                }
+              />
+              <ul className="mt-5 space-y-2">
+                {joined.slice(0, 2).map((c) => (
+                  <li key={c.id} className="flex items-center gap-3 rounded-xl border border-[var(--line)] p-2.5">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[12px] font-bold text-white" style={{ background: c.avatarBg }}>
+                      {c.avatar}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13.5px] font-semibold text-ink">{c.name}</span>
+                      <span className="text-[12px] text-stone-500">{c.postedJobs} open roles shared</span>
+                    </span>
+                  </li>
+                ))}
+                {suggested && (
+                  <li>
+                    <Link to="/candidate/communities" className="group flex items-center gap-3 rounded-xl border border-dashed border-stone-300 p-2.5 transition-colors hover:border-brand/40 hover:bg-brand-soft/40">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[12px] font-bold text-white" style={{ background: suggested.avatarBg }}>
+                        {suggested.avatar}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[11px] font-semibold uppercase tracking-wide text-brand">Suggested</span>
+                        <span className="block truncate text-[13.5px] font-semibold text-ink">{suggested.name}</span>
+                      </span>
+                      <ArrowRight size={15} className="text-stone-300 transition-transform group-hover:translate-x-0.5 group-hover:text-brand" />
+                    </Link>
+                  </li>
+                )}
+              </ul>
+            </Card>
+          </Reveal>
+        </div>
+      </div>
+    </div>
+  );
+}

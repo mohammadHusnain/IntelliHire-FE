@@ -3,6 +3,11 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, GuestRoute, RoleProtectedRoute } from "@/components/auth";
 import { ROLES } from "@/config/routes";
 import { Loader2 } from "lucide-react";
+import Toaster from "@/components/shared/Toaster";
+import CandidateGate from "@/components/candidate/CandidateGate";
+import CandidateLayout from "@/components/candidate/CandidateLayout";
+import AdminLayout from "@/components/admin/AdminLayout";
+import CompanyLayout, { CompanyGate } from "@/components/company/CompanyLayout";
 
 // ─── Lazy-loaded Pages ──────────────────────────────────────────────────────
 // Public
@@ -24,6 +29,7 @@ const CandidateSettings = lazy(() => import("@/pages/candidate/CandidateSettings
 
 // Company
 const CompanyPending = lazy(() => import("@/pages/company/CompanyPending"));
+const CompanyOnboarding = lazy(() => import("@/pages/company/CompanyOnboarding"));
 const CompanyDashboard = lazy(() => import("@/pages/company/CompanyDashboard"));
 const CompanyTeam = lazy(() => import("@/pages/company/CompanyTeam"));
 const CompanyJobs = lazy(() => import("@/pages/company/CompanyJobs"));
@@ -69,49 +75,63 @@ function App() {
 
             {/* ── Candidate Routes (role-guarded) ── */}
             <Route element={<RoleProtectedRoute allowedRoles={[ROLES.CANDIDATE]} />}>
-              <Route path="/candidate/dashboard" element={<CandidateDashboard />} />
-              <Route path="/candidate/profile" element={<CandidateProfile />} />
-              <Route path="/candidate/reports" element={<CandidateReports />} />
-              <Route path="/candidate/interview/setup" element={<InterviewSetup />} />
-              <Route path="/candidate/interview/room" element={<InterviewRoom />} />
-              <Route path="/candidate/report/:id" element={<InterviewReport />} />
-              <Route path="/candidate/communities" element={<CandidateCommunities />} />
-              <Route path="/candidate/settings" element={<CandidateSettings />} />
+              <Route element={<CandidateGate />}>
+                <Route path="/candidate/interview/room" element={<InterviewRoom />} />
+                <Route element={<CandidateLayout />}>
+                  <Route path="/candidate/dashboard" element={<CandidateDashboard />} />
+                  <Route path="/candidate/profile" element={<CandidateProfile />} />
+                  <Route path="/candidate/reports" element={<CandidateReports />} />
+                  <Route path="/candidate/interview/setup" element={<InterviewSetup />} />
+                  <Route path="/candidate/report/:id" element={<InterviewReport />} />
+                  <Route path="/candidate/communities" element={<CandidateCommunities />} />
+                  <Route path="/candidate/settings" element={<CandidateSettings />} />
+                  <Route path="/candidate" element={<Navigate to="/candidate/dashboard" replace />} />
+                </Route>
+              </Route>
             </Route>
 
             {/* ── Company Routes (role-guarded) ── */}
             <Route element={<RoleProtectedRoute allowedRoles={[ROLES.COMPANY]} />}>
-              <Route path="/company/pending" element={<CompanyPending />} />
-              <Route path="/company/dashboard" element={<CompanyDashboard />} />
-              <Route path="/company/team" element={<CompanyTeam />} />
-              <Route path="/company/jobs" element={<CompanyJobs />} />
-              <Route path="/company/jobs/create" element={<CompanyJobCreate />} />
-              <Route path="/company/jobs/:id/edit" element={<CompanyJobCreate />} />
-              <Route path="/company/jobs/:id/preview" element={<CompanyJobPreview />} />
-              <Route path="/company/candidates" element={<CompanyAllCandidates />} />
-              <Route path="/company/jobs/:id/candidates" element={<CompanyCandidates />} />
-              <Route path="/company/candidates/:id" element={<CompanyCandidateProfile />} />
-              <Route path="/company/analytics" element={<CompanyAnalytics />} />
-              <Route path="/company/community" element={<CompanyCommunity />} />
-              <Route path="/company/settings" element={<CompanySettings />} />
+              <Route element={<CompanyGate />}>
+                <Route path="/company/pending" element={<CompanyPending />} />
+                <Route element={<CompanyLayout />}>
+                  <Route path="/company/dashboard" element={<CompanyDashboard />} />
+                  <Route path="/company/onboarding" element={<CompanyOnboarding />} />
+                  <Route path="/company/team" element={<CompanyTeam />} />
+                  <Route path="/company/jobs" element={<CompanyJobs />} />
+                  <Route path="/company/jobs/create" element={<CompanyJobCreate />} />
+                  <Route path="/company/jobs/:id/edit" element={<CompanyJobCreate />} />
+                  <Route path="/company/jobs/:id/preview" element={<CompanyJobPreview />} />
+                  <Route path="/company/candidates" element={<CompanyAllCandidates />} />
+                  <Route path="/company/jobs/:id/candidates" element={<CompanyCandidates />} />
+                  <Route path="/company/candidates/:id" element={<CompanyCandidateProfile />} />
+                  <Route path="/company/analytics" element={<CompanyAnalytics />} />
+                  <Route path="/company/community" element={<CompanyCommunity />} />
+                  <Route path="/company/settings" element={<CompanySettings />} />
+                  <Route path="/company" element={<Navigate to="/company/dashboard" replace />} />
+                </Route>
+              </Route>
             </Route>
 
             {/* ── Admin Routes (role-guarded) ── */}
             <Route element={<RoleProtectedRoute allowedRoles={[ROLES.ADMIN]} />}>
-              <Route path="/admin/dashboard" element={<AdminDashboard />} />
-              <Route path="/admin/users" element={<AdminUsers />} />
-              <Route path="/admin/companies" element={<AdminCompanies />} />
-              <Route path="/admin/communities" element={<AdminCommunities />} />
-              <Route path="/admin/reports" element={<AdminReports />} />
-              <Route path="/admin/settings" element={<AdminSettings />} />
-              <Route path="/admin/management" element={<AdminManagement />} />
-              <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+              <Route element={<AdminLayout />}>
+                <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                <Route path="/admin/users" element={<AdminUsers />} />
+                <Route path="/admin/companies" element={<AdminCompanies />} />
+                <Route path="/admin/communities" element={<AdminCommunities />} />
+                <Route path="/admin/reports" element={<AdminReports />} />
+                <Route path="/admin/settings" element={<AdminSettings />} />
+                <Route path="/admin/management" element={<AdminManagement />} />
+                <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+              </Route>
             </Route>
 
             {/* ── Catch-all 404 ── */}
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Suspense>
+        <Toaster />
       </AuthProvider>
     </BrowserRouter>
   );

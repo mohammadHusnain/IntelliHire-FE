@@ -1,335 +1,344 @@
-import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { useLogout } from "@/hooks/useLogout";
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
-  LayoutDashboard, User, Mic2, FileText, Globe, Settings, LogOut,
-  Search, Users, Briefcase, Lock, CheckCircle2, Clock,
+  ArrowRight, Briefcase, CheckCircle2, Clock, Compass, Globe2, Lock, Search, SearchX, Sparkles, Users, X,
 } from "lucide-react";
-import IntelliHireLogo from "../../components/shared/IntelliHireLogo";
-import { COMMUNITIES, COMMUNITY_CATEGORIES } from "../../data/communitiesData";
+import { Badge, Card, EmptyState, PageHeader, Segmented } from "@/components/app/primitives";
+import Reveal from "@/components/shared/Reveal";
+import { useCandidateActions, useCandidateRecord } from "@/store/candidateStore";
+import { COMMUNITY_CATEGORIES } from "@/data/communitiesData";
+import { useVisibleCommunities } from "@/store/communityStore";
+import { categoryOf } from "@/lib/interview/questionBank";
+import { relativeTime } from "@/lib/candidateStats";
+import { trackSpotlight } from "@/lib/spotlight";
+import { toast } from "@/store/toastStore";
 
-const XCircleIcon = () => (
-  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-    <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
-  </svg>
-);
+const BENEFITS = ["Roles shared directly by hiring companies", "Referrals and introductions from members", "Events, AMAs and interview prep threads"];
 
-// ─── Nav Item ────────────────────────────────────────────────────────────────
-const NavItem = ({ icon: Icon, label, active, onClick }) => (
-  <button onClick={onClick}
-    className={`w-full flex items-center gap-3 px-4 h-[40px] text-[14px] transition-all ${
-      active
-        ? "border-l-[3px] border-[#F04E23] bg-[#FFF4F1] text-[#F04E23] font-medium"
-        : "border-l-[3px] border-transparent text-[#374151] hover:bg-[#F9FAFB]"
-    }`}>
-    <Icon size={18} />
-    <span>{label}</span>
-  </button>
-);
-
-// ─── Status Badge ─────────────────────────────────────────────────────────────
-const StatusBadge = ({ status }) => {
-  const map = {
-    pending:  { icon: Clock,        color: "#D97706", bg: "#FFFBEB", border: "#FDE68A", label: "Pending" },
-    approved: { icon: CheckCircle2, color: "#16A34A", bg: "#F0FDF4", border: "#BBF7D0", label: "Member"  },
-    rejected: { icon: XCircleIcon,   color: "#DC2626", bg: "#FEF2F2", border: "#FECACA", label: "Rejected" },
-  };
-  const s = map[status];
-  if (!s) return null;
-  const Icon = s.icon;
-  return (
-    <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold"
-      style={{ color: s.color, background: s.bg, border: `1px solid ${s.border}` }}>
-      <Icon size={11} /> {s.label}
-    </span>
-  );
-};
-
-// ─── Community Card ───────────────────────────────────────────────────────────
-function CommunityCard({ community, requestStatus, onJoin }) {
-  const joined = requestStatus === "approved";
-  const pending = requestStatus === "pending";
-  const rejected = requestStatus === "rejected";
-
-  return (
-    <div className="bg-white border border-[#E5E7EB] rounded-2xl p-5 hover:shadow-[0_4px_20px_rgba(0,0,0,0.07)] hover:border-[#FCA68A] transition-all flex flex-col gap-4">
-      {/* Header */}
-      <div className="flex items-start gap-3">
-        <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white text-[15px] font-bold shrink-0"
-          style={{ background: community.avatarBg }}>
-          {community.avatar}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-[15px] font-semibold text-[#111827] truncate">{community.name}</h3>
-            {!community.isOpen && (
-              <span className="flex items-center gap-1 px-2 py-0.5 bg-[#F3F4F6] text-[#6B7280] text-[11px] rounded-full border border-[#E5E7EB]">
-                <Lock size={9} /> Private
-              </span>
-            )}
-          </div>
-          <span className="text-[12px] text-[#9CA3AF]">{community.category}</span>
-        </div>
-        {requestStatus && <StatusBadge status={requestStatus} />}
-      </div>
-
-      {/* Description */}
-      <p className="text-[13px] text-[#6B7280] leading-relaxed line-clamp-2">{community.description}</p>
-
-      {/* Tags */}
-      <div className="flex flex-wrap gap-1.5">
-        {community.tags.map((t) => (
-          <span key={t} className="px-2.5 py-0.5 bg-[#F3F4F6] text-[#374151] text-[11px] rounded-full font-medium">
-            {t}
-          </span>
-        ))}
-      </div>
-
-      {/* Stats row */}
-      <div className="flex items-center gap-4 text-[12px] text-[#9CA3AF]">
-        <span className="flex items-center gap-1.5"><Users size={13} /> {community.members.toLocaleString()} members</span>
-        <span className="flex items-center gap-1.5"><Briefcase size={13} /> {community.postedJobs} jobs</span>
-        <span className="flex items-center gap-1.5 ml-auto">
-          <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />
-          {community.activeThisWeek} active this week
-        </span>
-      </div>
-
-      {/* Action */}
-      <button
-        onClick={() => !joined && !pending && onJoin(community.id)}
-        disabled={joined || pending}
-        className={`w-full h-[38px] rounded-xl text-[13px] font-semibold transition-all flex items-center justify-center gap-2 ${
-          joined
-            ? "bg-[#F0FDF4] text-[#16A34A] border border-[#BBF7D0] cursor-default"
-            : pending
-            ? "bg-[#FFFBEB] text-[#D97706] border border-[#FDE68A] cursor-default"
-            : rejected
-            ? "bg-[#F04E23] hover:bg-[#D43D14] text-white"
-            : "bg-[#F04E23] hover:bg-[#D43D14] text-white"
-        }`}>
-        {joined   ? <><CheckCircle2 size={14} /> Joined</> :
-         pending  ? <><Clock size={14} /> Request Pending</> :
-         rejected ? "Request Again" :
-         community.isOpen ? "Join Community" : <><Lock size={13} /> Request to Join</>}
-      </button>
-    </div>
-  );
-}
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
-function CandidateCommunities() {
-  const navigate = useNavigate();
-  const logout = useLogout();
-
-  const [activeNav, setActiveNav] = useState("communities");
-  const [search, setSearch] = useState("");
-  const [activeCategory, setActiveCategory] = useState("All");
-  // Map of communityId → "pending" | "approved" | "rejected"
-  const [requestStatuses, setRequestStatuses] = useState({});
-  const [toast, setToast] = useState(null);
-
-  const navItems = [
-    { id: "dashboard",   label: "Dashboard",   icon: LayoutDashboard },
-    { id: "profile",     label: "My Profile",  icon: User },
-    { id: "interview",   label: "Interviews",  icon: Mic2 },
-    { id: "reports",     label: "My Reports",  icon: FileText },
-    { id: "communities", label: "Communities", icon: Globe },
-    { id: "settings",    label: "Settings",    icon: Settings },
-  ];
-
-  const handleNavClick = (id) => {
-    setActiveNav(id);
-    if (id === "dashboard")   navigate("/candidate/dashboard");
-    if (id === "profile")     navigate("/candidate/profile");
-    if (id === "interview")   navigate("/candidate/interview/setup");
-    if (id === "reports")     navigate("/candidate/reports");
-    if (id === "settings")    navigate("/candidate/settings");
-  };
-
-  const showToast = (msg, type = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
-  };
-
-  const handleJoin = (communityId) => {
-    const community = COMMUNITIES.find((c) => c.id === communityId);
-    setRequestStatuses((prev) => ({ ...prev, [communityId]: "pending" }));
-
-    // Simulate approval for open communities, pending for private
-    if (community?.isOpen) {
-      setTimeout(() => {
-        setRequestStatuses((prev) => ({ ...prev, [communityId]: "approved" }));
-        showToast(`You joined ${community.name}!`);
-      }, 1500);
-    } else {
-      showToast(`Join request sent to ${community?.name}.`, "info");
+function useMembership() {
+  const { memberships } = useCandidateRecord();
+  const { setMembership } = useCandidateActions();
+  const act = (c, kind) => {
+    if (kind === "join") {
+      if (c.isOpen) {
+        setMembership(c.id, "joined", c.name);
+        toast({ title: `Joined ${c.name}`, message: "Roles shared there will appear in your notifications." });
+      } else {
+        setMembership(c.id, "pending", c.name);
+        toast({ type: "info", title: "Request sent", message: `${c.name} admins will review it. You'll be notified when they respond.` });
+      }
+    } else if (kind === "cancel") {
+      setMembership(c.id, null);
+      toast({ type: "info", title: "Request withdrawn", message: `Your request to join ${c.name} was cancelled.` });
+    } else if (kind === "leave") {
+      setMembership(c.id, null);
+      toast({ type: "info", title: `Left ${c.name}`, message: "You can rejoin at any time." });
     }
   };
+  return { memberships, act };
+}
 
-  const filtered = useMemo(() => {
-    return COMMUNITIES.filter((c) => {
-      const matchSearch =
-        c.name.toLowerCase().includes(search.toLowerCase()) ||
-        c.description.toLowerCase().includes(search.toLowerCase()) ||
-        c.tags.some((t) => t.toLowerCase().includes(search.toLowerCase()));
-      const matchCat = activeCategory === "All" || c.category === activeCategory;
-      return matchSearch && matchCat;
-    });
-  }, [search, activeCategory]);
-
-  const myCount = Object.values(requestStatuses).filter((s) => s === "approved").length;
-  const pendingCount = Object.values(requestStatuses).filter((s) => s === "pending").length;
-
+function ActionButton({ c, status, onAct, full = false }) {
+  if (status === "joined") {
+    return (
+      <span className={`inline-flex h-10 items-center justify-center gap-1.5 rounded-[10px] bg-emerald-50 px-4 text-[13px] font-semibold text-emerald-700 ${full ? "w-full" : ""}`}>
+        <CheckCircle2 size={15} /> Member
+      </span>
+    );
+  }
+  if (c.status === "paused") {
+    return (
+      <span className={`inline-flex h-10 items-center justify-center gap-1.5 rounded-[10px] bg-stone-100 px-4 text-[13px] font-semibold text-stone-500 ${full ? "w-full" : ""}`}>
+        Paused
+      </span>
+    );
+  }
+  if (status === "pending") {
+    return (
+      <button type="button" onClick={() => onAct(c, "cancel")} className={`btn-secondary group/pend ${full ? "w-full" : ""}`}>
+        <Clock size={15} className="text-amber-600 group-hover/pend:hidden" />
+        <span className="group-hover/pend:hidden">Pending</span>
+        <span className="hidden group-hover/pend:inline">Cancel request</span>
+      </button>
+    );
+  }
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#F9FAFB", fontFamily: "Inter, sans-serif" }}>
-
-      {/* ── Sidebar ── */}
-      <aside style={{ width: "240px", background: "white", borderRight: "1px solid #E5E7EB", display: "flex", flexDirection: "column", position: "fixed", top: 0, left: 0, height: "100vh", zIndex: 40 }}>
-        <div style={{ height: "64px", display: "flex", alignItems: "center", padding: "0 16px", borderBottom: "1px solid #E5E7EB" }}>
-          <IntelliHireLogo className="w-8 h-8 mr-2" />
-          <span style={{ fontFamily: "Times New Roman, serif", fontSize: "20px", fontWeight: 700, color: "#111827" }}>IntelliHire</span>
-        </div>
-        <nav style={{ flex: 1, padding: "8px 0", overflowY: "auto" }}>
-          {navItems.map((item) => (
-            <NavItem key={item.id} icon={item.icon} label={item.label}
-              active={activeNav === item.id} onClick={() => handleNavClick(item.id)} />
-          ))}
-        </nav>
-        <div style={{ borderTop: "1px solid #E5E7EB", padding: "12px 16px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: "#F04E23", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: "12px", fontWeight: 600, flexShrink: 0 }}>AH</div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: "13px", fontWeight: 500, color: "#0D0D0D", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Ahmed Hassan</p>
-              <span style={{ fontSize: "11px", color: "#F04E23", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em", background: "#FFF4F1", borderRadius: "999px", padding: "1px 8px" }}>Candidate</span>
-            </div>
-            <button onClick={logout}
-              style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", padding: "4px", borderRadius: "4px", display: "flex", alignItems: "center" }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "#DC2626")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "#9CA3AF")}
-              title="Log out">
-              <LogOut size={15} />
-            </button>
-          </div>
-        </div>
-      </aside>
-
-      {/* ── Main ── */}
-      <div style={{ marginLeft: "240px", flex: 1, display: "flex", flexDirection: "column" }}>
-
-        {/* Header */}
-        <header style={{ height: "64px", background: "white", borderBottom: "1px solid #E5E7EB", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 32px", position: "sticky", top: 0, zIndex: 30 }}>
-          <h1 style={{ fontFamily: "Times New Roman, serif", fontSize: "22px", color: "#0D0D0D", margin: 0 }}>
-            Candidate <em style={{ color: "#F04E23", fontStyle: "italic" }}>Communities</em>
-          </h1>
-          <div style={{ display: "flex", gap: "16px", fontSize: "13px", color: "#6B7280" }}>
-            {myCount > 0 && (
-              <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <CheckCircle2 size={14} color="#16A34A" />
-                <span style={{ color: "#16A34A", fontWeight: 600 }}>{myCount}</span> joined
-              </span>
-            )}
-            {pendingCount > 0 && (
-              <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <Clock size={14} color="#D97706" />
-                <span style={{ color: "#D97706", fontWeight: 600 }}>{pendingCount}</span> pending
-              </span>
-            )}
-          </div>
-        </header>
-
-        {/* Content */}
-        <main style={{ padding: "32px", flex: 1 }}>
-
-          {/* Intro banner */}
-          <div style={{ background: "linear-gradient(135deg, #F04E23 0%, #FF7043 100%)", borderRadius: "16px", padding: "24px 28px", marginBottom: "28px", color: "white", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "16px" }}>
-            <div>
-              <h2 style={{ fontSize: "20px", fontWeight: 700, margin: "0 0 4px", fontFamily: "Times New Roman, serif" }}>Discover Your Community</h2>
-              <p style={{ fontSize: "14px", opacity: 0.85, margin: 0 }}>Join talent communities to discover jobs, referrals, and industry connections.</p>
-            </div>
-            <div style={{ display: "flex", gap: "20px", flexShrink: 0 }}>
-              {[
-                { value: COMMUNITIES.length, label: "Communities" },
-                { value: COMMUNITIES.reduce((s, c) => s + c.members, 0).toLocaleString(), label: "Members" },
-                { value: COMMUNITIES.reduce((s, c) => s + c.postedJobs, 0), label: "Active Jobs" },
-              ].map(({ value, label }) => (
-                <div key={label} style={{ textAlign: "center" }}>
-                  <p style={{ fontSize: "22px", fontWeight: 700, margin: 0 }}>{value}</p>
-                  <p style={{ fontSize: "12px", opacity: 0.75, margin: 0 }}>{label}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Search + Filter row */}
-          <div style={{ display: "flex", gap: "12px", marginBottom: "20px", flexWrap: "wrap", alignItems: "center" }}>
-            <div style={{ position: "relative", flex: "1 1 260px" }}>
-              <Search size={15} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#9CA3AF" }} />
-              <input
-                type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search communities, skills, tags…"
-                style={{ width: "100%", height: "40px", paddingLeft: "36px", paddingRight: "12px", border: "1px solid #E5E7EB", borderRadius: "10px", fontSize: "14px", outline: "none", fontFamily: "Inter, sans-serif", boxSizing: "border-box", background: "white" }}
-              />
-            </div>
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-              {COMMUNITY_CATEGORIES.map((cat) => (
-                <button key={cat} onClick={() => setActiveCategory(cat)}
-                  style={{
-                    height: "36px", padding: "0 14px", borderRadius: "999px", fontSize: "13px", fontWeight: 500,
-                    cursor: "pointer", border: "1px solid",
-                    borderColor: activeCategory === cat ? "#F04E23" : "#E5E7EB",
-                    background: activeCategory === cat ? "#FFF4F1" : "white",
-                    color: activeCategory === cat ? "#F04E23" : "#6B7280",
-                    transition: "all 150ms",
-                  }}>
-                  {cat}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Results count */}
-          <p style={{ fontSize: "13px", color: "#9CA3AF", marginBottom: "16px" }}>
-            Showing <strong style={{ color: "#374151" }}>{filtered.length}</strong> {filtered.length === 1 ? "community" : "communities"}
-          </p>
-
-          {/* Grid */}
-          {filtered.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "60px 20px", color: "#9CA3AF" }}>
-              <Users size={40} style={{ margin: "0 auto 12px", opacity: 0.3 }} />
-              <p style={{ fontSize: "16px", fontWeight: 600, color: "#374151" }}>No communities found</p>
-              <p style={{ fontSize: "14px" }}>Try adjusting your search or filter.</p>
-            </div>
-          ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "20px" }}>
-              {filtered.map((c) => (
-                <CommunityCard
-                  key={c.id}
-                  community={c}
-                  requestStatus={requestStatuses[c.id] || null}
-                  onJoin={handleJoin}
-                />
-              ))}
-            </div>
-          )}
-        </main>
-      </div>
-
-      {/* Toast */}
-      {toast && (
-        <div style={{
-          position: "fixed", bottom: "24px", right: "24px", zIndex: 9999,
-          background: toast.type === "success" ? "#16A34A" : toast.type === "info" ? "#1D4ED8" : "#DC2626",
-          color: "white", padding: "12px 20px", borderRadius: "12px",
-          fontSize: "14px", fontWeight: 500, boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
-          display: "flex", alignItems: "center", gap: "8px", maxWidth: "320px",
-        }}>
-          {toast.type === "success" ? <CheckCircle2 size={16} /> : <Clock size={16} />}
-          {toast.msg}
-        </div>
-      )}
-    </div>
+    <button type="button" onClick={() => onAct(c, "join")} className={`${c.isOpen ? "btn-primary" : "btn-dark"} ${full ? "w-full" : ""}`}>
+      {c.isOpen ? "Join" : <><Lock size={14} /> Request to join</>}
+    </button>
   );
 }
 
-export default CandidateCommunities;
+function CommunityCard({ c, status, onAct, onOpen, recommended, delay }) {
+  return (
+    <Reveal delay={delay} className="min-w-0">
+      <Card
+        as="article"
+        interactive
+        onMouseMove={trackSpotlight}
+        className={`spotlight group relative flex h-full flex-col p-5 ${recommended ? "ring-1 ring-brand/25" : ""}`}
+      >
+        <div className="flex items-start gap-3">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-[15px] font-bold text-white shadow-sm transition-transform duration-300 group-hover:scale-105" style={{ background: c.avatarBg }}>
+            {c.avatar}
+          </span>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-sans text-[15.5px] font-semibold leading-snug text-ink">
+              <button type="button" onClick={() => onOpen(c)} className="text-left after:absolute after:inset-0 after:rounded-[20px] focus-visible:outline-none">
+                {c.name}
+              </button>
+            </h3>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              <span className="text-[12px] text-stone-500">{c.category}</span>
+              {!c.isOpen && <Badge tone="neutral"><Lock size={10} /> Private</Badge>}
+              {recommended && <Badge tone="brand"><Sparkles size={10} /> For you</Badge>}
+            </div>
+          </div>
+        </div>
+        <p className="mt-4 line-clamp-2 text-[13.5px] leading-relaxed text-stone-500">{c.description}</p>
+        <div className="mt-4 flex flex-wrap gap-1.5">
+          {c.tags.slice(0, 3).map((t) => (
+            <span key={t} className="rounded-full bg-stone-100 px-2.5 py-0.5 text-[11.5px] font-medium text-stone-600">{t}</span>
+          ))}
+        </div>
+        <div className="mt-auto flex items-center gap-4 pt-5 text-[12.5px] text-stone-500">
+          <span className="inline-flex items-center gap-1.5"><Users size={13} /> {c.members.toLocaleString()}</span>
+          <span className="inline-flex items-center gap-1.5"><Briefcase size={13} /> {c.postedJobs} roles</span>
+          <span className="ml-auto hidden items-center gap-1.5 xs:inline-flex">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> {c.activeThisWeek} active
+          </span>
+        </div>
+        <div className="relative z-10 mt-4 border-t border-[var(--line)] pt-4">
+          <ActionButton c={c} status={status} onAct={onAct} full />
+        </div>
+      </Card>
+    </Reveal>
+  );
+}
+
+function Drawer({ c, status, joinedAt, onAct, onClose }) {
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
+  return createPortal(
+    <div className="fixed inset-0 z-[110]" role="dialog" aria-modal="true" aria-label={c.name}>
+      <button type="button" aria-label="Close" onClick={onClose} className="animate-backdrop-in absolute inset-0 bg-ink/30 backdrop-blur-sm" />
+      <aside className="animate-panel-in absolute inset-y-0 right-0 flex w-full max-w-[460px] flex-col bg-white shadow-2xl">
+        <div className="relative h-32 shrink-0" style={{ background: `linear-gradient(135deg, ${c.avatarBg}, ${c.avatarBg}AA)` }}>
+          <div aria-hidden className="bg-dot-grid-light absolute inset-0 opacity-70" />
+          <button type="button" onClick={onClose} aria-label="Close" className="icon-btn absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur hover:bg-white/30">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 pb-6">
+          <span className="-mt-9 flex h-[72px] w-[72px] items-center justify-center rounded-2xl border-4 border-white text-[20px] font-bold text-white shadow-lg" style={{ background: c.avatarBg }}>
+            {c.avatar}
+          </span>
+          <h2 className="display mt-4 text-[26px]">{c.name}</h2>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Badge tone="neutral">{c.category}</Badge>
+            <Badge tone={c.isOpen ? "success" : "neutral"}>{c.isOpen ? <><Globe2 size={10} /> Open to all</> : <><Lock size={10} /> Private · approval required</>}</Badge>
+            {status === "joined" && joinedAt && <span className="text-[12px] text-stone-500">Joined {relativeTime(joinedAt)}</span>}
+          </div>
+          <p className="mt-5 text-[14.5px] leading-relaxed text-stone-600">{c.description}</p>
+
+          <div className="mt-6 grid grid-cols-3 gap-2">
+            {[["Members", c.members.toLocaleString()], ["Active this week", c.activeThisWeek], ["Open roles", c.postedJobs]].map(([k, v]) => (
+              <div key={k} className="rounded-2xl border border-[var(--line)] bg-stone-50/60 p-3 text-center">
+                <p className="font-display text-[22px] font-medium tabular-nums text-ink">{v}</p>
+                <p className="text-[11.5px] text-stone-500">{k}</p>
+              </div>
+            ))}
+          </div>
+
+          <p className="mt-6 text-[12px] font-semibold uppercase tracking-wide text-stone-400">Topics</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {c.tags.map((t) => <span key={t} className="rounded-full bg-stone-100 px-3 py-1 text-[12.5px] font-medium text-stone-600">{t}</span>)}
+          </div>
+
+          <p className="mt-6 text-[12px] font-semibold uppercase tracking-wide text-stone-400">What members get</p>
+          <ul className="mt-2 space-y-2">
+            {BENEFITS.map((b) => (
+              <li key={b} className="flex gap-2.5 text-[14px] text-stone-600">
+                <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-emerald-500" /> {b}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="shrink-0 border-t border-[var(--line)] p-4">
+          {status === "joined" ? (
+            confirmLeave ? (
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <button type="button" onClick={() => setConfirmLeave(false)} className="btn-secondary flex-1">Stay</button>
+                <button type="button" onClick={() => { onAct(c, "leave"); onClose(); }} className="btn-dark flex-1 !bg-red-600 hover:!bg-red-700">Leave community</button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <ActionButton c={c} status={status} onAct={onAct} full />
+                <button type="button" onClick={() => setConfirmLeave(true)} className="btn-secondary shrink-0">Leave</button>
+              </div>
+            )
+          ) : (
+            <ActionButton c={c} status={status} onAct={onAct} full />
+          )}
+          {status === "pending" && <p className="mt-2 text-center text-[12px] text-stone-500">Admins usually respond within a few days.</p>}
+        </div>
+      </aside>
+    </div>,
+    document.body,
+  );
+}
+
+export default function CandidateCommunities() {
+  const COMMUNITIES = useVisibleCommunities();
+  const { profile } = useCandidateRecord();
+  const { memberships, act } = useMembership();
+  const [tab, setTab] = useState("discover");
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("All");
+  const [openId, setOpenId] = useState(null);
+
+  const statusOf = (id) => memberships[id]?.status || null;
+  const joinedCount = COMMUNITIES.filter((c) => statusOf(c.id) === "joined").length;
+  const pendingCount = COMMUNITIES.filter((c) => statusOf(c.id) === "pending").length;
+  const myCategory = categoryOf(profile.targetRole);
+  const recommendedIds = useMemo(
+    () => new Set(COMMUNITIES.filter((c) => c.category === myCategory || c.tags.some((t) => profile.skills.some((s) => s.toLowerCase().includes(t.toLowerCase())))).map((c) => c.id)),
+    [myCategory, profile.skills, COMMUNITIES],
+  );
+
+  const list = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return COMMUNITIES.filter((c) => {
+      const st = memberships[c.id]?.status || null;
+      if (tab === "mine" && st !== "joined") return false;
+      if (tab === "requests" && st !== "pending") return false;
+      if (category !== "All" && c.category !== category) return false;
+      if (q && !(c.name.toLowerCase().includes(q) || c.description.toLowerCase().includes(q) || c.tags.some((t) => t.toLowerCase().includes(q)))) return false;
+      return true;
+    }).sort((a, b) => Number(recommendedIds.has(b.id)) - Number(recommendedIds.has(a.id)) || b.activeThisWeek - a.activeThisWeek);
+  }, [tab, query, category, memberships, recommendedIds, COMMUNITIES]);
+
+  const open = COMMUNITIES.find((c) => c.id === openId);
+  const totals = {
+    members: COMMUNITIES.reduce((s, c) => s + c.members, 0),
+    roles: COMMUNITIES.reduce((s, c) => s + c.postedJobs, 0),
+  };
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Communities"
+        title={<>Find your <em>talent communities</em></>}
+        subtitle="Join focused groups where companies share roles, members trade referrals and everyone prepares together."
+      />
+
+      <Reveal>
+        <Card className="relative overflow-hidden !bg-ink p-6 text-white sm:p-7">
+          <div aria-hidden className="bg-dot-grid-light pointer-events-none absolute inset-0 opacity-50" />
+          <div aria-hidden className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-brand/30 blur-3xl" />
+          <div className="relative grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+            <div>
+              <p className="flex items-center gap-2 text-[13px] font-semibold text-brand-muted"><Compass size={15} /> Your network</p>
+              <p className="display mt-2 text-[24px] !text-white sm:text-[28px]">
+                {joinedCount ? `You're in ${joinedCount} ${joinedCount === 1 ? "community" : "communities"}.` : "You haven't joined a community yet."}
+              </p>
+              <p className="mt-1.5 text-[14px] text-white/60">
+                {profile.targetRole ? `Groups for ${myCategory} are highlighted for your ${profile.targetRole} goal.` : "Set a target role on your profile for tailored recommendations."}
+              </p>
+            </div>
+            <dl className="grid grid-cols-3 gap-6 text-center md:text-left">
+              {[["Communities", COMMUNITIES.length], ["Members", totals.members.toLocaleString()], ["Open roles", totals.roles]].map(([k, v]) => (
+                <div key={k}>
+                  <dd className="font-display text-[26px] font-medium tabular-nums">{v}</dd>
+                  <dt className="text-[12px] text-white/55">{k}</dt>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </Card>
+      </Reveal>
+
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+        <div className="max-w-full overflow-x-auto">
+          <Segmented
+            ariaLabel="View"
+            value={tab}
+            onChange={setTab}
+            options={[
+              { value: "discover", label: "Discover" },
+              { value: "mine", label: `Joined${joinedCount ? ` · ${joinedCount}` : ""}` },
+              { value: "requests", label: `Requests${pendingCount ? ` · ${pendingCount}` : ""}` },
+            ]}
+          />
+        </div>
+        <div className="relative flex-1">
+          <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search communities, skills or tags" aria-label="Search communities" className="field !h-11 !pl-10 pr-10" />
+          {query && (
+            <button type="button" onClick={() => setQuery("")} aria-label="Clear search" className="icon-btn absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-stone-400 hover:bg-stone-100 hover:text-ink">
+              <X size={14} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0" role="radiogroup" aria-label="Category">
+        {COMMUNITY_CATEGORIES.map((cat) => {
+          const on = category === cat;
+          return (
+            <button
+              key={cat}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              onClick={() => setCategory(cat)}
+              className={`h-9 shrink-0 rounded-full border px-4 text-[13px] font-semibold transition-all duration-200 ${
+                on ? "border-ink bg-ink text-white" : "border-[var(--line)] bg-white text-stone-600 hover:border-stone-300 hover:text-ink"
+              }`}
+            >
+              {cat}
+              {cat === myCategory && !on && <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-brand align-middle" />}
+            </button>
+          );
+        })}
+      </div>
+
+      {list.length === 0 ? (
+        tab === "mine" && !query && category === "All" ? (
+          <EmptyState icon={Users} title="No communities yet" message="Join a community to get roles and referrals from people in your field." action={<button type="button" onClick={() => setTab("discover")} className="btn-primary">Discover communities <ArrowRight size={15} className="btn-arrow" /></button>} />
+        ) : tab === "requests" && !query && category === "All" ? (
+          <EmptyState icon={Clock} title="No pending requests" message="Requests to private communities appear here until an admin responds." />
+        ) : (
+          <EmptyState icon={SearchX} title="Nothing matches" message="Try a different search or category." action={<button type="button" onClick={() => { setQuery(""); setCategory("All"); }} className="btn-secondary">Clear filters</button>} />
+        )
+      ) : (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {list.map((c, i) => (
+            <CommunityCard
+              key={c.id}
+              c={c}
+              status={statusOf(c.id)}
+              onAct={act}
+              onOpen={(x) => setOpenId(x.id)}
+              recommended={tab === "discover" && recommendedIds.has(c.id) && !statusOf(c.id)}
+              delay={Math.min(i, 8) * 50}
+            />
+          ))}
+        </div>
+      )}
+
+      {open && <Drawer c={open} status={statusOf(open.id)} joinedAt={memberships[open.id]?.at} onAct={act} onClose={() => setOpenId(null)} />}
+    </div>
+  );
+}

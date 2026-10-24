@@ -24,10 +24,7 @@ export default function useCounter(target, duration = 1200, start = false, decim
     if (!start) return;
     const numericTarget = Number(target) || 0;
 
-    if (reduced || duration <= 0) {
-      setValue(numericTarget);
-      return;
-    }
+    if (reduced || duration <= 0) return;
 
     let startTime = null;
     const factor = Math.pow(10, decimals);
@@ -49,5 +46,6 @@ export default function useCounter(target, duration = 1200, start = false, decim
     };
   }, [target, duration, start, decimals, reduced]);
 
-  return value;
+  // Reduced motion (or no duration) jumps straight to the target.
+  return reduced || duration <= 0 ? Number(target) || 0 : value;
 }

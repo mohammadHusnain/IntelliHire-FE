@@ -1,31 +1,27 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Compass, Home, LogIn, Sparkles, Workflow } from "lucide-react";
+import ErrorStatePage from "@/components/shared/ErrorStatePage";
+import { useAuthStore } from "@/store/authStore";
+import { ROLE_DASHBOARDS } from "@/config/routes";
 
 export default function NotFoundPage() {
-  const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  const dashboard = user ? ROLE_DASHBOARDS[user.role] : null;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white px-4">
-      <div className="text-center max-w-md">
-        <p className="text-[72px] font-extrabold text-[#F04E23] leading-none">404</p>
-        <h1 className="mt-4 text-[24px] font-semibold text-[#0D0D0D]">Page not found</h1>
-        <p className="mt-2 text-[14px] text-[#6B7280]">
-          The page you're looking for doesn't exist or has been moved.
-        </p>
-        <div className="mt-8 flex items-center justify-center gap-3">
-          <button
-            onClick={() => navigate(-1)}
-            className="h-[40px] px-5 rounded-lg border border-[#E5E7EB] text-[14px] text-[#374151] hover:bg-[#F9FAFB] transition-colors"
-          >
-            Go Back
-          </button>
-          <Link
-            to="/"
-            className="h-[40px] px-5 rounded-lg bg-[#F04E23] text-white text-[14px] hover:bg-[#D43D14] transition-colors flex items-center"
-          >
-            Home
-          </Link>
-        </div>
-      </div>
-    </div>
+    <ErrorStatePage
+      code="404"
+      icon={Compass}
+      eyebrow="Page not found"
+      title={<>This page took a <em>different path</em></>}
+      message="The link may be broken, or the page may have moved. Let's get you back on track."
+      primary={dashboard ? { to: dashboard, label: "Go to dashboard" } : { to: "/", label: "Back to home" }}
+      links={[
+        { to: "/", label: "Home", desc: "See what IntelliHire does", icon: Home },
+        { to: "/#how-it-works", label: "How it works", desc: "The six-step hiring pipeline", icon: Workflow },
+        dashboard
+          ? { to: "/#features", label: "Features", desc: "Every tool on the platform", icon: Sparkles }
+          : { to: "/login", label: "Log in", desc: "Continue to your workspace", icon: LogIn },
+      ]}
+    />
   );
 }

@@ -119,6 +119,22 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
+  // ── Refresh the signed-in user from the auth backend (status may have changed) ──
+  refresh: async () => {
+    const { token, user } = get();
+    if (!token || user?.role === ROLES.ADMIN) return { user };
+    try {
+      const { user: fresh } = await authApi.validateToken(token, 600);
+      persistSession(token, fresh);
+      set({ user: fresh });
+      return { user: fresh };
+    } catch (err) {
+      clearSession();
+      set({ user: null, token: null, isAuthenticated: false });
+      return { error: err.message };
+    }
+  },
+
   // ── Derived Helper ────────────────────────────────────────────────────────
   getDashboardPath: () => {
     const { user } = get();

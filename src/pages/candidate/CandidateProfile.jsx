@@ -1,819 +1,482 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import { useLogout } from "@/hooks/useLogout";
-import { 
-  LayoutDashboard, 
-  User, 
-  Mic2, 
-  FileText,
-  Globe,
-  Settings,
-  LogOut,
-  Camera,
-  MapPin,
-  X,
-  Upload,
-  FileText as FileIcon,
-  Trash2,
-  Check,
-  Eye,
-  Pencil,
-  Plus,
-  Loader2,
-  AlertCircle
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Link } from "react-router-dom";
+import {
+  Award, Briefcase, Camera, CheckCircle2, ChevronRight, Circle, CloudUpload, Eye, FileText, Globe, Loader2,
+  Lock, Mail, MapPin, Plus, RefreshCw, Sparkles, Trash2, TrendingUp, UserRound, X,
 } from "lucide-react";
-import { Toast } from "../../components/shared/Toast";
-import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
-import { SkeletonProfileCard, SkeletonForm } from "../../components/shared/SkeletonLoader";
-import IntelliHireLogo from "../../components/shared/IntelliHireLogo";
+import { Card, CardHeader, ScoreRing, Segmented } from "@/components/app/primitives";
+import Reveal from "@/components/shared/Reveal";
+import AuthField from "@/components/shared/AuthField";
+import { GithubIcon, LinkedinIcon } from "@/components/shared/BrandIcons";
+import RolePicker from "@/components/candidate/RolePicker";
+import { Avatar } from "@/components/app/HeaderMenus";
+import { useCandidateActions, useCandidateRecord } from "@/store/candidateStore";
+import { formatDate, profileCompletion, sessionStats } from "@/lib/candidateStats";
+import { skillsForRole } from "@/lib/interview/questionBank";
+import { toast } from "@/store/toastStore";
 
-// Sidebar Navigation Item
-const NavItem = ({ icon: Icon, label, active, onClick }) => (
-  <button
-    onClick={onClick}
-    className={`w-full flex items-center gap-3 px-4 h-[40px] text-[14px] transition-all ${
-      active 
-        ? "border-l-[3px] border-[#F04E23] bg-[#FFF4F1] text-[#F04E23] font-medium" 
-        : "border-l-[3px] border-transparent text-[#374151] hover:bg-[#F9FAFB]"
-    }`}
-  >
-    <Icon size={18} />
-    <span>{label}</span>
-  </button>
-);
+const BIO_MAX = 400;
+const MAX_SKILLS = 20;
+const SECTION_FOR = { photo: "basics", headline: "basics", targetRole: "role", skills: "role", bio: "about", links: "links", cv: "cv" };
 
-function CandidateProfile() {
-  const navigate = useNavigate();
-  const logout = useLogout();
-  const fileInputRef = useRef(null);
-  const [activeNav, setActiveNav] = useState("profile");
-  
-  // Enhanced toast system
-  const [toast, setToast] = useState(null);
-  const showToast = useCallback((message, type = "success") => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  }, []);
-  
-  // Loading states
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  
-  // Confirm dialog
-  const [confirmDialog, setConfirmDialog] = useState(null);
-  
-  // Form validation errors
-  const [errors, setErrors] = useState({});
+const pickDraft = (p) => ({
+  fullName: p.fullName,
+  headline: p.headline,
+  location: p.location,
+  experience: p.experience || "mid",
+  bio: p.bio,
+  targetRole: p.targetRole,
+  skills: [...p.skills],
+  links: { ...p.links },
+});
 
-  // Muslim name user data
-  const [formData, setFormData] = useState({
-    fullName: "Ahmed Hassan",
-    jobTitle: "Frontend Developer",
-    location: "London, UK",
-    linkedin: "linkedin.com/in/ahmedhassan",
-    skills: ["JavaScript", "React", "TypeScript", "HTML/CSS", "Git"],
-    bio: "Passionate frontend developer with 2 years of experience building responsive web apps. Looking to level up my interview skills and land my next role.",
-  });
+const urlOk = (v, host) => !v || (/^https?:\/\/\S+\.\S+/.test(v) && (!host || v.includes(host)));
 
-  const [skillInput, setSkillInput] = useState("");
-  const [bioCharCount, setBioCharCount] = useState(formData.bio.length);
-  const [cvFile, setCvFile] = useState({
-    name: "Ahmed_Hassan_Resume_2025.pdf",
-    size: "2.1 MB"
-  });
-  const [isDragging, setIsDragging] = useState(false);
-  const [uploadError, setUploadError] = useState("");
-  
-  // Photo upload states
-  const [profilePhoto, setProfilePhoto] = useState(null);
-  const [showPhotoOptions, setShowPhotoOptions] = useState(false);
-  const photoInputRef = useRef(null);
-  
-  // Track original data for change detection
-  const [originalData, setOriginalData] = useState({ ...formData, skills: [...formData.skills] });
-  const [changedFields, setChangedFields] = useState([]);
-  
-  // Field touched states for validation
-  const [touched, setTouched] = useState({});
-
-  const userInitials = "AH";
-  const userName = "Ahmed Hassan";
-  const [showUserDropdown, setShowUserDropdown] = useState(false);
-
-  // Simulate initial loading
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 600);
-    return () => clearTimeout(timer);
-  }, []);
-
-  const navItems = [
-    { id: "dashboard",   label: "Dashboard",   icon: LayoutDashboard },
-    { id: "profile",     label: "My Profile",  icon: User },
-    { id: "interview",   label: "Interviews",  icon: Mic2 },
-    { id: "reports",     label: "My Reports",  icon: FileText },
-    { id: "communities", label: "Communities", icon: Globe },
-    { id: "settings",    label: "Settings",    icon: Settings },
-  ];
-
-  // Calculate profile completeness
-  const completeness = Math.round(
-    ((formData.fullName ? 1 : 0) + 
-     (formData.jobTitle ? 1 : 0) + 
-     (formData.location ? 1 : 0) + 
-     (formData.linkedin ? 1 : 0) + 
-     (formData.skills.length > 0 ? 1 : 0) + 
-     (formData.bio ? 1 : 0) + 
-     (cvFile ? 1 : 0)) / 7 * 100
-  );
-
-  const handleNavClick = (navId) => {
-    setActiveNav(navId);
-    if (navId === "dashboard")   navigate("/candidate/dashboard");
-    if (navId === "interview")   navigate("/candidate/interview/setup");
-    if (navId === "reports")     navigate("/candidate/reports");
-    if (navId === "communities") navigate("/candidate/communities");
-    if (navId === "settings")    navigate("/candidate/settings");
-  };
-
-  // Validation functions
-  const validateField = (name, value) => {
-    switch (name) {
-      case "fullName":
-        return value.trim().length < 2 ? "Name must be at least 2 characters" : "";
-      case "linkedin":
-        if (!value) return "";
-        return !value.includes("linkedin.com") ? "Please enter a valid LinkedIn URL" : "";
-      case "bio":
-        return value.length > 300 ? "Bio must be under 300 characters" : "";
-      default:
-        return "";
-    }
-  };
-  
-  const validateForm = () => {
-    const newErrors = {};
-    newErrors.fullName = validateField("fullName", formData.fullName);
-    newErrors.linkedin = validateField("linkedin", formData.linkedin);
-    newErrors.bio = validateField("bio", formData.bio);
-    setErrors(newErrors);
-    return !Object.values(newErrors).some(e => e);
-  };
-
-  // Photo management functions
-  const handlePhotoUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        showToast("Image must be under 5MB", "error");
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfilePhoto(reader.result);
-        showToast("Photo uploaded successfully!", "success");
-      };
-      reader.readAsDataURL(file);
-    }
-    setShowPhotoOptions(false);
-  };
-
-  const handleDeletePhoto = () => {
-    setConfirmDialog({
-      isOpen: true,
-      title: "Remove Photo?",
-      message: "Are you sure you want to remove your profile photo?",
-      confirmText: "Remove",
-      cancelText: "Keep Photo",
-      type: "warning",
-      onConfirm: () => {
-        setProfilePhoto(null);
-        showToast("Photo removed", "info");
-        setShowPhotoOptions(false);
-      }
-    });
-  };
-
-  const handleEditPhoto = () => {
-    photoInputRef.current?.click();
-  };
-
-  // View CV function
-  const handleViewCv = () => {
-    // In real app, this would open the CV in a new tab or modal
-    showToast("Opening CV preview...", "info");
-    window.open("#", "_blank");
-  };
-
-  // Track field changes
-  const trackChange = (field) => {
-    if (!changedFields.includes(field)) {
-      setChangedFields([...changedFields, field]);
-    }
-    // Clear error when field is edited
-    if (errors[field]) {
-      setErrors({ ...errors, [field]: "" });
-    }
-  };
-  
-  const handleBlur = (field) => {
-    setTouched({ ...touched, [field]: true });
-    const error = validateField(field, formData[field]);
-    setErrors({ ...errors, [field]: error });
-  };
-
-  const handleSave = async () => {
-    setTouched({ fullName: true, linkedin: true, bio: true });
-    
-    if (!validateForm()) {
-      showToast("Please fix the errors before saving", "error");
-      return;
-    }
-    
-    setIsSaving(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    setOriginalData({ ...formData, skills: [...formData.skills] });
-    
-    const fieldNames = {
-      fullName: "Full name",
-      jobTitle: "Job title",
-      location: "Location",
-      linkedin: "LinkedIn",
-      skills: "Skills",
-      bio: "Bio",
-      cv: "CV/Resume"
+function resizeImage(file, size = 320) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const s = Math.min(img.width, img.height);
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = size;
+      canvas.getContext("2d").drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL("image/jpeg", 0.85));
     };
-    
-    const changedList = changedFields.map(f => fieldNames[f] || f).join(", ");
-    showToast(`Profile updated: ${changedList}`, "success");
-    setChangedFields([]);
-    setIsSaving(false);
-  };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
 
-  const handleAddSkill = (e) => {
-    if (e.key === "Enter" && skillInput.trim()) {
-      e.preventDefault();
-      if (!formData.skills.includes(skillInput.trim())) {
-        setFormData({ ...formData, skills: [...formData.skills, skillInput.trim()] });
-        trackChange("skills");
-      }
-      setSkillInput("");
-    }
-  };
-
-  const handleRemoveSkill = (skillToRemove) => {
-    setFormData({ ...formData, skills: formData.skills.filter(s => s !== skillToRemove) });
-    trackChange("skills");
-  };
-
-  const handleBioChange = (e) => {
-    const text = e.target.value;
-    if (text.length <= 300) {
-      setFormData({ ...formData, bio: text });
-      setBioCharCount(text.length);
-      trackChange("bio");
-    }
-  };
-
-  const handleFileDrop = (e) => {
-    e.preventDefault();
-    setIsDragging(false);
-    setUploadError("");
-    
-    const file = e.dataTransfer.files[0];
-    if (file) {
-      validateAndSetFile(file);
-    }
-  };
-
-  const handleFileSelect = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      validateAndSetFile(file);
-    }
-  };
-
-  const validateAndSetFile = (file) => {
-    if (file.type !== "application/pdf") {
-      setUploadError("Only PDF files are accepted.");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setUploadError("File size must be less than 5MB.");
-      return;
-    }
-    
-    setCvFile({
-      name: file.name,
-      size: (file.size / (1024 * 1024)).toFixed(1) + " MB"
-    });
-    trackChange("cv");
-    showToast("CV uploaded successfully!", "success");
-  };
-
-  const handleRemoveCv = () => {
-    setConfirmDialog({
-      isOpen: true,
-      title: "Remove CV?",
-      message: "Are you sure you want to remove your CV? This action cannot be undone.",
-      confirmText: "Remove",
-      cancelText: "Keep CV",
-      type: "danger",
-      onConfirm: () => {
-        setCvFile(null);
-        trackChange("cv");
-        showToast("CV removed successfully", "success");
-      }
-    });
-  };
-
-  return (
-    <div className="min-h-screen bg-[#F9FAFB]">
-      {/* Toast Notification */}
-      {toast && (
-        <Toast 
-          message={toast.message} 
-          type={toast.type} 
-          onClose={() => setToast(null)} 
-        />
-      )}
-      
-      {/* Confirm Dialog */}
-      {confirmDialog && (
-        <ConfirmDialog
-          isOpen={confirmDialog.isOpen}
-          onClose={() => setConfirmDialog(null)}
-          onConfirm={confirmDialog.onConfirm}
-          title={confirmDialog.title}
-          message={confirmDialog.message}
-          confirmText={confirmDialog.confirmText}
-          cancelText={confirmDialog.cancelText}
-          type={confirmDialog.type}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside className="fixed left-0 top-0 w-[240px] h-full bg-white border-r border-[#E5E7EB] z-50">
-        <div className="h-16 flex items-center px-4 border-b border-[#E5E7EB]">
-          <IntelliHireLogo className="w-8 h-8 mr-2" />
-          <span className="text-[20px] font-bold text-[#111827]" style={{ fontFamily: 'Times New Roman, serif' }}>IntelliHire</span>
+function CvPreview({ url, name, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return createPortal(
+    <div className="fixed inset-0 z-[150] flex items-center justify-center p-3 sm:p-6" role="dialog" aria-modal="true" aria-label={`Preview of ${name}`}>
+      <button type="button" aria-label="Close" onClick={onClose} className="animate-backdrop-in absolute inset-0 bg-ink/50 backdrop-blur-sm" />
+      <div className="animate-modal-in relative flex h-[min(90dvh,900px)] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+        <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] px-5 py-3.5">
+          <p className="flex min-w-0 items-center gap-2 text-[14px] font-semibold text-ink">
+            <FileText size={16} className="shrink-0 text-brand" /> <span className="truncate">{name}</span>
+          </p>
+          <button type="button" onClick={onClose} aria-label="Close preview" className="icon-btn flex h-9 w-9 items-center justify-center rounded-full text-stone-500 hover:bg-stone-100">
+            <X size={18} />
+          </button>
         </div>
-
-        <nav className="py-4">
-          {navItems.map((item) => (
-            <NavItem
-              key={item.id}
-              icon={item.icon}
-              label={item.label}
-              active={activeNav === item.id}
-              onClick={() => handleNavClick(item.id)}
-            />
-          ))}
-        </nav>
-
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-[#E5E7EB]">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-[#F04E23] flex items-center justify-center text-white text-[12px] font-semibold flex-shrink-0">
-              {userInitials}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[14px] font-medium text-[#111827] truncate">{formData.fullName}</p>
-            </div>
-            <button
-              onClick={logout}
-              className="p-1.5 text-[#6B7280] hover:text-[#DC2626] hover:bg-[#FEE2E2] rounded transition-colors"
-              title="Log out"
-            >
-              <LogOut size={16} />
-            </button>
-          </div>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="ml-[240px]">
-        {/* Top Bar */}
-            <header className="h-16 bg-white border-b border-[#E5E7EB] flex items-center justify-between px-8 sticky top-0 z-40">
-              <div>
-                <h1 className="text-[22px] font-bold text-[#111827]" style={{ fontFamily: 'Times New Roman, serif' }}>My <em className="text-[#F04E23] italic">Profile</em></h1>
-                {changedFields.length > 0 && (
-                  <p className="text-[12px] text-[#F04E23]">{changedFields.length} unsaved change{changedFields.length > 1 ? 's' : ''}</p>
-                )}
-              </div>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={handleSave}
-                  disabled={changedFields.length === 0 || isSaving}
-                  className={`px-4 py-2 rounded-[8px] text-[14px] font-medium flex items-center gap-2 transition-all ${
-                    changedFields.length > 0 && !isSaving
-                      ? "bg-[#F04E23] hover:bg-[#D43D14] text-white shadow-md hover:shadow-lg"
-                      : "bg-[#E5E7EB] text-[#6B7280] cursor-not-allowed"
-                  }`}
-                >
-                  {isSaving ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin" /> Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Check size={16} /> Save Changes
-                    </>
-                  )}
-                </button>
-
-                <span className="text-[14px] text-[#6B7280]">{userName.split(' ')[0]} 👋</span>
-
-                <div className="relative">
-                  <button
-                    onClick={() => setShowUserDropdown(!showUserDropdown)}
-                    className="w-8 h-8 rounded-full bg-gradient-to-br from-[#F04E23] to-[#FFA07A] flex items-center justify-center text-white text-[12px] font-semibold hover:shadow-md transition-shadow"
-                  >
-                    {userInitials}
-                  </button>
-
-                  {showUserDropdown && (
-                    <div className="absolute top-full right-0 mt-2 w-44 bg-white border border-[#E5E7EB] rounded-lg shadow-lg py-1 z-50">
-                      <div className="px-3 py-2 border-b border-[#F3F4F6]">
-                        <p className="text-[13px] font-medium text-[#111827]">{userName}</p>
-                        <p className="text-[11px] text-[#6B7280]">ahmed.hassan@email.com</p>
-                      </div>
-                      <button
-                        onClick={() => { setShowUserDropdown(false); }}
-                        className="w-full px-3 py-2 text-left text-[13px] text-[#374151] hover:bg-[#F9FAFB] flex items-center gap-2"
-                      >
-                        <User size={14} /> Edit Profile
-                      </button>
-                      <button
-                        onClick={() => { logout(); setShowUserDropdown(false); }}
-                        className="w-full px-3 py-2 text-left text-[13px] text-[#DC2626] hover:bg-[#FEE2E2] flex items-center gap-2"
-                      >
-                        <LogOut size={14} /> Sign Out
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </header>
-
-            {/* Profile Content */}
-            <div className="p-6 max-w-5xl">
-              {/* Enhanced Profile Completeness Bar */}
-              <div className="relative bg-gradient-to-br from-white to-[#F8FAFC] border border-[#E5E7EB] rounded-[14px] p-5 mb-6 overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
-                {/* Decorative shape */}
-                <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-bl from-[#F04E23]/5 to-transparent rounded-full blur-2xl -translate-y-1/2 translate-x-1/4" />
-                
-                <div className="relative z-10 flex items-center gap-4">
-                  {/* Circular progress */}
-                  <div className="relative w-14 h-14 flex-shrink-0">
-                    <svg className="w-full h-full -rotate-90">
-                      <circle cx="28" cy="28" r="24" stroke="#E5E7EB" strokeWidth="4" fill="none" />
-                      <circle 
-                        cx="28" cy="28" r="24" 
-                        stroke="#F04E23" 
-                        strokeWidth="4" 
-                        fill="none"
-                        strokeDasharray={`${2 * Math.PI * 24}`}
-                        strokeDashoffset={`${2 * Math.PI * 24 * (1 - completeness / 100)}`}
-                        strokeLinecap="round"
-                        className="transition-all duration-700"
-                      />
-                    </svg>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-[14px] font-bold text-[#F04E23]">{completeness}%</span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h4 className="text-[15px] font-semibold text-[#111827]">Profile Completion</h4>
-                      {completeness === 100 && (
-                        <span className="px-2 py-0.5 bg-[#FEE2E2] text-[#F04E23] rounded-full text-[11px] font-medium">
-                          Complete
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[13px] text-[#6B7280]">
-                      {completeness < 100 
-                        ? "Add your Skills and CV to unlock AI-personalised questions." 
-                        : "Your profile is fully set up! Ready for interviews."}
-                    </p>
-                  </div>
-                </div>
-                
-                {/* Linear progress bar */}
-                <div className="mt-4 h-1.5 bg-[#E5E7EB] rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-[#F04E23] to-[#FFA07A] rounded-full transition-all duration-700"
-                    style={{ width: `${completeness}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Two Column Layout */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left Column - Photo Card */}
-                <div className="lg:col-span-1 space-y-6">
-                  {/* Profile Photo Card */}
-                  <div className="bg-white border border-[#E5E7EB] rounded-[14px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
-                    <div className="relative mx-auto w-28 h-28 mb-4">
-                      {profilePhoto ? (
-                        <img 
-                          src={profilePhoto} 
-                          alt="Profile" 
-                          className="w-full h-full rounded-full object-cover border-2 border-[#E5E7EB]"
-                        />
-                      ) : (
-                        <div className="w-full h-full rounded-full bg-gradient-to-br from-[#F04E23] to-[#FFA07A] flex items-center justify-center text-white text-[28px] font-bold">
-                          {userInitials}
-                        </div>
-                      )}
-                      
-                      {/* Camera button */}
-                      <button
-                        onClick={() => setShowPhotoOptions(!showPhotoOptions)}
-                        className="absolute bottom-0 right-0 w-8 h-8 bg-white border border-[#E5E7EB] rounded-full flex items-center justify-center shadow-sm hover:border-[#F04E23] hover:text-[#F04E23] transition-colors"
-                      >
-                        <Camera size={14} />
-                      </button>
-                      
-                      {/* Photo options dropdown */}
-                      {showPhotoOptions && (
-                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-40 bg-white border border-[#E5E7EB] rounded-lg shadow-lg py-1 z-10">
-                          <button
-                            onClick={handleEditPhoto}
-                            className="w-full px-3 py-2 text-left text-[13px] text-[#374151] hover:bg-[#F9FAFB] flex items-center gap-2"
-                          >
-                            <Pencil size={14} /> Change Photo
-                          </button>
-                          {profilePhoto && (
-                            <button
-                              onClick={handleDeletePhoto}
-                              className="w-full px-3 py-2 text-left text-[13px] text-[#DC2626] hover:bg-[#FEF2F2] flex items-center gap-2"
-                            >
-                              <Trash2 size={14} /> Remove Photo
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    
-                    <input
-                      ref={photoInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handlePhotoUpload}
-                      className="hidden"
-                    />
-                    
-                    <div className="text-center">
-                      <h3 className="text-[16px] font-semibold text-[#111827]">{formData.fullName}</h3>
-                      <p className="text-[13px] text-[#6B7280] mt-0.5">{formData.jobTitle}</p>
-                      {formData.location && (
-                        <p className="text-[12px] text-[#6B7280] mt-1 flex items-center justify-center gap-1">
-                          <MapPin size={12} /> {formData.location}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Quick Stats */}
-                  <div className="bg-white border border-[#E5E7EB] rounded-[14px] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_20px_rgba(240,78,35,0.06)] hover:border-[#FCA68A] transition-all duration-300">
-                    <h4 className="text-[14px] font-semibold text-[#111827] mb-4">Profile Stats</h4>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[13px] text-[#6B7280]">Interviews</span>
-                        <span className="text-[13px] font-bold text-[#111827]">12</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[13px] text-[#6B7280]">Avg. Score</span>
-                        <span className="text-[13px] font-bold text-[#F04E23]">87%</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[13px] text-[#6B7280]">Member Since</span>
-                        <span className="text-[13px] font-bold text-[#111827]">Jan 2025</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* CV / Resume */}
-                  <div className="bg-white border border-[#E5E7EB] rounded-[14px] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_20px_rgba(240,78,35,0.06)] hover:border-[#FCA68A] transition-all duration-300">
-                    <h4 className="text-[14px] font-semibold text-[#111827] mb-4">CV / Resume</h4>
-                    {cvFile ? (
-                      <div className="flex items-center gap-3 p-3 bg-[#F9FAFB] rounded-lg border border-[#E5E7EB]">
-                        <div className="w-10 h-10 bg-[#FFF4F1] rounded-lg flex items-center justify-center flex-shrink-0">
-                          <FileIcon size={18} className="text-[#F04E23]" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[13px] font-medium text-[#111827] truncate">{cvFile.name}</p>
-                          <p className="text-[11px] text-[#9CA3AF]">{cvFile.size}</p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={handleViewCv}
-                            className="p-1.5 text-[#6B7280] hover:text-[#F04E23] hover:bg-[#FFF4F1] rounded transition-colors"
-                            title="View CV"
-                          >
-                            <Eye size={14} />
-                          </button>
-                          <button
-                            onClick={handleRemoveCv}
-                            className="p-1.5 text-[#6B7280] hover:text-[#DC2626] hover:bg-[#FEF2F2] rounded transition-colors"
-                            title="Remove CV"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div
-                        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                        onDragLeave={() => setIsDragging(false)}
-                        onDrop={handleFileDrop}
-                        onClick={() => fileInputRef.current?.click()}
-                        className={`relative border-2 border-dashed rounded-lg p-5 text-center cursor-pointer transition-all ${
-                          isDragging
-                            ? "border-[#F04E23] bg-[#FFF4F1]"
-                            : uploadError
-                              ? "border-[#DC2626] bg-red-50"
-                              : "border-[#E5E7EB] hover:border-[#F04E23] hover:bg-[#FFF4F1]"
-                        }`}
-                      >
-                        <Upload size={18} className="mx-auto mb-2 text-[#F04E23]" />
-                        <p className="text-[12px] font-medium text-[#374151]">
-                          <span className="text-[#F04E23]">Click to upload</span> or drag
-                        </p>
-                        <p className="text-[11px] text-[#9CA3AF] mt-1">PDF only, max 5MB</p>
-                        {uploadError && (
-                          <p className="mt-2 text-[11px] text-[#DC2626] flex items-center justify-center gap-1">
-                            <AlertCircle size={10} /> {uploadError}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Right Column - Form */}
-                <div className="lg:col-span-2 space-y-6">
-                  {/* Personal Information */}
-                  <div className="bg-white border border-[#E5E7EB] rounded-[14px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_20px_rgba(240,78,35,0.06)] hover:border-[#FCA68A] transition-all duration-300">
-                    <h3 className="text-[16px] font-bold text-[#111827] mb-1">Personal Information</h3>
-                    <p className="text-[12px] text-[#6B7280] italic mb-5">Update your details to help us personalise your interview experience.</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                      {/* Full Name */}
-                      <div>
-                        <label className="block text-[13px] font-medium text-[#374151] mb-1.5">Full Name *</label>
-                        <input
-                          type="text"
-                          value={formData.fullName}
-                          onChange={(e) => {
-                            setFormData({ ...formData, fullName: e.target.value });
-                            trackChange("fullName");
-                          }}
-                          onBlur={() => handleBlur("fullName")}
-                          className={`w-full h-[40px] px-3 rounded-lg border text-[14px] outline-none transition-all ${
-                            touched.fullName && errors.fullName
-                              ? "border-[#DC2626] focus:border-[#DC2626] focus:ring-2 focus:ring-red-100"
-                              : "border-[#E5E7EB] focus:border-[#F04E23] focus:ring-2 focus:ring-orange-100"
-                          }`}
-                          placeholder="Enter your full name"
-                        />
-                        {touched.fullName && errors.fullName && (
-                          <p className="mt-1 text-[12px] text-[#DC2626]">{errors.fullName}</p>
-                        )}
-                      </div>
-
-                      {/* Job Title */}
-                      <div>
-                        <label className="block text-[13px] font-medium text-[#374151] mb-1.5">Job Title</label>
-                        <input
-                          type="text"
-                          value={formData.jobTitle}
-                          onChange={(e) => {
-                            setFormData({ ...formData, jobTitle: e.target.value });
-                            trackChange("jobTitle");
-                          }}
-                          className="w-full h-[40px] px-3 rounded-lg border border-[#E5E7EB] text-[14px] outline-none focus:border-[#F04E23] focus:ring-2 focus:ring-orange-100 transition-all"
-                          placeholder="e.g. Frontend Developer"
-                        />
-                      </div>
-
-                      {/* Location */}
-                      <div>
-                        <label className="block text-[13px] font-medium text-[#374151] mb-1.5">Location</label>
-                        <input
-                          type="text"
-                          value={formData.location}
-                          onChange={(e) => {
-                            setFormData({ ...formData, location: e.target.value });
-                            trackChange("location");
-                          }}
-                          className="w-full h-[40px] px-3 rounded-lg border border-[#E5E7EB] text-[14px] outline-none focus:border-[#F04E23] focus:ring-2 focus:ring-orange-100 transition-all"
-                          placeholder="e.g. London, UK"
-                        />
-                      </div>
-
-                      {/* LinkedIn */}
-                      <div>
-                        <label className="block text-[13px] font-medium text-[#374151] mb-1.5">LinkedIn Profile</label>
-                        <input
-                          type="text"
-                          value={formData.linkedin}
-                          onChange={(e) => {
-                            setFormData({ ...formData, linkedin: e.target.value });
-                            trackChange("linkedin");
-                          }}
-                          onBlur={() => handleBlur("linkedin")}
-                          className={`w-full h-[40px] px-3 rounded-lg border text-[14px] outline-none transition-all ${
-                            touched.linkedin && errors.linkedin
-                              ? "border-[#DC2626] focus:border-[#DC2626] focus:ring-2 focus:ring-red-100"
-                              : "border-[#E5E7EB] focus:border-[#F04E23] focus:ring-2 focus:ring-orange-100"
-                          }`}
-                          placeholder="linkedin.com/in/yourprofile"
-                        />
-                        {touched.linkedin && errors.linkedin && (
-                          <p className="mt-1 text-[12px] text-[#DC2626]">{errors.linkedin}</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Skills */}
-                  <div className="bg-white border border-[#E5E7EB] rounded-[14px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_20px_rgba(240,78,35,0.06)] hover:border-[#FCA68A] transition-all duration-300">
-                    <h3 className="text-[16px] font-bold text-[#111827] mb-1">Skills</h3>
-                    <p className="text-[12px] text-[#6B7280] italic mb-4">Add skills relevant to your target roles for better AI questions.</p>
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {formData.skills.map((skill) => (
-                        <span
-                          key={skill}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#FFF4F1] text-[#F04E23] rounded-lg text-[13px] font-medium border border-[#FCA68A]/30"
-                        >
-                          {skill}
-                          <button
-                            onClick={() => handleRemoveSkill(skill)}
-                            className="hover:text-[#D43D14] transition-colors"
-                          >
-                            <X size={12} />
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={skillInput}
-                        onChange={(e) => setSkillInput(e.target.value)}
-                        onKeyDown={handleAddSkill}
-                        className="w-full h-[40px] px-3 rounded-lg border border-[#E5E7EB] text-[14px] outline-none focus:border-[#F04E23] focus:ring-2 focus:ring-orange-100 transition-all"
-                        placeholder="Type a skill and press Enter"
-                      />
-                      <Plus size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
-                    </div>
-                    <p className="mt-2 text-[12px] text-[#9CA3AF]">Press Enter to add a skill</p>
-                  </div>
-
-                  {/* Bio */}
-                  <div className="bg-white border border-[#E5E7EB] rounded-[14px] p-6 shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_20px_rgba(240,78,35,0.06)] hover:border-[#FCA68A] transition-all duration-300">
-                    <div className="flex items-center justify-between mb-1">
-                      <h3 className="text-[16px] font-bold text-[#111827]">Bio</h3>
-                      <span className={`text-[12px] ${bioCharCount > 280 ? "text-[#DC2626]" : "text-[#9CA3AF]"}`}>
-                        {bioCharCount}/300
-                      </span>
-                    </div>
-                    <textarea
-                      value={formData.bio}
-                      onChange={handleBioChange}
-                      onBlur={() => handleBlur("bio")}
-                      rows={4}
-                      className={`w-full px-3 py-2.5 rounded-lg border text-[14px] outline-none resize-none transition-all ${
-                        touched.bio && errors.bio
-                          ? "border-[#DC2626] focus:border-[#DC2626] focus:ring-2 focus:ring-red-100"
-                          : "border-[#E5E7EB] focus:border-[#F04E23] focus:ring-2 focus:ring-orange-100"
-                      }`}
-                      placeholder="Tell us about yourself, your experience, and what you're looking for..."
-                    />
-                    {touched.bio && errors.bio && (
-                      <p className="mt-1 text-[12px] text-[#DC2626]">{errors.bio}</p>
-                    )}
-                  </div>
-
-                </div>
-              </div>
-            </div>
-          
-          {/* Hidden file input for CV */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf"
-            onChange={handleFileSelect}
-            className="hidden"
-          />
-      </main>
-    </div>
+        <iframe title={name} src={url} className="flex-1 bg-stone-100" />
+      </div>
+    </div>,
+    document.body,
   );
 }
 
-export default CandidateProfile;
+export default function CandidateProfile() {
+  const { profile, sessions, prefs } = useCandidateRecord();
+  const { updateProfile } = useCandidateActions();
+  const [draft, setDraft] = useState(() => pickDraft(profile));
+  const [errors, setErrors] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [skillInput, setSkillInput] = useState("");
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [cvUrl, setCvUrl] = useState(null);
+  const [preview, setPreview] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [confirmCv, setConfirmCv] = useState(false);
+  const photoRef = useRef(null);
+  const cvRef = useRef(null);
+
+  const base = useMemo(() => pickDraft(profile), [profile]);
+  const dirty = JSON.stringify(base) !== JSON.stringify(draft);
+  const completion = useMemo(() => profileCompletion({ ...profile, ...draft }), [profile, draft]);
+  const stats = useMemo(() => sessionStats(sessions, prefs.weeklyGoal), [sessions, prefs.weeklyGoal]);
+  const suggestions = useMemo(
+    () => (draft.targetRole ? skillsForRole(draft.targetRole).filter((s) => !draft.skills.includes(s)).slice(0, 12) : []),
+    [draft.targetRole, draft.skills],
+  );
+
+  useEffect(() => () => cvUrl && URL.revokeObjectURL(cvUrl), [cvUrl]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const onBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty]);
+
+  const set = (field, value) => {
+    setDraft((d) => ({ ...d, [field]: value }));
+    if (errors[field]) setErrors((e) => ({ ...e, [field]: "" }));
+  };
+  const setLink = (key, value) => {
+    setDraft((d) => ({ ...d, links: { ...d.links, [key]: value } }));
+    if (errors[key]) setErrors((e) => ({ ...e, [key]: "" }));
+  };
+
+  const addSkill = (raw) => {
+    const s = raw.trim().replace(/\s+/g, " ");
+    if (!s) return;
+    if (draft.skills.some((x) => x.toLowerCase() === s.toLowerCase())) {
+      toast({ type: "info", title: "Already added", message: `${s} is already in your skills.` });
+      return;
+    }
+    if (draft.skills.length >= MAX_SKILLS) {
+      toast({ type: "warning", title: "Skill limit reached", message: `Keep your top ${MAX_SKILLS} skills. Remove one to add another.` });
+      return;
+    }
+    set("skills", [...draft.skills, s]);
+    setSkillInput("");
+  };
+
+  const save = async () => {
+    const e = {};
+    if (draft.fullName.trim().length < 2) e.fullName = "Enter your full name";
+    if (draft.bio.length > BIO_MAX) e.bio = `Keep it under ${BIO_MAX} characters`;
+    if (!urlOk(draft.links.linkedin, "linkedin.com")) e.linkedin = "Enter a full LinkedIn URL";
+    if (!urlOk(draft.links.github, "github.com")) e.github = "Enter a full GitHub URL";
+    if (!urlOk(draft.links.portfolio)) e.portfolio = "Enter a full URL, including https://";
+    setErrors(e);
+    if (Object.keys(e).length) {
+      toast({ type: "error", title: "Check the highlighted fields", message: `${Object.keys(e).length} field${Object.keys(e).length > 1 ? "s need" : " needs"} attention before saving.` });
+      return;
+    }
+    setSaving(true);
+    await new Promise((r) => setTimeout(r, 450));
+    updateProfile({ ...draft, fullName: draft.fullName.trim(), headline: draft.headline.trim(), location: draft.location.trim() });
+    setSaving(false);
+    toast({ title: "Profile saved", message: completion.percent === 100 ? "Your profile is complete. Interviews will match it closely." : `${completion.percent}% complete. ${completion.items.filter((i) => !i.done).length} steps left.` });
+  };
+
+  const onPhoto = async (file) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return toast({ type: "error", title: "Unsupported file", message: "Choose a JPG, PNG or WebP image." });
+    if (file.size > 8 * 1024 * 1024) return toast({ type: "error", title: "Image too large", message: "Choose an image under 8 MB." });
+    setPhotoBusy(true);
+    try {
+      updateProfile({ photo: await resizeImage(file) });
+      toast({ title: "Photo updated", message: "Your new photo is live across IntelliHire." });
+    } catch {
+      toast({ type: "error", title: "Couldn't read that image", message: "Try a different file." });
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
+  const onCv = (file) => {
+    if (!file) return;
+    const okType = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"].includes(file.type);
+    if (!okType) return toast({ type: "error", title: "Unsupported file", message: "Upload your CV as a PDF or Word document." });
+    if (file.size > 5 * 1024 * 1024) return toast({ type: "error", title: "File too large", message: "Your CV must be under 5 MB." });
+    if (cvUrl) URL.revokeObjectURL(cvUrl);
+    setCvUrl(file.type === "application/pdf" ? URL.createObjectURL(file) : null);
+    updateProfile({ cv: { name: file.name, size: file.size, uploadedAt: Date.now() } });
+    toast({ title: "CV uploaded", message: `${file.name} will be used to personalise your questions.` });
+  };
+
+  const removeCv = () => {
+    updateProfile({ cv: null });
+    if (cvUrl) URL.revokeObjectURL(cvUrl);
+    setCvUrl(null);
+    setConfirmCv(false);
+    toast({ type: "info", title: "CV removed", message: "Questions will no longer be matched to a CV." });
+  };
+
+  const jump = (key) => document.getElementById(`section-${SECTION_FOR[key]}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+
+  return (
+    <div className="pb-24">
+      {/* Header */}
+      <Reveal>
+        <Card className="overflow-hidden">
+          <div className="relative h-28 bg-gradient-to-br from-brand via-[#F26A3D] to-[#FF9A6B] sm:h-36">
+            <div aria-hidden className="bg-dot-grid-light absolute inset-0 opacity-70" />
+            <div aria-hidden className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/15 blur-2xl" />
+          </div>
+          <div className="relative flex flex-col gap-5 px-5 pb-6 sm:flex-row sm:items-end sm:px-8">
+            <div className="relative -mt-14 shrink-0 sm:-mt-16">
+              <div className="rounded-full bg-white p-1.5 shadow-[0_12px_30px_-12px_rgba(13,13,13,0.35)]">
+                <Avatar name={profile.fullName} photo={profile.photo} size={104} />
+              </div>
+              <button
+                type="button"
+                onClick={() => photoRef.current?.click()}
+                aria-label="Change photo"
+                className="icon-btn absolute bottom-1 right-1 flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-ink text-white shadow-md hover:bg-brand"
+              >
+                {photoBusy ? <Loader2 size={15} className="animate-spin" /> : <Camera size={15} />}
+              </button>
+              <input ref={photoRef} type="file" accept="image/*" className="hidden" onChange={(e) => { onPhoto(e.target.files[0]); e.target.value = ""; }} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h1 className="display truncate text-[28px] sm:text-[32px]">{profile.fullName}</h1>
+              <p className="mt-1 text-[15px] text-stone-600">{profile.headline || "Add a headline so recruiters know what you do"}</p>
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-stone-500">
+                {profile.location && <span className="inline-flex items-center gap-1.5"><MapPin size={14} /> {profile.location}</span>}
+                {profile.targetRole && <span className="inline-flex items-center gap-1.5"><Briefcase size={14} /> Targeting {profile.targetRole}</span>}
+                <span>Member since {formatDate(profile.joinedAt, { month: "long", year: "numeric" })}</span>
+                {profile.photo && (
+                  <button type="button" onClick={() => { updateProfile({ photo: null }); toast({ type: "info", title: "Photo removed" }); }} className="font-semibold text-stone-500 hover:text-red-600">
+                    Remove photo
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-3 rounded-2xl border border-[var(--line)] bg-stone-50/70 p-3 pr-5">
+              <ScoreRing score={completion.percent} size={56} stroke={6} label="" color="#F04E23" />
+              <div>
+                <p className="text-[14px] font-semibold text-ink">{completion.percent}% complete</p>
+                <p className="text-[12.5px] text-stone-500">{completion.items.filter((i) => i.done).length} of {completion.items.length} steps</p>
+              </div>
+            </div>
+          </div>
+        </Card>
+      </Reveal>
+
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="min-w-0 space-y-6">
+          <Reveal>
+            <Card id="section-basics" className="scroll-mt-24 p-6">
+              <CardHeader icon={UserRound} title="Basics" subtitle="How you appear to recruiters and communities." />
+              <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2">
+                <AuthField label="Full name" icon={UserRound} value={draft.fullName} onChange={(e) => set("fullName", e.target.value)} error={errors.fullName} autoComplete="name" />
+                <AuthField label="Email" icon={Mail} value={profile.email} readOnly hint="Used to sign in. Contact support to change it." trailing={<Lock size={13} className="text-stone-400" />} className="[&_input]:bg-stone-50 [&_input]:text-stone-500" />
+                <AuthField label="Headline" icon={Briefcase} value={draft.headline} onChange={(e) => set("headline", e.target.value)} placeholder="e.g. Frontend Developer at Acme" maxLength={80} />
+                <AuthField label="Location" icon={MapPin} value={draft.location} onChange={(e) => set("location", e.target.value)} placeholder="City, Country" autoComplete="address-level2" />
+              </div>
+              <div className="mt-5">
+                <p className="mb-2 text-[13px] font-medium text-stone-700">Experience level</p>
+                <Segmented
+                  ariaLabel="Experience level"
+                  value={draft.experience}
+                  onChange={(v) => set("experience", v)}
+                  options={[{ value: "entry", label: "Entry" }, { value: "mid", label: "Mid" }, { value: "senior", label: "Senior" }]}
+                />
+              </div>
+            </Card>
+          </Reveal>
+
+          <Reveal>
+            <Card id="section-about" className="scroll-mt-24 p-6">
+              <CardHeader
+                icon={Sparkles}
+                title="About"
+                subtitle="A few lines on your experience and what you're looking for."
+                action={<span className={`text-[12px] tabular-nums ${draft.bio.length > BIO_MAX - 40 ? "text-amber-600" : "text-stone-400"}`}>{draft.bio.length}/{BIO_MAX}</span>}
+              />
+              <textarea
+                value={draft.bio}
+                onChange={(e) => set("bio", e.target.value.slice(0, BIO_MAX))}
+                rows={5}
+                placeholder="Frontend developer with three years building accessible React apps. Looking for a product-focused team where…"
+                aria-invalid={errors.bio ? "true" : undefined}
+                className="field mt-5 !h-auto resize-none py-3 leading-relaxed"
+              />
+            </Card>
+          </Reveal>
+
+          <Reveal>
+            <Card id="section-role" className="scroll-mt-24 p-6">
+              <CardHeader icon={Briefcase} title="Target role and skills" subtitle="Interviews default to this role, and skills shape the questions." />
+              <div className="mt-6">
+                <p className="mb-1.5 text-[13px] font-medium text-stone-700">Target role</p>
+                <RolePicker value={draft.targetRole} onChange={(r) => set("targetRole", r)} />
+              </div>
+              <div className="mt-6">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-[13px] font-medium text-stone-700">Skills</p>
+                  <span className="text-[12px] tabular-nums text-stone-400">{draft.skills.length}/{MAX_SKILLS}</span>
+                </div>
+                <div className="flex min-h-[52px] flex-wrap gap-1.5 rounded-2xl border border-[var(--line)] bg-stone-50/60 p-2">
+                  {draft.skills.length === 0 && <p className="px-2 py-1.5 text-[13px] text-stone-400">Add skills below or pick from suggestions.</p>}
+                  {draft.skills.map((s) => (
+                    <span key={s} className="animate-pop inline-flex items-center gap-1 rounded-full bg-ink py-1 pl-3 pr-1 text-[12.5px] font-medium text-white">
+                      {s}
+                      <button type="button" onClick={() => set("skills", draft.skills.filter((x) => x !== s))} aria-label={`Remove ${s}`} className="flex h-5 w-5 items-center justify-center rounded-full text-white/60 hover:bg-white/15 hover:text-white">
+                        <X size={11} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="relative mt-3">
+                  <input
+                    value={skillInput}
+                    onChange={(e) => setSkillInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === ",") {
+                        e.preventDefault();
+                        addSkill(skillInput);
+                      }
+                    }}
+                    placeholder="Type a skill and press Enter"
+                    className="field pr-24"
+                    aria-label="Add a skill"
+                  />
+                  <button type="button" onClick={() => addSkill(skillInput)} disabled={!skillInput.trim()} className="absolute right-1.5 top-1/2 inline-flex h-9 -translate-y-1/2 items-center gap-1 rounded-lg bg-ink px-3 text-[12.5px] font-semibold text-white transition-opacity disabled:opacity-0">
+                    <Plus size={14} /> Add
+                  </button>
+                </div>
+                {suggestions.length > 0 && (
+                  <div className="mt-4">
+                    <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-stone-400">Suggested for {draft.targetRole}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {suggestions.map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => addSkill(s)}
+                          className="rounded-full border border-[var(--line)] bg-white px-3 py-1.5 text-[12.5px] font-medium text-stone-600 transition-all duration-200 hover:-translate-y-px hover:border-brand/50 hover:bg-brand-soft hover:text-brand"
+                        >
+                          + {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Card>
+          </Reveal>
+
+          <Reveal>
+            <Card id="section-links" className="scroll-mt-24 p-6">
+              <CardHeader icon={Globe} title="Links" subtitle="Help companies see your work." />
+              <div className="mt-6 grid grid-cols-1 gap-5">
+                <AuthField label="LinkedIn" icon={LinkedinIcon} type="url" value={draft.links.linkedin} onChange={(e) => setLink("linkedin", e.target.value)} error={errors.linkedin} placeholder="https://linkedin.com/in/your-profile" />
+                <AuthField label="GitHub" icon={GithubIcon} type="url" value={draft.links.github} onChange={(e) => setLink("github", e.target.value)} error={errors.github} placeholder="https://github.com/your-username" />
+                <AuthField label="Portfolio" icon={Globe} type="url" value={draft.links.portfolio} onChange={(e) => setLink("portfolio", e.target.value)} error={errors.portfolio} placeholder="https://yourportfolio.com" />
+              </div>
+            </Card>
+          </Reveal>
+        </div>
+
+        <div className="min-w-0 space-y-6">
+          <Reveal delay={60}>
+            <Card id="section-cv" className="scroll-mt-24 p-6">
+              <CardHeader icon={FileText} title="CV" subtitle="Used to tailor interview questions." />
+              {profile.cv ? (
+                <div className="mt-5">
+                  <div className="flex items-center gap-3 rounded-2xl border border-[var(--line)] bg-stone-50/60 p-3.5">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-brand shadow-sm">
+                      <FileText size={20} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13.5px] font-semibold text-ink">{profile.cv.name}</p>
+                      <p className="text-[12px] text-stone-500">
+                        {profile.cv.size ? `${Math.max(1, Math.round(profile.cv.size / 1024))} KB · ` : ""}Uploaded {formatDate(profile.cv.uploadedAt)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    <button type="button" onClick={() => setPreview(true)} disabled={!cvUrl} title={cvUrl ? "Preview" : "Preview is available for PDFs uploaded in this session"} className="btn-secondary !h-9 !px-2 text-[12.5px] disabled:cursor-not-allowed disabled:opacity-50">
+                      <Eye size={14} /> View
+                    </button>
+                    <button type="button" onClick={() => cvRef.current?.click()} className="btn-secondary !h-9 !px-2 text-[12.5px]">
+                      <RefreshCw size={14} /> Replace
+                    </button>
+                    <button type="button" onClick={() => setConfirmCv(true)} className="btn-secondary !h-9 !px-2 text-[12.5px] hover:!border-red-200 hover:!text-red-600">
+                      <Trash2 size={14} /> Remove
+                    </button>
+                  </div>
+                  {confirmCv && (
+                    <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 p-3.5 animate-fade-in-up">
+                      <p className="text-[13px] text-red-800">Remove your CV? Interviews will stop matching it.</p>
+                      <div className="mt-3 flex gap-2">
+                        <button type="button" onClick={() => setConfirmCv(false)} className="btn-secondary !h-9 flex-1">Keep</button>
+                        <button type="button" onClick={removeCv} className="btn-dark !h-9 flex-1 !bg-red-600 hover:!bg-red-700">Remove</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => cvRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+                  onDragLeave={() => setDragging(false)}
+                  onDrop={(e) => { e.preventDefault(); setDragging(false); onCv(e.dataTransfer.files[0]); }}
+                  className={`group mt-5 flex w-full flex-col items-center gap-2 rounded-2xl border-2 border-dashed px-5 py-8 text-center transition-all duration-300 ${
+                    dragging ? "scale-[1.01] border-brand bg-brand-soft" : "border-stone-300 bg-stone-50/60 hover:border-brand/60 hover:bg-brand-soft/60"
+                  }`}
+                >
+                  <span className={`flex h-12 w-12 items-center justify-center rounded-2xl transition-all duration-300 ${dragging ? "-translate-y-1 bg-brand text-white" : "bg-white text-stone-400 shadow-sm group-hover:-translate-y-1 group-hover:text-brand"}`}>
+                    <CloudUpload size={22} />
+                  </span>
+                  <span className="text-[14px] font-semibold text-ink">{dragging ? "Drop to upload" : "Upload your CV"}</span>
+                  <span className="text-[12px] text-stone-500">PDF or Word · up to 5 MB</span>
+                </button>
+              )}
+              <input ref={cvRef} type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={(e) => { onCv(e.target.files[0]); e.target.value = ""; }} />
+            </Card>
+          </Reveal>
+
+          <Reveal delay={120}>
+            <Card className="p-6 lg:sticky lg:top-24">
+              <CardHeader icon={CheckCircle2} title="Profile strength" subtitle={completion.percent === 100 ? "Everything is in place." : "Finish these to get better questions."} />
+              <ul className="mt-4 space-y-0.5">
+                {completion.items.map((it) => (
+                  <li key={it.key}>
+                    <button
+                      type="button"
+                      onClick={() => jump(it.key)}
+                      className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-[13.5px] transition-colors ${it.done ? "text-stone-400" : "text-stone-700 hover:bg-stone-50 hover:text-ink"}`}
+                    >
+                      {it.done ? <CheckCircle2 size={16} className="shrink-0 text-emerald-500" /> : <Circle size={16} className="shrink-0 text-stone-300" />}
+                      <span className={`flex-1 ${it.done ? "line-through" : ""}`}>{it.label}</span>
+                      {!it.done && <ChevronRight size={14} className="text-stone-300" />}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-5 grid grid-cols-3 gap-2 border-t border-[var(--line)] pt-5 text-center">
+                {[
+                  { icon: Award, label: "Interviews", value: stats.count },
+                  { icon: TrendingUp, label: "Average", value: stats.avg || "–" },
+                  { icon: Sparkles, label: "Best", value: stats.best || "–" },
+                ].map((s) => {
+                  const Icon = s.icon;
+                  return (
+                    <Link key={s.label} to="/candidate/reports" className="rounded-xl p-2 transition-colors hover:bg-stone-50">
+                      <Icon size={15} className="mx-auto text-stone-400" />
+                      <p className="mt-1 font-display text-[20px] font-medium tabular-nums text-ink">{s.value}</p>
+                      <p className="text-[11.5px] text-stone-500">{s.label}</p>
+                    </Link>
+                  );
+                })}
+              </div>
+            </Card>
+          </Reveal>
+        </div>
+      </div>
+
+      {/* Sticky save bar */}
+      <div
+        className={`fixed inset-x-0 bottom-0 z-40 px-4 pb-4 transition-all duration-500 ease-[var(--ease-premium)] lg:left-[256px] ${
+          dirty ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-full opacity-0"
+        }`}
+        aria-hidden={!dirty}
+      >
+        <div className="mx-auto flex max-w-3xl flex-col items-stretch gap-3 rounded-2xl bg-ink p-3 pl-5 text-white shadow-[0_24px_48px_-16px_rgba(13,13,13,0.6)] sm:flex-row sm:items-center">
+          <p className="flex flex-1 items-center gap-2 text-[14px]">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-brand" /> You have unsaved changes
+          </p>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => { setDraft(base); setErrors({}); }} tabIndex={dirty ? 0 : -1} className="btn-on-dark flex-1 sm:flex-none">
+              Discard
+            </button>
+            <button type="button" onClick={save} disabled={saving} tabIndex={dirty ? 0 : -1} className="btn-primary flex-1 sm:flex-none">
+              {saving ? <><Loader2 size={16} className="animate-spin" /> Saving…</> : "Save changes"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {preview && cvUrl && <CvPreview url={cvUrl} name={profile.cv?.name} onClose={() => setPreview(false)} />}
+    </div>
+  );
+}

@@ -1,493 +1,341 @@
-import { useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import { useLogout } from "@/hooks/useLogout";
-import { 
-  LayoutDashboard, 
-  User, 
-  Mic2, 
-  FileText,
-  Globe,
-  Settings,
-  LogOut,
-  ChevronRight,
-  Calendar,
-  Clock,
-  TrendingUp,
-  Award,
-  Search,
-  Filter,
-  Download,
-  Eye,
-  RotateCcw
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import {
+  ArrowRight, ArrowUpDown, Award, ChevronRight, Clock, Download, FileBarChart2, LayoutGrid, List, Mic,
+  RotateCcw, Search, SearchX, TrendingUp, X,
 } from "lucide-react";
-import { Toast } from "../../components/shared/Toast";
-import IntelliHireLogo from "../../components/shared/IntelliHireLogo";
-import AnimatedCounter from "../../components/shared/AnimatedCounter";
+import { Badge, Card, CardHeader, EmptyState, PageHeader, ScoreRing, Segmented, StatTile, TrendChart } from "@/components/app/primitives";
+import Reveal from "@/components/shared/Reveal";
+import { useCandidateRecord } from "@/store/candidateStore";
+import {
+  DIFFICULTY_LABEL, TYPE_LABEL, formatDate, formatDuration, scoreTone, sessionStats, toneFor,
+} from "@/lib/candidateStats";
+import { DIMENSION_LABEL, DIMENSION_SHORT } from "@/lib/interview/evaluate";
+import { downloadFile, toCsv } from "@/lib/csv";
+import { toast } from "@/store/toastStore";
 
-// Sidebar Navigation Item
-const NavItem = ({ icon: Icon, label, active, onClick }) => (
-  <button
-    onClick={onClick}
-    className={`w-full flex items-center gap-3 px-4 h-[40px] text-[14px] transition-all ${
-      active 
-        ? "border-l-[3px] border-[#F04E23] bg-[#FFF4F1] text-[#F04E23] font-medium" 
-        : "border-l-[3px] border-transparent text-[#374151] hover:bg-[#F9FAFB]"
-    }`}
-  >
-    <Icon size={18} />
-    <span>{label}</span>
-  </button>
-);
-
-// Report Card Component
-const ReportCard = ({ report, onView, onDownload, onRetake }) => {
-  const getScoreColor = (score) => {
-    if (score >= 80) return "text-[#16A34A] bg-[#DCFCE7]";
-    if (score >= 60) return "text-[#F59E0B] bg-[#FEF3C7]";
-    return "text-[#DC2626] bg-[#FEE2E2]";
-  };
-
-  const getStatusBadge = (status) => {
-    switch(status) {
-      case 'completed':
-        return <span className="px-2 py-0.5 rounded-full text-[11px] font-medium text-[#16A34A] bg-[#DCFCE7]">Completed</span>;
-      case 'in_progress':
-        return <span className="px-2 py-0.5 rounded-full text-[11px] font-medium text-[#F04E23] bg-[#FFF4F1]">In Progress</span>;
-      default:
-        return <span className="px-2 py-0.5 rounded-full text-[11px] font-medium text-[#6B7280] bg-[#F3F4F6]">Draft</span>;
-    }
-  };
-
-  return (
-    <div className="bg-white border border-[#E5E7EB] rounded-[12px] p-5 hover:shadow-[0_8px_30px_rgba(240,78,35,0.08)] hover:border-[#FCA68A] hover:-translate-y-0.5 transition-all duration-300">
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-2">
-            {getStatusBadge(report.status)}
-            <span className="text-[12px] text-[#6B7280]">{report.type}</span>
-          </div>
-          <h3 className="text-[16px] font-semibold text-[#111827]" style={{ fontFamily: 'Times New Roman, serif' }}>
-            {report.role}
-          </h3>
-          <div className="flex items-center gap-4 mt-2 text-[12px] text-[#6B7280]">
-            <span className="flex items-center gap-1">
-              <Calendar size={12} />
-              {report.date}
-            </span>
-            <span className="flex items-center gap-1">
-              <Clock size={12} />
-              {report.duration}
-            </span>
-          </div>
-        </div>
-        <div className={`w-14 h-14 rounded-full flex flex-col items-center justify-center ${getScoreColor(report.score)}`}>
-          <span className="text-[18px] font-bold">{report.score}</span>
-          <span className="text-[10px]">/100</span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-4 gap-2 mb-4">
-        <div className="text-center p-2 bg-[#F9FAFB] rounded-lg">
-          <p className="text-[11px] text-[#6B7280]">Communication</p>
-          <p className="text-[13px] font-semibold text-[#374151]">{report.breakdown.communication}%</p>
-        </div>
-        <div className="text-center p-2 bg-[#F9FAFB] rounded-lg">
-          <p className="text-[11px] text-[#6B7280]">Technical</p>
-          <p className="text-[13px] font-semibold text-[#374151]">{report.breakdown.technical}%</p>
-        </div>
-        <div className="text-center p-2 bg-[#F9FAFB] rounded-lg">
-          <p className="text-[11px] text-[#6B7280]">Confidence</p>
-          <p className="text-[13px] font-semibold text-[#374151]">{report.breakdown.confidence}%</p>
-        </div>
-        <div className="text-center p-2 bg-[#F9FAFB] rounded-lg">
-          <p className="text-[11px] text-[#6B7280]">Structure</p>
-          <p className="text-[13px] font-semibold text-[#374151]">{report.breakdown.structure}%</p>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => onView(report.id)}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-[#F04E23] hover:bg-[#D43D14] text-white rounded-[8px] text-[13px] font-medium transition-colors"
-        >
-          <Eye size={14} /> View Report
-        </button>
-        <button
-          onClick={() => onDownload(report)}
-          className="p-2 text-[#6B7280] hover:text-[#F04E23] hover:bg-[#FFF4F1] rounded-[8px] transition-colors"
-          title="Download"
-        >
-          <Download size={16} />
-        </button>
-        <button
-          onClick={() => onRetake(report.role)}
-          className="p-2 text-[#6B7280] hover:text-[#16A34A] hover:bg-[#DCFCE7] rounded-[8px] transition-colors"
-          title="Retake Interview"
-        >
-          <RotateCcw size={16} />
-        </button>
-      </div>
-    </div>
-  );
+const SORTS = {
+  newest: { label: "Newest first", fn: (a, b) => b.completedAt - a.completedAt },
+  oldest: { label: "Oldest first", fn: (a, b) => a.completedAt - b.completedAt },
+  highest: { label: "Highest score", fn: (a, b) => b.summary.overall - a.summary.overall },
+  lowest: { label: "Lowest score", fn: (a, b) => a.summary.overall - b.summary.overall },
 };
 
-// Empty State Component
-const EmptyReportsState = ({ onStartInterview }) => (
-  <div className="bg-white border border-[#E5E7EB] rounded-[12px] p-12 text-center">
-    <div className="w-16 h-16 rounded-full bg-[#FFF4F1] flex items-center justify-center mx-auto mb-4">
-      <FileText size={32} className="text-[#F04E23]" />
-    </div>
-    <h3 className="text-[18px] font-semibold text-[#111827] mb-2" style={{ fontFamily: 'Times New Roman, serif' }}>
-      No Reports Yet
-    </h3>
-    <p className="text-[14px] text-[#6B7280] mb-6 max-w-md mx-auto italic">
-      You haven't completed any interviews yet. Start your first mock interview to get detailed AI-powered feedback.
-    </p>
-    <button
-      onClick={onStartInterview}
-      className="px-6 py-3 bg-[#F04E23] hover:bg-[#D43D14] text-white rounded-[8px] text-[14px] font-medium flex items-center gap-2 mx-auto transition-colors"
-    >
-      <Mic2 size={16} /> Start Interview
-    </button>
-  </div>
-);
+const retakeUrl = (s) =>
+  `/candidate/interview/setup?type=${s.type}&role=${encodeURIComponent(s.role)}&difficulty=${s.difficulty}&length=${s.questions.length}`;
 
-function CandidateReports() {
-  const navigate = useNavigate();
-  const logout = useLogout();
-  const [activeNav, setActiveNav] = useState("reports");
-  const [showUserDropdown, setShowUserDropdown] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterType, setFilterType] = useState("all");
-  const [toast, setToast] = useState(null);
-
-  // Toast helper
-  const showToast = useCallback((message, type = "success") => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  }, []);
-
-  // Muslim name user
-  const userName = "Ahmed Hassan";
-  const userInitials = "AH";
-
-  // Mock reports data
-  const reports = [
-    {
-      id: "123",
-      role: "Software Engineer",
-      type: "Technical",
-      status: "completed",
-      date: "May 9, 2026",
-      duration: "18 min 42 sec",
-      score: 82,
-      breakdown: {
-        communication: 86,
-        technical: 79,
-        confidence: 75,
-        structure: 70
-      }
-    },
-    {
-      id: "122",
-      role: "Frontend Developer",
-      type: "Technical",
-      status: "completed",
-      date: "May 5, 2026",
-      duration: "15 min 20 sec",
-      score: 78,
-      breakdown: {
-        communication: 80,
-        technical: 82,
-        confidence: 70,
-        structure: 75
-      }
-    },
-    {
-      id: "121",
-      role: "React Developer",
-      type: "Technical",
-      status: "completed",
-      date: "Apr 28, 2026",
-      duration: "20 min 10 sec",
-      score: 85,
-      breakdown: {
-        communication: 88,
-        technical: 85,
-        confidence: 82,
-        structure: 80
-      }
-    },
-    {
-      id: "120",
-      role: "Full Stack Developer",
-      type: "Technical",
-      status: "completed",
-      date: "Apr 20, 2026",
-      duration: "22 min 45 sec",
-      score: 71,
-      breakdown: {
-        communication: 75,
-        technical: 70,
-        confidence: 68,
-        structure: 65
-      }
-    }
-  ];
-
-  // Filter reports
-  const filteredReports = reports.filter(report => {
-    const matchesSearch = report.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         report.type.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = filterType === "all" || report.type.toLowerCase() === filterType.toLowerCase();
-    return matchesSearch && matchesFilter;
-  });
-
-  // Calculate stats
-  const averageScore = Math.round(reports.reduce((sum, r) => sum + r.score, 0) / reports.length);
-  const completedInterviews = reports.filter(r => r.status === "completed").length;
-  const bestScore = Math.max(...reports.map(r => r.score));
-  const totalTime = reports.reduce((sum, r) => {
-    const [mins] = r.duration.split(" ");
-    return sum + parseInt(mins);
-  }, 0);
-
-  const navItems = [
-    { id: "dashboard",   label: "Dashboard",   icon: LayoutDashboard },
-    { id: "profile",     label: "My Profile",  icon: User },
-    { id: "interview",   label: "Interviews",  icon: Mic2 },
-    { id: "reports",     label: "My Reports",  icon: FileText },
-    { id: "communities", label: "Communities", icon: Globe },
-    { id: "settings",    label: "Settings",    icon: Settings },
-  ];
-
-  const handleNavClick = (navId) => {
-    setActiveNav(navId);
-    if (navId === "dashboard")   navigate("/candidate/dashboard");
-    if (navId === "profile")     navigate("/candidate/profile");
-    if (navId === "interview")   navigate("/candidate/interview/setup");
-    if (navId === "communities") navigate("/candidate/communities");
-    if (navId === "settings")    navigate("/candidate/settings");
-  };
-
-  const handleViewReport = (id) => {
-    navigate(`/candidate/report/${id}`);
-  };
-
-  const handleDownloadReport = (report) => {
-    showToast(`Downloading report for ${report.role}...`, "success");
-    // Simulate download delay
-    setTimeout(() => {
-      showToast(`Report downloaded successfully!`, "success");
-    }, 1500);
-  };
-
-  const handleRetakeInterview = (role) => {
-    showToast(`Starting new interview for ${role}...`, "info");
-    setTimeout(() => {
-      navigate("/candidate/interview/setup");
-    }, 500);
-  };
-
-  const handleStartInterview = () => {
-    navigate("/candidate/interview/setup");
-  };
-
+function ReportCard({ s, index }) {
+  const tone = scoreTone(s.summary.overall);
   return (
-    <div className="min-h-screen bg-[#F9FAFB]">
-      {/* Toast Notification */}
-      {toast && (
-        <Toast 
-          message={toast.message} 
-          type={toast.type} 
-          onClose={() => setToast(null)} 
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside className="fixed left-0 top-0 w-[240px] h-full bg-white border-r border-[#E5E7EB] z-50">
-        <div className="h-16 flex items-center px-4 border-b border-[#E5E7EB]">
-          <IntelliHireLogo className="w-8 h-8 mr-2" />
-          <span className="text-[20px] font-bold text-[#111827]" style={{ fontFamily: 'Times New Roman, serif' }}>IntelliHire</span>
+    <Reveal delay={Math.min(index, 8) * 50} className="min-w-0">
+      <Card interactive className="group relative flex h-full flex-col p-5">
+        <div className="flex items-start gap-4">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Badge tone="neutral">{TYPE_LABEL[s.type]}</Badge>
+              <Badge tone="neutral">{DIFFICULTY_LABEL[s.difficulty]}</Badge>
+            </div>
+            <h3 className="mt-3 truncate font-sans text-[16px] font-semibold text-ink">
+              <Link to={`/candidate/report/${s.id}`} className="after:absolute after:inset-0 after:rounded-[20px] focus-visible:outline-none">
+                {s.role}
+              </Link>
+            </h3>
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[12.5px] text-stone-500">
+              {formatDate(s.completedAt)} <span className="text-stone-300">•</span> {formatDuration(s.durationSec)}
+            </p>
+          </div>
+          <ScoreRing score={s.summary.overall} size={64} stroke={6} label="" />
         </div>
 
-        <nav className="py-4">
-          {navItems.map((item) => (
-            <NavItem
-              key={item.id}
-              icon={item.icon}
-              label={item.label}
-              active={activeNav === item.id}
-              onClick={() => handleNavClick(item.id)}
-            />
+        <div className="mt-5 grid grid-cols-4 gap-2">
+          {Object.entries(s.summary.breakdown).map(([k, v]) => (
+            <div key={k} title={DIMENSION_LABEL[k]} className="min-w-0 rounded-xl bg-stone-50 px-1 py-2 text-center">
+              <p className="truncate text-[10.5px] text-stone-500">{DIMENSION_SHORT[k]}</p>
+              <p className={`text-[14px] font-semibold tabular-nums ${scoreTone(v).text}`}>{v}</p>
+            </div>
           ))}
-        </nav>
+        </div>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-[#E5E7EB]">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-[#F04E23] flex items-center justify-center text-white text-[12px] font-semibold">
-              {userInitials}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[14px] font-medium text-[#111827] truncate">{userName}</p>
-            </div>
-            <button 
-              onClick={logout}
-              className="p-1.5 text-[#6B7280] hover:text-[#DC2626] hover:bg-[#FEE2E2] rounded transition-colors"
-              title="Log out"
+        <div className="mt-5 flex items-center justify-between border-t border-[var(--line)] pt-4">
+          <Badge tone={toneFor(s.summary.overall)}>{s.summary.verdict.label}</Badge>
+          <div className="relative z-10 flex items-center gap-1">
+            <Link
+              to={retakeUrl(s)}
+              aria-label={`Retake ${s.role} interview`}
+              title="Retake"
+              className="icon-btn flex h-8 w-8 items-center justify-center rounded-lg text-stone-400 hover:bg-stone-100 hover:text-ink"
             >
-              <LogOut size={16} />
-            </button>
+              <RotateCcw size={15} />
+            </Link>
+            <span className={`inline-flex items-center gap-1 text-[13px] font-semibold ${tone.text}`}>
+              View <ChevronRight size={15} className="transition-transform group-hover:translate-x-0.5" />
+            </span>
           </div>
         </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="ml-[240px]">
-        {/* Top Bar */}
-        <header className="h-16 bg-white border-b border-[#E5E7EB] flex items-center justify-between px-8 sticky top-0 z-40">
-          <h1 className="text-[22px] font-bold text-[#111827]" style={{ fontFamily: 'Times New Roman, serif' }}>My <em className="text-[#F04E23] italic">Reports</em></h1>
-          <div className="flex items-center gap-3">
-            <span className="text-[14px] text-[#6B7280]">Ahmed 👋</span>
-            
-            <div className="relative">
-              <button 
-                onClick={() => setShowUserDropdown(!showUserDropdown)}
-                className="w-8 h-8 rounded-full bg-gradient-to-br from-[#F04E23] to-[#FFA07A] flex items-center justify-center text-white text-[12px] font-semibold hover:shadow-md transition-shadow"
-              >
-                {userInitials}
-              </button>
-              
-              {showUserDropdown && (
-                <div className="absolute top-full right-0 mt-2 w-44 bg-white border border-[#E5E7EB] rounded-lg shadow-lg py-1 z-50">
-                  <div className="px-3 py-2 border-b border-[#F3F4F6]">
-                    <p className="text-[13px] font-medium text-[#111827]">{userName}</p>
-                    <p className="text-[11px] text-[#6B7280]">ahmed.hassan@email.com</p>
-                  </div>
-                  <button 
-                    onClick={() => { navigate("/candidate/profile"); setShowUserDropdown(false); }}
-                    className="w-full px-3 py-2 text-left text-[13px] text-[#374151] hover:bg-[#F9FAFB] flex items-center gap-2"
-                  >
-                    <User size={14} /> Edit Profile
-                  </button>
-                  <button 
-                    onClick={() => { logout(); setShowUserDropdown(false); }}
-                    className="w-full px-3 py-2 text-left text-[13px] text-[#DC2626] hover:bg-[#FEE2E2] flex items-center gap-2"
-                  >
-                    <LogOut size={14} /> Sign Out
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </header>
-
-        {/* Reports Content */}
-        <div className="p-6">
-          {/* Stats Cards */}
-          {reports.length > 0 && (
-            <div className="grid grid-cols-4 gap-4 mb-6">
-              <div className="bg-white border border-[#E5E7EB] rounded-[12px] p-4 hover:shadow-[0_4px_16px_rgba(240,78,35,0.06)] hover:border-[#FCA68A] transition-all duration-300">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#FFF4F1] flex items-center justify-center">
-                    <TrendingUp size={20} className="text-[#F04E23]" />
-                  </div>
-                  <div>
-                    <p className="text-[12px] text-[#6B7280]">Average Score</p>
-                    <AnimatedCounter as="p" value={`${averageScore}/100`} className="text-[20px] font-bold text-[#111827]" />
-                  </div>
-                </div>
-              </div>
-              <div className="bg-white border border-[#E5E7EB] rounded-[12px] p-4 hover:shadow-[0_4px_16px_rgba(240,78,35,0.06)] hover:border-[#FCA68A] transition-all duration-300">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#DCFCE7] flex items-center justify-center">
-                    <Award size={20} className="text-[#16A34A]" />
-                  </div>
-                  <div>
-                    <p className="text-[12px] text-[#6B7280]">Best Score</p>
-                    <AnimatedCounter as="p" value={`${bestScore}/100`} className="text-[20px] font-bold text-[#111827]" />
-                  </div>
-                </div>
-              </div>
-              <div className="bg-white border border-[#E5E7EB] rounded-[12px] p-4 hover:shadow-[0_4px_16px_rgba(240,78,35,0.06)] hover:border-[#FCA68A] transition-all duration-300">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#FEF3C7] flex items-center justify-center">
-                    <Mic2 size={20} className="text-[#F59E0B]" />
-                  </div>
-                  <div>
-                    <p className="text-[12px] text-[#6B7280]">Interviews</p>
-                    <AnimatedCounter as="p" value={completedInterviews} className="text-[20px] font-bold text-[#111827]" />
-                  </div>
-                </div>
-              </div>
-              <div className="bg-white border border-[#E5E7EB] rounded-[12px] p-4 hover:shadow-[0_4px_16px_rgba(240,78,35,0.06)] hover:border-[#FCA68A] transition-all duration-300">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#FFF4F1] flex items-center justify-center">
-                    <Clock size={20} className="text-[#F04E23]" />
-                  </div>
-                  <div>
-                    <p className="text-[12px] text-[#6B7280]">Total Time</p>
-                    <AnimatedCounter as="p" value={`${totalTime} min`} className="text-[20px] font-bold text-[#111827]" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Search and Filter */}
-          <div className="flex items-center gap-3 mb-6">
-            <div className="relative flex-1 max-w-md">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
-              <input
-                type="text"
-                placeholder="Search reports..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-10 pl-10 pr-4 rounded-[8px] border border-[#E5E7EB] text-[14px] outline-none focus:border-[#F04E23] focus:ring-2 focus:ring-orange-100 transition-all"
-              />
-            </div>
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              className="h-10 px-4 rounded-[8px] border border-[#E5E7EB] text-[14px] bg-white outline-none focus:border-[#F04E23] cursor-pointer"
-            >
-              <option value="all">All Types</option>
-              <option value="technical">Technical</option>
-              <option value="behavioral">Behavioral</option>
-              <option value="mixed">Mixed</option>
-            </select>
-          </div>
-
-          {/* Reports Grid */}
-          {filteredReports.length > 0 ? (
-            <div className="grid grid-cols-2 gap-4">
-              {filteredReports.map((report) => (
-                <ReportCard
-                  key={report.id}
-                  report={report}
-                  onView={handleViewReport}
-                  onDownload={handleDownloadReport}
-                  onRetake={handleRetakeInterview}
-                />
-              ))}
-            </div>
-          ) : reports.length === 0 ? (
-            <EmptyReportsState onStartInterview={handleStartInterview} />
-          ) : (
-            <div className="text-center py-12">
-              <p className="text-[14px] text-[#6B7280]">No reports match your search.</p>
-              <button
-                onClick={() => { setSearchQuery(""); setFilterType("all"); }}
-                className="mt-2 text-[14px] text-[#F04E23] hover:underline"
-              >
-                Clear filters
-              </button>
-            </div>
-          )}
-        </div>
-      </main>
-    </div>
+      </Card>
+    </Reveal>
   );
 }
 
-export default CandidateReports;
+function ReportTable({ rows }) {
+  return (
+    <Card className="overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[760px] text-left text-[13.5px]">
+          <thead className="border-b border-[var(--line)] bg-stone-50/70 text-[12px] font-semibold uppercase tracking-wide text-stone-500">
+            <tr>
+              <th className="px-5 py-3">Interview</th>
+              <th className="px-3 py-3">Date</th>
+              <th className="px-3 py-3">Duration</th>
+              {Object.keys(DIMENSION_LABEL).map((k) => (
+                <th key={k} className="px-3 py-3 text-center">{DIMENSION_SHORT[k]}</th>
+              ))}
+              <th className="px-3 py-3 text-center">Score</th>
+              <th className="px-5 py-3" />
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[var(--line)]">
+            {rows.map((s, i) => (
+              <tr key={s.id} className="row-hover group animate-fade-in" style={{ animationDelay: `${Math.min(i, 10) * 30}ms` }}>
+                <td className="px-5 py-3.5">
+                  <Link to={`/candidate/report/${s.id}`} className="font-semibold text-ink hover:text-brand">{s.role}</Link>
+                  <p className="text-[12px] text-stone-500">{TYPE_LABEL[s.type]} · {DIFFICULTY_LABEL[s.difficulty]}</p>
+                </td>
+                <td className="whitespace-nowrap px-3 py-3.5 text-stone-600">{formatDate(s.completedAt)}</td>
+                <td className="whitespace-nowrap px-3 py-3.5 text-stone-600">{formatDuration(s.durationSec)}</td>
+                {Object.entries(s.summary.breakdown).map(([k, v]) => (
+                  <td key={k} className={`px-3 py-3.5 text-center font-semibold tabular-nums ${scoreTone(v).text}`}>{v}</td>
+                ))}
+                <td className="px-3 py-3.5 text-center">
+                  <Badge tone={toneFor(s.summary.overall)} className="tabular-nums">{s.summary.overall}</Badge>
+                </td>
+                <td className="px-5 py-3.5 text-right">
+                  <Link to={`/candidate/report/${s.id}`} className="inline-flex items-center gap-1 text-[13px] font-semibold text-stone-500 group-hover:text-brand">
+                    Open <ChevronRight size={15} />
+                  </Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
+export default function CandidateReports() {
+  const { sessions, prefs, profile } = useCandidateRecord();
+  const stats = useMemo(() => sessionStats(sessions, prefs.weeklyGoal), [sessions, prefs.weeklyGoal]);
+  const [query, setQuery] = useState("");
+  const [type, setType] = useState("all");
+  const [sort, setSort] = useState("newest");
+  const [view, setView] = useState("grid");
+  const [metric, setMetric] = useState("overall");
+
+  const rows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return sessions
+      .filter((s) => (type === "all" || s.type === type) && (!q || s.role.toLowerCase().includes(q) || TYPE_LABEL[s.type].toLowerCase().includes(q)))
+      .sort(SORTS[sort].fn);
+  }, [sessions, query, type, sort]);
+
+  const chartPoints = useMemo(
+    () =>
+      [...sessions]
+        .sort((a, b) => a.completedAt - b.completedAt)
+        .map((s) => ({
+          label: formatDate(s.completedAt, { day: "numeric", month: "short" }),
+          value: metric === "overall" ? s.summary.overall : s.summary.breakdown[metric],
+          sub: s.role,
+        })),
+    [sessions, metric],
+  );
+
+  const exportCsv = () => {
+    const headers = ["Date", "Role", "Type", "Difficulty", "Questions", "Answered", "Duration (min)", "Overall", "Communication", "Structure", "Confidence", "Technical", "Verdict"];
+    const data = [...sessions]
+      .sort((a, b) => b.completedAt - a.completedAt)
+      .map((s) => [
+        new Date(s.completedAt).toISOString().slice(0, 10),
+        s.role,
+        TYPE_LABEL[s.type],
+        DIFFICULTY_LABEL[s.difficulty],
+        s.questions.length,
+        s.summary.stats.answered,
+        Math.round(s.durationSec / 60),
+        s.summary.overall,
+        s.summary.breakdown.communication,
+        s.summary.breakdown.structure,
+        s.summary.breakdown.confidence,
+        s.summary.breakdown.technical,
+        s.summary.verdict.label,
+      ]);
+    const name = `intellihire-reports-${profile.fullName.toLowerCase().replace(/\s+/g, "-") || "candidate"}-${new Date().toISOString().slice(0, 10)}.csv`;
+    downloadFile(name, toCsv(headers, data));
+    toast({ title: "Reports exported", message: `${data.length} interviews saved to ${name}.` });
+  };
+
+  const filtersActive = query || type !== "all";
+
+  if (!sessions.length) {
+    return (
+      <div>
+        <PageHeader eyebrow="Reports" title={<>Your interview <em>reports</em></>} subtitle="Every practice interview gets a detailed report you can come back to." />
+        <EmptyState
+          icon={FileBarChart2}
+          title="No reports yet"
+          message="Complete your first practice interview and your report will appear here, with scores, strengths and an action plan."
+          action={
+            <Link to="/candidate/interview/setup" className="btn-primary">
+              <Mic size={16} /> Start your first interview
+            </Link>
+          }
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Reports"
+        title={<>Your interview <em>reports</em></>}
+        subtitle={`${stats.count} interviews · average ${stats.avg}/100 · best ${stats.best}/100`}
+        actions={
+          <>
+            <button type="button" onClick={exportCsv} className="btn-secondary">
+              <Download size={16} /> Export CSV
+            </button>
+            <Link to="/candidate/interview/setup" className="btn-primary">
+              <Mic size={16} /> New interview
+            </Link>
+          </>
+        }
+      />
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatTile icon={FileBarChart2} label="Interviews" value={stats.count} hint={`${stats.thisWeek} this week`} />
+        <StatTile icon={TrendingUp} label="Average score" value={stats.avg} suffix="/100" delta={stats.improvement || null} delay={60} />
+        <StatTile icon={Award} label="Best score" value={stats.best} suffix="/100" delay={120} />
+        <StatTile icon={Clock} label="Practice time" value={stats.minutes} suffix="min" delay={180} />
+      </div>
+
+      <Reveal>
+        <Card className="p-6">
+          <CardHeader
+            icon={TrendingUp}
+            title="Progress over time"
+            subtitle={metric === "overall" ? "Overall score per interview" : `${DIMENSION_LABEL[metric]} per interview`}
+            action={
+              <div className="hidden md:block">
+                <Segmented
+                  size="sm"
+                  ariaLabel="Chart metric"
+                  value={metric}
+                  onChange={setMetric}
+                  options={[{ value: "overall", label: "Overall" }, ...Object.keys(DIMENSION_LABEL).map((k) => ({ value: k, label: DIMENSION_SHORT[k] }))]}
+                />
+              </div>
+            }
+          />
+          <div className="mt-4 md:hidden">
+            <select value={metric} onChange={(e) => setMetric(e.target.value)} className="field !h-10 !text-[14px]" aria-label="Chart metric">
+              <option value="overall">Overall</option>
+              {Object.keys(DIMENSION_LABEL).map((k) => <option key={k} value={k}>{DIMENSION_LABEL[k]}</option>)}
+            </select>
+          </div>
+          <div className="mt-6">
+            <TrendChart key={metric} points={chartPoints} height={210} />
+          </div>
+        </Card>
+      </Reveal>
+
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="relative flex-1">
+          <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by role or type"
+            className="field !h-11 !pl-10 pr-10"
+            aria-label="Search reports"
+          />
+          {query && (
+            <button type="button" onClick={() => setQuery("")} aria-label="Clear search" className="icon-btn absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-stone-400 hover:bg-stone-100 hover:text-ink">
+              <X size={14} />
+            </button>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="max-w-full overflow-x-auto">
+            <Segmented
+              size="sm"
+              ariaLabel="Interview type"
+              value={type}
+              onChange={setType}
+              options={[{ value: "all", label: "All" }, { value: "general", label: "General" }, { value: "technical", label: "Technical" }, { value: "role-specific", label: "Role" }]}
+            />
+          </div>
+          <label className="relative">
+            <span className="sr-only">Sort</span>
+            <ArrowUpDown size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+            <select value={sort} onChange={(e) => setSort(e.target.value)} className="h-10 cursor-pointer appearance-none rounded-xl border border-[var(--line)] bg-white pl-8 pr-4 text-[13px] font-semibold text-stone-600 outline-none transition-colors hover:border-stone-300 focus:border-brand">
+              {Object.entries(SORTS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+            </select>
+          </label>
+          <Segmented
+            size="sm"
+            ariaLabel="View"
+            className="hidden md:inline-grid"
+            value={view}
+            onChange={setView}
+            options={[{ value: "grid", label: "", icon: LayoutGrid, ariaLabel: "Grid view" }, { value: "list", label: "", icon: List, ariaLabel: "List view" }]}
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between text-[13px] text-stone-500">
+        <p>
+          Showing <span className="font-semibold text-ink">{rows.length}</span> of {sessions.length}
+        </p>
+        {filtersActive && (
+          <button type="button" onClick={() => { setQuery(""); setType("all"); }} className="font-semibold text-brand hover:text-brand-hover">
+            Clear filters
+          </button>
+        )}
+      </div>
+
+      {rows.length === 0 ? (
+        <EmptyState
+          icon={SearchX}
+          title="No matching reports"
+          message="Try a different search or show all interview types."
+          action={
+            <button type="button" onClick={() => { setQuery(""); setType("all"); }} className="btn-secondary">
+              Clear filters
+            </button>
+          }
+        />
+      ) : view === "list" ? (
+        <>
+          <div className="hidden md:block">
+            <ReportTable rows={rows} />
+          </div>
+          <div className="grid grid-cols-1 gap-4 md:hidden">
+            {rows.map((s, i) => <ReportCard key={s.id} s={s} index={i} />)}
+          </div>
+        </>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {rows.map((s, i) => <ReportCard key={s.id} s={s} index={i} />)}
+        </div>
+      )}
+
+      <div className="flex justify-center pt-2">
+        <Link to="/candidate/interview/setup" className="group inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-stone-500 hover:text-brand">
+          Ready for another round? Start a new interview <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" />
+        </Link>
+      </div>
+    </div>
+  );
+}

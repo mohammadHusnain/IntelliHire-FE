@@ -7,15 +7,13 @@ import { useEffect, useRef, useState } from "react";
  */
 export default function useInView({ threshold = 0.2, rootMargin = "0px", once = true } = {}) {
   const ref = useRef(null);
-  const [inView, setInView] = useState(false);
+  // No IntersectionObserver (older browsers, SSR): treat content as visible from the start.
+  const [inView, setInView] = useState(() => typeof IntersectionObserver === "undefined");
 
   useEffect(() => {
     const node = ref.current;
     if (!node) return;
-    if (typeof IntersectionObserver === "undefined") {
-      setInView(true);
-      return;
-    }
+    if (typeof IntersectionObserver === "undefined") return;
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
