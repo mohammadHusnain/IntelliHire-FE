@@ -5,7 +5,7 @@ import {
   ArrowLeft, ArrowRight, Check, CheckCircle2, Keyboard, Loader2, Mic, RotateCcw, SkipForward,
   Sparkles, Square, Trash2, Volume2, X,
 } from "lucide-react";
-import IntelliHireLogo from "@/components/shared/IntelliHireLogo";
+import logo from "@/assets/logo/logo.png";
 import useMicrophone from "@/hooks/useMicrophone";
 import useSpeechRecognition from "@/hooks/useSpeechRecognition";
 import { useCandidateActions, useCandidateRecord } from "@/store/candidateStore";
@@ -306,7 +306,7 @@ export default function InterviewRoom() {
       <header className="sticky top-0 z-30 border-b border-[var(--line)] bg-[#FAFAF9]/85 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-2.5">
-            <IntelliHireLogo className="h-8 w-8 shrink-0" />
+            <img src={logo} alt="IntelliHire" width={900} height={268} className="h-7 w-auto shrink-0" />
             <div className="hidden min-w-0 sm:block">
               <p className="truncate text-[13.5px] font-semibold text-ink">{active.config.role}</p>
               <p className="text-[12px] text-stone-500">{TYPE_LABEL[active.config.type]} interview</p>
