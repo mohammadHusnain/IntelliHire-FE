@@ -1,42 +1,34 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  ArrowRight, Briefcase, FileSearch, ListChecks, ClipboardCheck,
-  GraduationCap, Mic, LineChart, Target,
-} from "lucide-react";
-import companiesImg from "@/assets/save time and money image section intellihire.png";
-import candidatesImg from "@/assets/automate process image intellihire .png";
-import SectionHeading from "./SectionHeading";
+import { AnimatePresence, m } from "motion/react";
+import { ArrowRight, Briefcase, FileSearch, ClipboardCheck, GraduationCap, Mic, LineChart } from "lucide-react";
+import WordReveal from "./WordReveal";
 import Reveal from "@/components/shared/Reveal";
+import { trackSpotlight } from "@/lib/spotlight";
+import { fadeUp, stagger, tween } from "@/lib/motion";
 
 const AUDIENCES = {
   company: {
     tab: "For companies",
     icon: Briefcase,
     title: "Screen hundreds of applicants without losing the human judgement.",
-    points: [
-      { icon: ListChecks, title: "Build a role once", desc: "Define skills, experience and custom application fields. IntelliHire generates a shareable form." },
-      { icon: FileSearch, title: "Let AI read every CV", desc: "Skills, projects and experience are extracted and scored against your requirements." },
-      { icon: Mic, title: "Automate first rounds", desc: "Shortlisted candidates move through AI screening and technical interviews on their own time." },
-      { icon: ClipboardCheck, title: "Decide with evidence", desc: "Structured reports compare candidates side by side. Your team makes the call." },
+    cards: [
+      { icon: FileSearch, title: "AI reads every CV", desc: "Skills, projects and experience are extracted and scored against your requirements.", tags: ["Skills", "Projects", "Experience"] },
+      { icon: Mic, title: "AI runs the first rounds", desc: "Shortlisted candidates complete AI screening and technical interviews on their own time.", tags: ["Screening", "Technical"] },
+      { icon: ClipboardCheck, title: "One report per candidate", desc: "Structured reports compare candidates side by side. Your team makes the call.", tags: ["CV match", "Strengths", "Risks"] },
     ],
     cta: { to: "/register?role=company", label: "Create a company account" },
-    img: companiesImg,
-    alt: "Company hiring workspace with interview responses",
   },
   candidate: {
     tab: "For candidates",
     icon: GraduationCap,
     title: "Walk into every interview having already rehearsed it.",
-    points: [
-      { icon: Target, title: "Pick your exact role", desc: "Questions adapt to the position you want, from frontend engineering to product design." },
-      { icon: Mic, title: "Practise with an AI interviewer", desc: "Answer out loud in a realistic interview room, at any hour, as often as you like." },
-      { icon: LineChart, title: "Get honest feedback", desc: "Communication, confidence, technical relevance, plus specific ways to improve." },
-      { icon: GraduationCap, title: "Join talent communities", desc: "Connect with companies and peers in focused university, skill and alumni groups." },
+    cards: [
+      { icon: Mic, title: "Practise with an AI interviewer", desc: "Answer out loud in a realistic interview room, at any hour, as often as you like.", tags: ["Spoken or typed", "Role-specific"] },
+      { icon: LineChart, title: "A scored report", desc: "Communication, answer structure, confidence and technical relevance, plus specific ways to improve.", tags: ["Strengths", "Focus areas", "Action plan"] },
+      { icon: GraduationCap, title: "Talent communities", desc: "Connect with companies and peers in focused university, skill and alumni groups.", tags: ["University", "Skills", "Alumni"] },
     ],
     cta: { to: "/register?role=individual", label: "Start practising free" },
-    img: candidatesImg,
-    alt: "Candidate recording an interview answer",
   },
 };
 
@@ -47,19 +39,28 @@ export default function PlatformTabs() {
   const a = AUDIENCES[active];
 
   return (
-    <section id="platform" className="scroll-mt-24 py-24 sm:py-28">
+    <section id="platform" className="scroll-mt-24 bg-[#FBFAF9] py-24 sm:py-28">
       <div className="mx-auto max-w-6xl px-6 lg:px-8">
-        <SectionHeading
-          eyebrow="One platform"
-          title={<>Both sides of the <em>interview table</em></>}
-          subtitle="Companies run a faster, fairer hiring pipeline. Candidates get the practice and feedback that used to cost a coach."
-        />
+        <div className="mx-auto max-w-3xl text-center">
+          <Reveal>
+            <span className="eyebrow">One platform</span>
+          </Reveal>
+          <WordReveal
+            className="display mt-4 text-[34px] sm:text-[44px] lg:text-[56px]"
+            segments={[{ t: "One platform," }, { t: "both sides.", em: true }]}
+          />
+          <Reveal delay={150}>
+            <p className="mx-auto mt-5 max-w-2xl text-[16px] leading-relaxed text-stone-500 sm:text-[18px]">
+              Companies run a faster, fairer hiring pipeline. Candidates get the practice and feedback that used to cost a coach.
+            </p>
+          </Reveal>
+        </div>
 
         <Reveal delay={200} className="mt-10 flex justify-center">
-          <div role="tablist" aria-label="Audience" className="relative inline-flex rounded-full border border-[var(--line)] bg-stone-50 p-1">
+          <div role="tablist" aria-label="Audience" className="relative inline-flex rounded-full border border-[var(--line)] bg-white p-1">
             <span
               aria-hidden
-              className="absolute bottom-1 top-1 w-[calc(50%-4px)] rounded-full bg-white shadow-[0_4px_14px_-6px_rgba(13,13,13,0.3)] transition-transform duration-500 ease-[var(--ease-premium)]"
+              className="absolute bottom-1 top-1 w-[calc(50%-4px)] rounded-full bg-stone-100 transition-transform duration-500 ease-[var(--ease-premium)]"
               style={{ transform: `translateX(${active === "company" ? "0%" : "100%"})` }}
             />
             {KEYS.map((k) => {
@@ -72,7 +73,7 @@ export default function PlatformTabs() {
                   type="button"
                   aria-selected={on}
                   onClick={() => setActive(k)}
-                  className={`relative z-10 flex w-[8.75rem] items-center justify-center gap-2 rounded-full py-2.5 text-[13px] font-semibold transition-colors xs:w-40 xs:text-[14px] sm:w-48 ${
+                  className={`relative z-10 flex min-h-11 w-[8.75rem] items-center justify-center gap-2 rounded-full py-2.5 text-[13px] font-semibold transition-colors xs:w-40 xs:text-[14px] sm:w-48 ${
                     on ? "text-ink" : "text-stone-500 hover:text-ink"
                   }`}
                 >
@@ -83,48 +84,54 @@ export default function PlatformTabs() {
           </div>
         </Reveal>
 
-        <div key={active} role="tabpanel" className="mt-14 grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
-          <div className="animate-fade-in-up">
-            <h3 className="display text-[28px] sm:text-[34px]">{a.title}</h3>
-            <ul className="mt-8 space-y-2">
-              {a.points.map((p, i) => {
-                const Icon = p.icon;
+        <AnimatePresence mode="wait" initial={false}>
+          <m.div
+            key={active}
+            role="tabpanel"
+            variants={stagger(0.09)}
+            initial="hidden"
+            animate="show"
+            exit={{ opacity: 0, y: -8, transition: tween(0.18) }}
+            className="mt-14"
+          >
+            <m.div variants={fadeUp} className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
+              <h3 className="display max-w-2xl text-[26px] sm:text-[32px]">{a.title}</h3>
+              <Link to={a.cta.to} className="btn-dark shrink-0">
+                {a.cta.label} <ArrowRight size={16} className="btn-arrow" />
+              </Link>
+            </m.div>
+
+            <ul className="no-scrollbar -mx-6 mt-8 flex snap-x gap-4 overflow-x-auto px-6 pb-4 md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0 md:pb-0">
+              {a.cards.map((c, i) => {
+                const Icon = c.icon;
                 return (
-                  <li
-                    key={p.title}
-                    className="group flex gap-4 rounded-2xl p-3 transition-colors hover:bg-stone-50 animate-fade-in-up"
-                    style={{ animationDelay: `${80 + i * 70}ms` }}
-                  >
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--line)] bg-white text-brand shadow-sm transition-all duration-300 group-hover:border-brand group-hover:bg-brand group-hover:text-white">
-                      <Icon size={19} />
-                    </span>
-                    <span>
-                      <span className="block text-[16px] font-semibold text-ink">{p.title}</span>
-                      <span className="mt-0.5 block text-[14px] leading-relaxed text-stone-500">{p.desc}</span>
-                    </span>
-                  </li>
+                  <m.li key={c.title} variants={fadeUp} className="w-[82%] shrink-0 snap-start md:w-auto">
+                    <article
+                      onMouseMove={trackSpotlight}
+                      className="spotlight surface surface-hover group flex h-full flex-col p-6 sm:p-7"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-soft text-brand transition-transform duration-300 group-hover:scale-110">
+                          <Icon size={22} />
+                        </span>
+                        <span className="text-[13px] font-semibold tabular-nums text-stone-300">0{i + 1}</span>
+                      </div>
+                      <h4 className="mt-6 font-display text-[23px] font-medium leading-tight tracking-[-0.015em] text-ink">{c.title}</h4>
+                      <p className="mt-2.5 text-[15px] leading-relaxed text-stone-500">{c.desc}</p>
+                      <ul className="mt-6 flex flex-wrap gap-2 pt-1">
+                        {c.tags.map((t) => (
+                          <li key={t} className="rounded-full border border-[var(--line)] bg-white px-3 py-1 text-[12px] font-medium text-stone-600 transition-colors group-hover:border-brand/30">
+                            {t}
+                          </li>
+                        ))}
+                      </ul>
+                    </article>
+                  </m.li>
                 );
               })}
             </ul>
-            <Link to={a.cta.to} className="btn-dark mt-8">
-              {a.cta.label} <ArrowRight size={16} className="btn-arrow" />
-            </Link>
-          </div>
-
-          <div className="relative animate-fade-in-up" style={{ animationDelay: "120ms" }}>
-            <div className="absolute -inset-6 -z-10 rounded-[36px] bg-gradient-to-tr from-brand/15 via-transparent to-amber-100/40 blur-2xl" />
-            <div className="surface overflow-hidden p-2">
-              <img
-                src={a.img}
-                alt={a.alt}
-                width={1142}
-                height={922}
-                loading="lazy"
-                className="h-auto w-full rounded-[14px] object-cover"
-              />
-            </div>
-          </div>
-        </div>
+          </m.div>
+        </AnimatePresence>
       </div>
     </section>
   );

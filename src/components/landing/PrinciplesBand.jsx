@@ -1,17 +1,6 @@
 import { Eye, Scale, ShieldCheck, UserCheck } from "lucide-react";
-import AnimatedCounter from "@/components/shared/AnimatedCounter";
 import Reveal from "@/components/shared/Reveal";
 import SectionHeading from "./SectionHeading";
-import { ROLE_CATEGORIES } from "@/data/rolesData";
-
-const ROLE_COUNT = ROLE_CATEGORIES.reduce((n, c) => n + c.roles.length, 0);
-
-const STATS = [
-  { value: ROLE_COUNT, suffix: "+", label: "Roles with tailored interviews" },
-  { value: 3, label: "AI evaluation stages per candidate" },
-  { value: 6, label: "Steps from job post to offer" },
-  { value: 100, suffix: "%", label: "Of final decisions made by people" },
-];
 
 const PRINCIPLES = [
   { icon: UserCheck, title: "Human in control", desc: "AI recommends. Recruiters review, override and decide." },
@@ -34,19 +23,7 @@ export default function PrinciplesBand() {
           subtitle="IntelliHire is built to remove the repetitive work from hiring, never the judgement."
         />
 
-        <div className="mt-16 grid grid-cols-2 gap-px overflow-hidden rounded-3xl border border-white/10 bg-white/10 lg:grid-cols-4">
-          {STATS.map((s, i) => (
-            <Reveal key={s.label} delay={i * 80} className="bg-ink p-6 sm:p-8">
-              <p className="font-display text-[44px] font-medium leading-none tracking-[-0.03em] sm:text-[56px]">
-                <AnimatedCounter value={s.value} duration={1400} />
-                <span className="text-brand">{s.suffix}</span>
-              </p>
-              <p className="mt-3 text-[14px] leading-snug text-white/55">{s.label}</p>
-            </Reveal>
-          ))}
-        </div>
-
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {PRINCIPLES.map((p, i) => {
             const Icon = p.icon;
             return (

@@ -614,10 +614,15 @@
     animation: marquee var(--marquee-duration, 40s) linear infinite;
   }
   .marquee-track[data-reverse='true'] { animation-direction: reverse; }
-  .marquee:hover .marquee-track { animation-play-state: paused; }
+  .marquee:hover .marquee-track,
+  .marquee[data-paused='true'] .marquee-track { animation-play-state: paused; }
 
   .float-y   { animation: floatY 6s ease-in-out infinite; }
   .float-y-2 { animation: floatY 7.5s ease-in-out -2s infinite; }
+
+  .float-amp { animation: floatAmp var(--float-dur, 7s) ease-in-out var(--float-delay, 0s) infinite; }
+  .no-scrollbar { scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
 
   .word-in { display: inline-block; animation: wordIn 620ms var(--ease-premium) both; }
 
@@ -713,6 +718,11 @@
   @keyframes floatY {
     0%, 100% { transform: translateY(0); }
     50%      { transform: translateY(-10px); }
+  }
+
+  @keyframes floatAmp {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(calc(var(--float-amp, 10px) * -1)); }
   }
 
   @keyframes wordIn {
