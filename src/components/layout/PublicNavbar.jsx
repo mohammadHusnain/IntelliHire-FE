@@ -8,10 +8,10 @@ import { useAuthStore } from "@/store/authStore";
 import { ROLE_DASHBOARDS } from "@/config/routes";
 
 const NAV_LINKS = [
+  { id: "roles", label: "Roles" },
   { id: "platform", label: "Platform" },
+  { id: "report", label: "Report" },
   { id: "how-it-works", label: "How it works" },
-  { id: "features", label: "Features" },
-  { id: "stories", label: "Stories" },
   { id: "faq", label: "FAQ" },
 ];
 

@@ -7,7 +7,7 @@ const PLATFORM = [
   { id: "platform", label: "For candidates" },
   { id: "platform", label: "For companies" },
   { id: "how-it-works", label: "Hiring pipeline" },
-  { id: "features", label: "Features" },
+  { id: "report", label: "Sample report" },
 ];
 
 const ACCOUNT = [
@@ -17,7 +17,7 @@ const ACCOUNT = [
 ];
 
 const RESOURCES = [
-  { id: "stories", label: "Customer stories" },
+  { id: "disciplines", label: "Roles covered" },
   { id: "faq", label: "FAQ" },
 ];
 
