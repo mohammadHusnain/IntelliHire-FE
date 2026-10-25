@@ -2,7 +2,7 @@ import { useState } from "react";
 import { AnimatePresence, m } from "motion/react";
 import WordReveal from "./WordReveal";
 import RoleArt from "./RoleArt";
-import { ROLE_COUNT } from "./landingRoles";
+import { ROLE_COUNT, emojisFor } from "./landingRoles";
 import Reveal from "@/components/shared/Reveal";
 import { ROLE_CATEGORIES } from "@/data/rolesData";
 import { fadeUp, stagger, tween } from "@/lib/motion";
@@ -48,7 +48,7 @@ function Tile({ cat, open, onHover, onToggle }) {
                     transition={tween(0.3, i * 0.03)}
                     className="text-[13px] leading-tight text-white/85"
                   >
-                    {role}
+                    <span aria-hidden>{emojisFor(role)[0]}</span> {role}
                   </m.span>
                 ))}
               </span>

@@ -1,6 +1,6 @@
 import { m, useTransform } from "motion/react";
 import RoleArt from "./RoleArt";
-import { FLOATING_ROLES } from "./landingRoles";
+import { FLOATING_ROLES, emojisFor } from "./landingRoles";
 import { tween } from "@/lib/motion";
 
 const SLOTS = [
@@ -19,7 +19,7 @@ const SLOTS = [
 export function RoleCard({ role, className = "" }) {
   return (
     <div className={`surface flex w-[208px] items-center gap-3 p-3 shadow-[0_18px_36px_-22px_rgba(13,13,13,0.35)] ${className}`}>
-      <RoleArt category={role.category} size={42} />
+      <RoleArt category={role.category} emoji={emojisFor(role.name)[0]} size={44} />
       <div className="min-w-0 text-left">
         <p className="line-clamp-2 text-[13px] font-semibold leading-tight text-ink">{role.name}</p>
         <p className="mt-0.5 truncate text-[11px] text-stone-500">{role.category}</p>

@@ -1,28 +1,37 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, m } from "motion/react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import WordReveal from "./WordReveal";
 import RolePopup from "./RolePopup";
 import { RoleArtPanel } from "./RoleArt";
-import { CAROUSEL_ROLES, sampleQuestions } from "./landingRoles";
+import { CAROUSEL_ROLES, emojisFor, sampleQuestions } from "./landingRoles";
 import Reveal from "@/components/shared/Reveal";
+import useInView from "@/hooks/useInView";
+import useReducedMotion from "@/hooks/useReducedMotion";
 import { SPRING_POPUP, tween } from "@/lib/motion";
 
 const TILES = CAROUSEL_ROLES.map((r) => ({ ...r, question: sampleQuestions(r.name, 3)[1].text }));
-const LAST = TILES.length - 1;
+const N = TILES.length;
+const FLOW_SPEED = 0.034;
+const RESUME_MS = 3200;
 
-function RoleTile({ role, onOpen }) {
+function RoleTile({ role, copy, onOpen }) {
   return (
     <m.button
       type="button"
-      layoutId={`role-card-${role.name}`}
+      layoutId={`role-card-${role.name}-${copy}`}
       transition={SPRING_POPUP}
       style={{ borderRadius: 24 }}
-      onClick={(e) => onOpen(role, e.currentTarget)}
+      tabIndex={copy ? -1 : 0}
+      onClick={(e) => onOpen({ ...role, copy }, e.currentTarget)}
       aria-haspopup="dialog"
       className="group flex h-full w-full flex-col overflow-hidden border border-[var(--line)] bg-white text-left shadow-[0_1px_2px_rgba(13,13,13,0.03)] transition-[border-color,box-shadow] duration-300 hover:border-brand/30 hover:shadow-[0_28px_50px_-30px_rgba(13,13,13,0.3)]"
     >
-      <RoleArtPanel category={role.category} className="h-44 transition-transform duration-700 ease-[var(--ease-premium)] group-hover:scale-[1.03]" />
+      <RoleArtPanel
+        category={role.category}
+        emojis={emojisFor(role.name)}
+        className="h-44 transition-transform duration-700 ease-[var(--ease-premium)] group-hover:scale-[1.03]"
+      />
       <span className="flex flex-1 flex-col p-5">
         <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-stone-400">{role.category}</span>
         <span className="mt-1.5 font-display text-[22px] font-medium leading-tight tracking-[-0.015em] text-ink">{role.name}</span>
@@ -38,34 +47,101 @@ function RoleTile({ role, onOpen }) {
 }
 
 export default function RoleCarousel() {
+  const reduced = useReducedMotion();
   const scrollerRef = useRef(null);
   const trigger = useRef(null);
+  const geo = useRef(null);
+  const flow = useRef({ hover: false, focus: false, userUntil: 0, snapOff: false, pos: 0 });
   const drag = useRef({ active: false, moved: false, startX: 0, startLeft: 0, lastX: 0, lastT: 0, v: 0 });
+  const [regionRef, inView] = useInView({ once: false, threshold: 0.15 });
+  const inViewRef = useRef(false);
+  const selectedRef = useRef(false);
   const [index, setIndex] = useState(0);
   const [edge, setEdge] = useState({ start: true, end: false });
   const [touched, setTouched] = useState(false);
   const [selected, setSelected] = useState(null);
 
-  const lefts = () => {
+  useEffect(() => {
+    inViewRef.current = inView;
+  }, [inView]);
+  useEffect(() => {
+    selectedRef.current = !!selected;
+  }, [selected]);
+
+  const measure = useCallback(() => {
     const s = scrollerRef.current;
+    if (!s) return null;
     const pad = parseFloat(getComputedStyle(s).paddingLeft) || 0;
-    return [...s.querySelectorAll("[data-slide]")].map((el) => el.offsetLeft - pad);
-  };
+    const lefts = [...s.querySelectorAll("[data-slide]")].map((el) => el.offsetLeft - pad);
+    geo.current = { lefts, half: lefts.length > N ? lefts[N] - lefts[0] : 0 };
+    return geo.current;
+  }, []);
+  const getGeo = () => geo.current ?? measure();
+
+  useEffect(() => {
+    const s = scrollerRef.current;
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(s);
+    return () => ro.disconnect();
+  }, [measure]);
+
   const nearest = (left) => {
-    const all = lefts();
+    const { lefts } = getGeo();
     let best = 0;
-    all.forEach((l, i) => {
-      if (Math.abs(l - left) < Math.abs(all[best] - left)) best = i;
+    lefts.forEach((l, i) => {
+      if (Math.abs(l - left) < Math.abs(lefts[best] - left)) best = i;
     });
     return best;
   };
   const goTo = (i) => {
-    const s = scrollerRef.current;
-    const target = lefts()[Math.max(0, Math.min(LAST, i))];
-    s.scrollTo({ left: target, behavior: "smooth" });
+    const { lefts } = getGeo();
+    scrollerRef.current.scrollTo({ left: lefts[Math.max(0, Math.min(lefts.length - 1, i))], behavior: "smooth" });
   };
-  const step = (dir) => {
+
+  const startUser = () => {
+    const f = flow.current;
+    f.userUntil = performance.now() + RESUME_MS;
+    if (f.snapOff) {
+      scrollerRef.current.style.scrollSnapType = "";
+      f.snapOff = false;
+    }
     setTouched(true);
+  };
+
+  useEffect(() => {
+    if (reduced) return;
+    let raf;
+    let last = performance.now();
+    const tick = (now) => {
+      raf = requestAnimationFrame(tick);
+      const dt = Math.min(now - last, 64);
+      last = now;
+      const s = scrollerRef.current;
+      const f = flow.current;
+      if (!s) return;
+      if (now < f.userUntil || drag.current.active) return;
+      if (!f.snapOff) {
+        s.style.scrollSnapType = "none";
+        f.snapOff = true;
+        f.pos = s.scrollLeft;
+      }
+      const paused = f.hover || f.focus || !inViewRef.current || selectedRef.current;
+      if (paused) {
+        f.pos = s.scrollLeft;
+        return;
+      }
+      const half = geo.current?.half || 0;
+      f.pos += FLOW_SPEED * dt;
+      if (half && f.pos >= half) f.pos -= half;
+      s.scrollLeft = f.pos;
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [reduced]);
+
+  const step = (dir) => {
+    startUser();
     goTo(nearest(scrollerRef.current.scrollLeft) + dir);
   };
 
@@ -74,11 +150,11 @@ export default function RoleCarousel() {
     const start = s.scrollLeft < 4;
     const end = s.scrollLeft + s.clientWidth >= s.scrollWidth - 4;
     setEdge((e) => (e.start === start && e.end === end ? e : { start, end }));
-    setIndex(end ? LAST : nearest(s.scrollLeft));
-    if (s.scrollLeft > 12) setTouched(true);
+    setIndex(nearest(s.scrollLeft) % N);
   };
 
   const onPointerDown = (e) => {
+    startUser();
     if (e.pointerType !== "mouse" || e.button !== 0) return;
     const s = scrollerRef.current;
     Object.assign(drag.current, { active: true, moved: false, startX: e.clientX, startLeft: s.scrollLeft, lastX: e.clientX, lastT: performance.now(), v: 0 });
@@ -93,7 +169,6 @@ export default function RoleCarousel() {
       d.moved = true;
       s.style.scrollSnapType = "none";
       s.setPointerCapture(e.pointerId);
-      setTouched(true);
     }
     s.scrollLeft = d.startLeft - dx;
     const now = performance.now();
@@ -105,6 +180,7 @@ export default function RoleCarousel() {
     const d = drag.current;
     if (!d.active) return;
     d.active = false;
+    startUser();
     if (!d.moved) return;
     const s = scrollerRef.current;
     s.releasePointerCapture?.(e.pointerId);
@@ -134,6 +210,8 @@ export default function RoleCarousel() {
   const close = useCallback(() => setSelected(null), []);
   const restoreFocus = useCallback(() => trigger.current?.focus({ preventScroll: true }), []);
 
+  const list = reduced ? [TILES] : [TILES, TILES];
+
   return (
     <section id="roles" className="scroll-mt-24 py-24 sm:py-28">
       <div className="mx-auto max-w-3xl px-6 text-center">
@@ -152,16 +230,30 @@ export default function RoleCarousel() {
       </div>
 
       <div
+        ref={regionRef}
         role="region"
         aria-roledescription="carousel"
         aria-label="Role interviews"
         onKeyDown={onKeyDown}
+        onPointerEnter={(e) => {
+          if (e.pointerType === "mouse") flow.current.hover = true;
+        }}
+        onPointerLeave={() => {
+          flow.current.hover = false;
+        }}
+        onFocusCapture={() => {
+          flow.current.focus = true;
+        }}
+        onBlurCapture={() => {
+          flow.current.focus = false;
+        }}
         className="relative mt-14"
       >
         <m.div
           layoutScroll
           ref={scrollerRef}
           onScroll={onScroll}
+          onWheel={startUser}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
@@ -169,18 +261,21 @@ export default function RoleCarousel() {
           className="no-scrollbar snap-x snap-mandatory overflow-x-auto overscroll-x-contain px-6 pb-8 pt-2 md:cursor-grab md:active:cursor-grabbing lg:px-[max(24px,calc((100vw-1152px)/2+32px))]"
         >
           <ul className="flex w-max select-none gap-4">
-            {TILES.map((role, i) => (
-              <li
-                key={role.name}
-                data-slide
-                role="group"
-                aria-roledescription="slide"
-                aria-label={`${i + 1} of ${TILES.length}`}
-                className="w-[272px] snap-start sm:w-[300px]"
-              >
-                <RoleTile role={role} onOpen={open} />
-              </li>
-            ))}
+            {list.flatMap((set, copy) =>
+              set.map((role, i) => (
+                <li
+                  key={`${copy}-${role.name}`}
+                  data-slide
+                  role="group"
+                  aria-roledescription="slide"
+                  aria-label={`${i + 1} of ${N}`}
+                  aria-hidden={copy ? true : undefined}
+                  className="w-[272px] snap-start sm:w-[300px]"
+                >
+                  <RoleTile role={role} copy={copy} onOpen={open} />
+                </li>
+              )),
+            )}
           </ul>
         </m.div>
 
@@ -225,7 +320,7 @@ export default function RoleCarousel() {
                 transition={tween(0.3)}
                 className="absolute text-[13px] text-stone-500"
               >
-                Swipe to explore {TILES.length} roles
+                Swipe to explore {N} roles
               </m.p>
             )}
           </AnimatePresence>
@@ -236,7 +331,7 @@ export default function RoleCarousel() {
                   <button
                     type="button"
                     onClick={() => {
-                      setTouched(true);
+                      startUser();
                       goTo(i);
                     }}
                     aria-label={`Go to ${t.name}`}

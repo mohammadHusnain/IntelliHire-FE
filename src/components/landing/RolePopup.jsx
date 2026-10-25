@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { AnimatePresence, m } from "motion/react";
 import { ArrowRight, X } from "lucide-react";
 import { RoleArtPanel } from "./RoleArt";
-import { sampleQuestions } from "./landingRoles";
+import { emojisFor, sampleQuestions } from "./landingRoles";
 import { INTERVIEW_TYPES, skillsForRole } from "@/lib/interview/questionBank";
 import { SPRING_POPUP, tween } from "@/lib/motion";
 
@@ -65,7 +65,7 @@ function Dialog({ role, onClose }) {
       />
       <m.div
         ref={panelRef}
-        layoutId={`role-card-${role.name}`}
+        layoutId={`role-card-${role.name}-${role.copy ?? 0}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -80,7 +80,7 @@ function Dialog({ role, onClose }) {
           className="flex min-h-0 flex-1 flex-col"
         >
           <div className="relative shrink-0">
-            <RoleArtPanel category={role.category} className="h-28 sm:h-36" />
+            <RoleArtPanel category={role.category} emojis={emojisFor(role.name)} className="h-28 sm:h-36" />
             <button
               ref={closeRef}
               type="button"

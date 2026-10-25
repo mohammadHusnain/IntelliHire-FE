@@ -59,3 +59,42 @@ export function sampleQuestions(role, count = 3) {
     seed: hashSeed(role),
   });
 }
+
+const ROLE_EMOJIS = {
+  "Frontend Developer": ["🖥️", "🎨", "⚛️"],
+  "Backend Developer": ["⚙️", "🗄️", "🔌"],
+  "Full Stack Developer": ["🧱", "🖥️", "⚙️"],
+  "Mobile Developer (iOS/Android)": ["📱", "👆", "🔋"],
+  "Embedded Systems Engineer": ["🔌", "🤖", "📟"],
+  "QA / Test Engineer": ["🧪", "🐞", "✅"],
+  "Solution Architect": ["🏗️", "📐", "🧭"],
+  "AI Engineer": ["🤖", "🧠", "✨"],
+  "Machine Learning Engineer": ["🧠", "📈", "🔬"],
+  "Data Scientist": ["📊", "🔬", "🧮"],
+  "Data Analyst": ["📈", "🔍", "📋"],
+  "Data Engineer": ["🗄️", "🚰", "⚙️"],
+  "NLP Engineer": ["💬", "📝", "🗣️"],
+  "Computer Vision Engineer": ["👁️", "📷", "🖼️"],
+  "DevOps Engineer": ["♾️", "🚀", "🛠️"],
+  "Cloud Engineer": ["☁️", "🌐", "⚡"],
+  "Site Reliability Engineer (SRE)": ["📟", "🛡️", "⏱️"],
+  "Platform Engineer": ["🧰", "🏗️", "🔧"],
+  "Security Engineer": ["🔐", "🛡️", "🕵️"],
+  "UI/UX Designer": ["🎨", "🖌️", "📐"],
+  "Product Designer": ["✏️", "🧩", "💡"],
+  "Graphic Designer": ["🖼️", "🎨", "✒️"],
+  "Motion Designer": ["🎬", "✨", "🌀"],
+  "Design Systems Engineer": ["🧩", "🎛️", "📦"],
+  "Product Manager": ["🧭", "🎯", "📋"],
+  "Technical Project Manager": ["📅", "🗂️", "⏳"],
+  "Business Analyst": ["📊", "💼", "🔎"],
+  "Scrum Master": ["🏉", "🔄", "🗓️"],
+  "Engineering Manager": ["👥", "🤝", "📈"],
+  "Technical Writer": ["📝", "📚", "✍️"],
+  "Developer Relations Engineer": ["🎤", "🤝", "🌍"],
+  "Blockchain Developer": ["⛓️", "🪙", "🔗"],
+  "Game Developer": ["🎮", "🕹️", "👾"],
+  "AR/VR Developer": ["🥽", "🪐", "🕶️"],
+};
+
+export const emojisFor = (name) => ROLE_EMOJIS[name] ?? ["💼", "✨", "🎯"];

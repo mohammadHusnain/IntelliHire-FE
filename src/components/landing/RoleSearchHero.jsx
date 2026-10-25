@@ -22,12 +22,49 @@ const TYPED_ROLES = [
 const ALL = ROLE_CATEGORIES.flatMap((c) => c.roles.map((name) => ({ name, category: c.category })));
 
 const TICKER = [
-  [String(ROLE_COUNT), "roles supported"],
-  [String(ROLE_CATEGORIES.length), "disciplines"],
-  ["3", "AI evaluation stages"],
-  ["6", "steps from job post to offer"],
-  ["100%", "human final decisions"],
+  ["🧭", String(ROLE_COUNT), "roles supported"],
+  ["🗂️", String(ROLE_CATEGORIES.length), "disciplines"],
+  ["🤖", "3", "AI evaluation stages"],
+  ["🪜", "6", "steps from job post to offer"],
+  ["🙋", "100%", "human final decisions"],
 ];
+
+const HERO_EMOJIS = [
+  { e: "💻", x: 4, y: 12, size: 30, dur: 9, delay: -1, dx: 12, dy: -26 },
+  { e: "🤖", x: 89, y: 9, size: 34, dur: 11, delay: -4, dx: -14, dy: -24 },
+  { e: "🎨", x: 9, y: 37, size: 28, dur: 10, delay: -6, dx: 16, dy: -22, md: true },
+  { e: "📊", x: 87, y: 41, size: 30, dur: 8.5, delay: -2, dx: -12, dy: -28, md: true },
+  { e: "☁️", x: 3, y: 60, size: 32, dur: 12, delay: -8, dx: 14, dy: -24 },
+  { e: "🚀", x: 91, y: 63, size: 34, dur: 9.5, delay: -5, dx: -16, dy: -30 },
+  { e: "🧠", x: 21, y: 9, size: 34, dur: 10.5, delay: -3, dx: 10, dy: -28, md: true },
+  { e: "🔐", x: 76, y: 13, size: 30, dur: 8, delay: -7, dx: -10, dy: -24, md: true },
+  { e: "🛠️", x: 24, y: 71, size: 30, dur: 11.5, delay: -9, dx: 12, dy: -26, md: true },
+  { e: "🎯", x: 72, y: 73, size: 32, dur: 9, delay: -2.5, dx: -12, dy: -28, md: true },
+];
+
+function HeroEmojis() {
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+      {HERO_EMOJIS.map((h) => (
+        <span
+          key={h.e}
+          className={`emoji-float absolute leading-none drop-shadow-[0_6px_10px_rgba(13,13,13,0.12)] ${h.md ? "hidden md:block" : ""}`}
+          style={{
+            left: `${h.x}%`,
+            top: `${h.y}%`,
+            fontSize: h.size,
+            "--ef-dur": `${h.dur}s`,
+            "--ef-delay": `${h.delay}s`,
+            "--ef-dx": `${h.dx}px`,
+            "--ef-dy": `${h.dy}px`,
+          }}
+        >
+          {h.e}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 function useTypedPlaceholder(active) {
   const [text, setText] = useState("");
@@ -196,8 +233,9 @@ function Ticker() {
   const [ref, inView] = useInView({ once: false, threshold: 0 });
   const group = (hidden) => (
     <ul aria-hidden={hidden} className="flex shrink-0 items-center">
-      {[...TICKER, ...TICKER].map(([value, label], i) => (
+      {[...TICKER, ...TICKER].map(([emoji, value, label], i) => (
         <li key={i} className="flex shrink-0 items-center gap-2.5 px-7">
+          <span aria-hidden className="text-[22px] leading-none">{emoji}</span>
           <span className="font-display text-[26px] font-medium tracking-[-0.02em] text-ink">{value}</span>
           <span className="text-[13px] text-stone-500">{label}</span>
           <span className="ml-7 h-1 w-1 rounded-full bg-stone-300" />
@@ -255,6 +293,7 @@ export default function RoleSearchHero() {
         />
       </div>
 
+      <HeroEmojis />
       <FloatingRoleCards px={sx} py={sy} paused={!inView} reduced={reduced} />
 
       <m.div

@@ -621,6 +621,7 @@
   .float-y-2 { animation: floatY 7.5s ease-in-out -2s infinite; }
 
   .float-amp { animation: floatAmp var(--float-dur, 7s) ease-in-out var(--float-delay, 0s) infinite; }
+  .emoji-float { animation: emojiFloat var(--ef-dur, 8s) ease-in-out var(--ef-delay, 0s) infinite; }
   .no-scrollbar { scrollbar-width: none; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
 
@@ -723,6 +724,11 @@
   @keyframes floatAmp {
     0%, 100% { transform: translateY(0); }
     50%      { transform: translateY(calc(var(--float-amp, 10px) * -1)); }
+  }
+
+  @keyframes emojiFloat {
+    0%, 100% { transform: translate3d(0, 0, 0) rotate(-6deg); }
+    50%      { transform: translate3d(var(--ef-dx, 10px), var(--ef-dy, -22px), 0) rotate(7deg); }
   }
 
   @keyframes wordIn {
