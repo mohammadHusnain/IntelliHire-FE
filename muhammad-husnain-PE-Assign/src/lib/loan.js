@@ -43,34 +43,53 @@ export function calculateLoan({ principalCents, annualRatePercent, years }) {
   };
 }
 
-/**
- * Validates raw form text and calculates.
- * @returns {{ok: true, value: ReturnType<typeof calculateLoan>} | {ok: false, field: string, message: string}}
- */
-export function calculateLoanFromForm({ amount, rate, years }) {
-  const principal = parseMoney(amount, {
+// Field validators. Each returns {ok: true, value} or {ok: false, message}.
+// Exported separately so the UI can validate a field as soon as it is edited.
+
+/** Loan amount text -> integer cents. */
+export function validateLoanAmount(amount) {
+  return parseMoney(amount, {
     label: 'loan amount',
     minCents: LOAN_LIMITS.minCents,
     maxCents: LOAN_LIMITS.maxCents,
     tooSmall: 'Loan amount must be at least $100.00.',
     tooLarge: 'Loan amount cannot be more than $100,000,000.00.',
   });
-  if (!principal.ok) return { ok: false, field: 'amount', message: principal.message };
+}
 
-  const ratePart = parsePercent(rate, {
+/** Annual rate text -> rate in thousandths of a percent (6.5% -> 6500). */
+export function validateLoanRate(rate) {
+  return parsePercent(rate, {
     label: 'interest rate',
     decimals: LOAN_LIMITS.rateDecimals,
     max: LOAN_LIMITS.maxRatePercent,
     tooLarge: 'Interest rate cannot be more than 100%.',
   });
-  if (!ratePart.ok) return { ok: false, field: 'rate', message: ratePart.message };
+}
 
-  const term = parseWholeNumber(years, {
+/** Term text -> whole years. */
+export function validateLoanYears(years) {
+  return parseWholeNumber(years, {
     label: 'loan term',
     min: LOAN_LIMITS.minYears,
     max: LOAN_LIMITS.maxYears,
     outOfRange: 'Loan term must be between 1 and 50 years.',
   });
+}
+
+/**
+ * Validates raw form text and calculates.
+ * Fields are checked in order (amount, rate, term) and the first failure is returned.
+ * @returns {{ok: true, value: ReturnType<typeof calculateLoan>} | {ok: false, field: string, message: string}}
+ */
+export function calculateLoanFromForm({ amount, rate, years }) {
+  const principal = validateLoanAmount(amount);
+  if (!principal.ok) return { ok: false, field: 'amount', message: principal.message };
+
+  const ratePart = validateLoanRate(rate);
+  if (!ratePart.ok) return { ok: false, field: 'rate', message: ratePart.message };
+
+  const term = validateLoanYears(years);
   if (!term.ok) return { ok: false, field: 'years', message: term.message };
 
   return {

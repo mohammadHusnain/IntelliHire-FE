@@ -1,0 +1,121 @@
+/*
+ * Design tokens. Every colour, size, radius, shadow and duration in the app
+ * comes from here. Each module sets --accent (and its soft/ink variants) on
+ * its workspace, so shared components pick up the module colour automatically.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  /* Neutrals: warm paper and graphite ink */
+  --bg: #f4f3ef;
+  --bg-sunken: #ecebe6;
+  --surface: #ffffff;
+  --surface-raised: #fbfaf8;
+  --ink: #17181c;
+  --ink-2: #3b3d44;
+  --muted: #6c6f78;
+  --faint: #9a9da5;
+  --line: #e3e1db;
+  --line-strong: #cfccc4;
+
+  --key: #f1f0ec;
+  --key-hover: #e8e6e0;
+  --key-ink: #17181c;
+
+  --danger: #c2341b;
+  --danger-soft: #fdf0ed;
+  --danger-line: #f2c4ba;
+  --success: #17805c;
+
+  /* Module accents */
+  --accent-basic: #2f5bea;
+  --accent-basic-soft: #ecf1ff;
+  --accent-scientific: #6d45d9;
+  --accent-scientific-soft: #f2eeff;
+  --accent-loan: #0d7d62;
+  --accent-loan-soft: #e7f5f0;
+  --accent-split: #c9541c;
+  --accent-split-soft: #fdf0e8;
+
+  --accent: var(--accent-basic);
+  --accent-soft: var(--accent-basic-soft);
+  --on-accent: #ffffff;
+
+  /* Type */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-md: 0.9375rem;
+  --text-lg: 1.0625rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.875rem;
+  --text-hero: clamp(2.25rem, 1.6rem + 2.6vw, 3.25rem);
+
+  /* Space (4px grid) */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+
+  /* Shape and depth */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 18px;
+  --r-xl: 24px;
+  --r-pill: 999px;
+  --shadow-1: 0 1px 2px rgb(23 24 28 / 0.06), 0 1px 1px rgb(23 24 28 / 0.04);
+  --shadow-2: 0 1px 2px rgb(23 24 28 / 0.05), 0 6px 20px -6px rgb(23 24 28 / 0.12);
+  --shadow-3: 0 2px 4px rgb(23 24 28 / 0.05), 0 18px 40px -16px rgb(23 24 28 / 0.22);
+  --ring: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+
+  --touch: 44px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e0f12;
+    --bg-sunken: #0a0b0d;
+    --surface: #16181d;
+    --surface-raised: #1b1e24;
+    --ink: #eceef2;
+    --ink-2: #c9ccd3;
+    --muted: #9599a3;
+    --faint: #6c707a;
+    --line: #262930;
+    --line-strong: #353943;
+
+    --key: #20232a;
+    --key-hover: #292d35;
+    --key-ink: #eceef2;
+
+    --danger: #ff8b73;
+    --danger-soft: #2a1714;
+    --danger-line: #5a2a22;
+    --success: #4fd1a1;
+
+    --accent-basic: #7c9bff;
+    --accent-basic-soft: #1a2240;
+    --accent-scientific: #a98bff;
+    --accent-scientific-soft: #231c3d;
+    --accent-loan: #3fcfa4;
+    --accent-loan-soft: #12291f;
+    --accent-split: #ff9a62;
+    --accent-split-soft: #2e1d13;
+    --on-accent: #0e0f12;
+
+    --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-2: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -8px rgb(0 0 0 / 0.5);
+    --shadow-3: 0 2px 4px rgb(0 0 0 / 0.4), 0 20px 44px -16px rgb(0 0 0 / 0.7);
+  }
+}
+
+[data-module="basic"] { --accent: var(--accent-basic); --accent-soft: var(--accent-basic-soft); }
+[data-module="scientific"] { --accent: var(--accent-scientific); --accent-soft: var(--accent-scientific-soft); }
+[data-module="loan"] { --accent: var(--accent-loan); --accent-soft: var(--accent-loan-soft); }
+[data-module="split"] { --accent: var(--accent-split); --accent-soft: var(--accent-split-soft); }

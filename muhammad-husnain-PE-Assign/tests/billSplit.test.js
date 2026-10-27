@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { splitBillFromForm, splitBill } from '../src/lib/billSplit.js';
+import { splitBillFromForm, splitBill, validateBill, validateTip, validatePeople } from '../src/lib/billSplit.js';
 import { formatCents } from '../src/lib/format.js';
 
 const shown = (form) => {
@@ -102,4 +102,13 @@ test('S-11 too many decimals and fractional people', () => {
   assert.equal(failure({ bill: '20.999', tip: '15', people: '2' }).message, 'Bill amount can have at most 2 decimal places.');
   assert.equal(failure({ bill: '20', tip: '12.345', people: '2' }).message, 'Tip percentage can have at most 2 decimal places.');
   assert.equal(failure({ bill: '20', tip: '15', people: '2.5' }).message, 'Number of people must be a whole number.');
+});
+
+test('S-11 field validators give the same messages as the whole-form check', () => {
+  assert.deepEqual(validateBill('1,234.50'), { ok: true, value: 123450 });
+  assert.deepEqual(validateTip('12.5'), { ok: true, value: 1250 });
+  assert.deepEqual(validatePeople('4'), { ok: true, value: 4 });
+  assert.equal(validateBill('0').message, failure({ bill: '0', tip: '15', people: '2' }).message);
+  assert.equal(validateTip('-5').message, 'Tip percentage cannot be negative.');
+  assert.equal(validatePeople('101').message, 'Number of people must be between 1 and 100.');
 });

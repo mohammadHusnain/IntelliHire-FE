@@ -6,7 +6,7 @@ Conventions used below:
 - "Press" means clicking the on-screen key or typing the key on a keyboard (see S-4).
 - In the calculator, the large line is the **display** and the small line above it is the **history**.
 - Messages are quoted exactly as the app shows them.
-- The automated test for each criterion lives in `tests/` under the story ID. Run them with `npm test`.
+- The calculation and validation rules behind each criterion are unit-tested in `tests/` under the story ID (`npm test`). Criteria about what is on screen are checked in a real browser with the UI check script (see README › Verification).
 
 | ID | Story | Job | Status |
 |---|---|---|---|
@@ -42,12 +42,13 @@ Conventions used below:
 9. Given an empty display, when I enter `9999999999 × 9999999999 =`, then the display shows `9.999999998e+19`.
 10. Given an empty display, when I enter `123456789012345 =`, then the display shows `1.23456789012e+14`. Results of 1e12 or more are shown in scientific notation so that rounded digits never look exact. When I enter `123456789012 =`, the display shows `123456789012`.
 11. Given an empty display, when I enter `1 ÷ 10000000 =`, then the display shows `1e-7`.
+12. Given I have typed `12+7` but not pressed `=`, then a faint preview `= 19` shows under the expression. The preview uses the same engine as `=`. It is hidden while the expression is incomplete (for example `12+`) and when the expression is a single number.
 
 ## S-2 Clear errors and recovery (serves J-1, Implemented)
 
 "As an Everyday Calculator User, I want a plain explanation when a calculation cannot be done, and to be able to fix it, so that I am never left with a wrong number or a broken screen."
 
-1. Given an empty display, when I press `8 ÷ 0 =`, then the message `Cannot divide by zero` appears in red, the display still shows `8÷0`, and no result is shown.
+1. Given an empty display, when I press `8 ÷ 0 =`, then the message `Cannot divide by zero` appears in red under the expression, the display still shows `8÷0`, no result is shown, and the display gives a short shake (no shake when the device is set to reduce motion).
 2. Given an empty display, when I press `8 ÷ ( 2 − 2 ) =` or `0 ÷ 0 =`, then the message `Cannot divide by zero` appears.
 3. Given I entered `2 +`, when I press `=`, then the message `The expression is incomplete` appears.
 4. Given I entered `× 3`, when I press `=`, then the message `Unexpected "×"` appears.
@@ -80,8 +81,8 @@ Conventions used below:
 1. Given the Basic or Scientific tab is open, when I type `8/0` and press Enter, then the expression shows `8÷0` and the message `Cannot divide by zero` appears.
 2. Given the Basic or Scientific tab is open, the keys `0–9 . + - ^ % ! ( )` insert themselves, `*` and `x` insert ×, `/` inserts ÷, Enter and `=` calculate, Backspace deletes, and Escape or Delete clears.
 3. Given the Loan or Split bill tab is open, or the cursor is in a text field, when I type, then the calculator does not react.
-
-Note: S-4 is checked in a real browser (Chromium via Playwright, see README › Verification), not by the unit tests.
+4. Given I type a key on the keyboard, then the matching on-screen key is highlighted briefly, so keyboard and touch users get the same feedback.
+5. Given I have just switched to the Basic or Scientific tab, when I type straight away, then no keys are lost while the previous tab animates out.
 
 ## S-5 Scientific functions and constants (serves J-2, Implemented)
 
@@ -103,11 +104,11 @@ Note: S-4 is checked in a real browser (Chromium via Playwright, see README › 
 
 "As a Student, I want to choose whether angles are in degrees or radians and always see which one is active, so that a trigonometry answer is never wrong because of the wrong unit."
 
-1. Given the app has just opened, when I open the Scientific tab, then the display shows the badge `DEG`, and `sin( 30 ) =` shows `0.5`, `cos( 60 ) =` shows `0.5`, `tan( 45 ) =` shows `1`, and `sin( 180 ) =` shows `0`, not `1.22e-16`.
-2. Given degrees mode, when I press `DEG → RAD`, then the badge shows `RAD`, the key reads `RAD → DEG`, and `sin( π ÷ 2 ) =` shows `1`.
+1. Given the app has just opened, when I open the Scientific tab, then a `DEG | RAD` switch at the top of the display has `DEG` selected, and `sin( 30 ) =` shows `0.5`, `cos( 60 ) =` shows `0.5`, `tan( 45 ) =` shows `1`, and `sin( 180 ) =` shows `0`, not `1.22e-16`.
+2. Given degrees mode, when I select `RAD` (by click, or with the arrow keys when the switch has focus), then `RAD` is selected and `sin( π ÷ 2 ) =` shows `1`.
 3. Given degrees mode, when I enter `sin⁻¹( 0.5 ) =`, then the display shows `30`. When I enter `tan⁻¹( 1 ) =`, it shows `45`. Given radians mode, `sin⁻¹( 1 ) =` shows `1.57079632679`.
 4. Given a result is showing, when I switch the angle unit, then the result and history stay on screen. The new unit applies to the next calculation.
-5. Given the Basic tab, the angle badge is shown when the expression on screen contains sin, cos or tan. When a result is showing, the check uses the expression that produced it. Otherwise the badge is hidden.
+5. Given the Basic tab, a read-only angle badge (`DEG` or `RAD`) is shown when the expression on screen contains sin, cos or tan. When a result is showing, the check uses the expression that produced it. Otherwise the badge is hidden.
 
 ## S-7 Explanations for mathematically invalid input (serves J-2, Implemented)
 
@@ -128,57 +129,68 @@ Note: S-4 is checked in a real browser (Chromium via Playwright, see README › 
 
 "As a Prospective Borrower, I want to see my monthly payment, total interest and total amount repaid, so that I can judge whether a loan is affordable and compare offers."
 
-Assumptions shown in the app: fixed rate, one payment a month, interest compounded monthly, amounts in US dollars.
+Assumptions shown in the app: fixed rate, one payment a month, interest compounded monthly, amounts in US dollars. The result panel updates as I type, so there is no Calculate button.
 
-1. Given the Loan tab, when I enter amount `250,000`, rate `6.5` and term `30` and press `Calculate repayment` or Enter, then I see a monthly payment of `$1,580.17`, `360` payments, total interest of `$318,861.22` and a total paid of `$568,861.22`.
-2. Given amount `20000`, rate `7` and term `5`, when I calculate, then I see a monthly payment of `$396.02`, `60` payments, total interest of `$3,761.44` and a total paid of `$23,761.44`.
-3. Given amount `12000`, rate `0` and term `1`, when I calculate, then I see a monthly payment of `$1,000.00`, total interest of `$0.00` and a total paid of `$12,000.00`.
-4. Given any valid input, when I calculate, then the total paid equals the loan amount plus the total interest exactly. It differs from the monthly payment × the number of payments by at most half a cent per payment, as the note under the form says.
-5. Boundary values: given amount `100`, rate `0` and term `1`, the monthly payment is `$8.33`. Given amount `100,000,000`, rate `100` and term `50`, I see a monthly payment of `$8,333,333.33`, `600` payments, total interest of `$4,900,000,000.00` and a total paid of `$5,000,000,000.00`.
-6. Given a result is showing, when I change a field and calculate again, then the result updates.
+1. Given the Loan tab with empty fields, then the result panel reads `Your repayment will appear here` and lists `Loan amount`, `Interest rate` and `Loan term`. Each item is ticked as soon as that field holds a valid value.
+2. Given I enter amount `250,000`, rate `6.5` and term `30`, then as soon as the last field is valid the panel shows a monthly payment of `$1,580.17`, `360` monthly payments, total interest of `$318,861.22` and a total repaid of `$568,861.22`. The headline figures count up to their values. With reduced motion they appear directly.
+3. Given the result in criterion 2, then a bar shows how the total repaid splits into `Amount borrowed $250,000.00 43.9%` and `Total interest $318,861.22 56.1%`, and the line `You repay $2.28 for every $1 borrowed.` appears.
+4. Given amount `20000`, rate `7` and term `5`, then I see a monthly payment of `$396.02`, `60` payments, total interest of `$3,761.44` and a total repaid of `$23,761.44`.
+5. Given amount `12000`, rate `0` and term `1`, then I see a monthly payment of `$1,000.00`, total interest of `$0.00`, a total repaid of `$12,000.00`, and the line `No interest: you repay exactly what you borrow.`
+6. Given any valid input, then the total repaid equals the loan amount plus the total interest exactly. It differs from the monthly payment × the number of payments by at most half a cent per payment, as the panel says.
+7. Boundary values: given amount `100`, rate `0` and term `1`, the monthly payment is `$8.33`. Given amount `100,000,000`, rate `100` and term `50`, I see a monthly payment of `$8,333,333.33`, `600` payments, total interest of `$4,900,000,000.00` and a total repaid of `$5,000,000,000.00`.
+8. Given a result is showing, when I change any field to another valid value, then the figures move smoothly to the new values without the panel disappearing.
+9. Given a result is showing, when I open `How this is calculated`, then I see the formula steps with my numbers filled in: `P`, `r = rate ÷ 12`, `n = years × 12`, `M`, the total and the interest. When I close it, the steps collapse.
+10. Given I click one of the term shortcuts `5 10 15 20 25 30`, then the term field shows that number of years and the shortcut is highlighted. Typing a term that matches a shortcut highlights it too.
+11. Given I leave the amount field with a valid value such as `250000`, then it is tidied to `250,000`. The value does not change.
+12. Given I switch to another tab and come back, then my loan inputs and result are still there.
 
 ## S-9 Loan input validation (serves J-3, Implemented)
 
 "As a Prospective Borrower, I want to be told exactly which input is wrong and why, so that I never act on figures calculated from a typo."
 
-In every case below, the message appears under the field, the field is outlined in red and gets the cursor, and any previous result is hidden. Only the first invalid field (in the order amount, rate, term) is reported.
+When a message appears, it appears under its field, with a warning icon and a red outline. A field's message appears once I leave that field with something typed in it, or for every field when I press Enter in any field. Pressing Enter also moves the cursor to the first invalid field (in the order amount, rate, term). While any field is invalid, the result panel reads `Check the highlighted field`, its checklist marks the problem fields, and no figures are shown.
 
-1. Given the amount is empty, when I calculate, then I see `Enter a loan amount.` An empty rate gives `Enter an interest rate.` and an empty term gives `Enter a loan term.`
+1. Given the amount is empty, when I press Enter, then I see `Enter a loan amount.` An empty rate gives `Enter an interest rate.` and an empty term gives `Enter a loan term.` Leaving an empty field without pressing Enter shows no message.
 2. Given the amount is `abc` or `1,23`, then I see `Loan amount must be a number, for example 1250 or 1,250.50.` Given the rate is `5%`, I see `Interest rate must be a number, for example 15 or 12.5.`
 3. Given the amount is `-5000`, then I see `Loan amount cannot be negative.` Given the rate is `-1`, I see `Interest rate cannot be negative.`
 4. Given the amount is `99.99`, then I see `Loan amount must be at least $100.00.` Given `100000000.01`, I see `Loan amount cannot be more than $100,000,000.00.` Given a number with more than 12 digits before the decimal point, I see `Loan amount is too large.`
 5. Given the rate is `100.001`, then I see `Interest rate cannot be more than 100%.`
 6. Given the term is `0` or `51`, then I see `Loan term must be between 1 and 50 years.` Given `2.5`, I see `Loan term must be a whole number.`
 7. Given the amount is `1000.001`, then I see `Loan amount can have at most 2 decimal places.` Given the rate is `5.1234`, I see `Interest rate can have at most 3 decimal places.`
-8. Given an error is showing, when I correct the field and calculate again, then the message and red outline disappear and the result is shown.
+8. Given an error is showing, when I correct the field, then the message and red outline disappear as I type, and the result appears once every field is valid.
 
 ## S-10 Tip, total and fair shares (serves J-4, Implemented)
 
 "As a Group Bill Payer, I want the tip, the total and each person's share worked out to the cent, so that I collect exactly the right amount and nobody pays more than their fair share."
 
-The tip field starts at `15` and the number of people at `2`. The preset buttons `0%`, `10%`, `15%`, `18%` and `20%` fill in the tip field.
+The tip field starts at `15` and the number of people at `2`. The result panel updates as I type, so there is no Split button.
 
-1. Given bill `80`, tip `20` and people `4`, when I press `Split the bill` or Enter, then I see a tip of `$16.00`, a total of `$96.00`, and each person pays `$24.00`.
-2. Given bill `100`, tip `15` and people `3`, when I split, then I see a tip of `$15.00`, a total of `$115.00`, and "Each person pays" shows two lines: `1 person pays $38.34` and `2 people pay $38.33`.
-3. Given bill `10.05` and tip `15`, the tip is `$1.51` (1.5075 rounded half-up). Given bill `84.60` and tip `18`, the tip is `$15.23`. Given bill `0.10` and tip `5`, the tip is `$0.01`.
-4. Given bill `42.50`, tip `0` and people `1`, when I split, then I see a tip of `$0.00`, a total of `$42.50` and each person pays `$42.50`.
-5. Given any valid input, the shares always add up to the total exactly, and no two people's shares differ by more than one cent.
-6. Boundary values: given bill `0.01`, tip `0` and people `3`, I see `1 person pays $0.01` and `2 people pay $0.00`. Given bill `1,000,000`, tip `100` and people `100`, I see a tip of `$1,000,000.00`, a total of `$2,000,000.00` and each person pays `$20,000.00`.
-7. Given I click the `20%` preset, the tip field shows `20`. The result updates when I next press `Split the bill`.
+1. Given the Split bill tab with an empty bill, then the result panel reads `Each share will appear here`, with a checklist where the tip and number of people are already ticked.
+2. Given bill `80`, tip `20` and people `4`, then I see a tip of `$16.00`, a total with tip of `$96.00`, the headline `$24.00` with `Split evenly between 4 people.`, and the line `All 4 pay $24.00`.
+3. Given bill `100`, tip `15` and people `3`, then I see a tip of `$15.00`, a total of `$115.00`, the headline `$38.33` with `1 of 3 pays 1¢ more ($38.34) so the total is exact.`, and the lines `1 person pays $38.34` and `2 people pay $38.33`.
+4. Given any split, then the headline shows the amount most people pay, and the note names the smaller group that pays 1¢ more or 1¢ less. Given bill `999,999.99`, tip `15` and people `100`, the headline is `$11,500.00` and the note is `1 of 100 pays 1¢ less ($11,499.99) so the total is exact.`
+5. Given a result, then a receipt shows the bill, the tip (with its percentage), a bar of bill against tip, and the total with tip. Under `Who pays what` there is one numbered token per person (11 tokens and `+N` when there are more than 12 people). Tokens for people who pay a different amount carry a `+1¢` or `−1¢` badge.
+6. Given any valid input, then the shares always add up to the total exactly, no two people's shares differ by more than one cent, and the panel confirms `Shares add up to <total>`.
+7. Given bill `10.05` and tip `15`, the tip is `$1.51` (1.5075 rounded half-up). Given bill `84.60` and tip `18`, the tip is `$15.23`. Given bill `0.10` and tip `5`, the tip is `$0.01`.
+8. Given bill `42.50`, tip `0` and people `1`, then I see a tip of `$0.00`, a total of `$42.50`, the heading `You pay` with `$42.50`, and the line `1 person pays $42.50`.
+9. Boundary values: given bill `0.01`, tip `0` and people `3`, I see `1 person pays $0.01` and `2 people pay $0.00`. Given bill `1,000,000`, tip `100` and people `100`, I see a tip of `$1,000,000.00`, a total of `$2,000,000.00` and `All 100 pay $20,000.00`.
+10. Given I click the `20%` preset (or move to it with the arrow keys), then the tip field shows `20`, the preset is highlighted and the result updates immediately. Typing a tip that matches a preset highlights it too. Typing any other tip highlights none.
+11. Given people is `3`, when I press `+`, then people becomes `4`. When I press `−`, it becomes `2`. The `−` button is disabled at `1` and `+` is disabled at `100`.
+12. Given I switch to another tab and come back, then my inputs and result are still there.
 
 ## S-11 Bill split input validation (serves J-4, Implemented)
 
 "As a Group Bill Payer, I want mistakes in what I type to be pointed out, so that I don't tell my friends a wrong amount."
 
-The message appears under the field, the field is outlined in red and gets the cursor, and any previous result is hidden.
+Messages follow the same rules as S-9. A field's message appears under it once I leave the field with something typed in it, or for every field when I press Enter, and Enter moves the cursor to the first invalid field. While any field is invalid, the result panel reads `Check the highlighted field` and shows no figures.
 
-1. Given the bill is empty, when I split, then I see `Enter a bill amount.` An empty tip gives `Enter a tip percentage.` and an empty people field gives `Enter a number of people.`
+1. Given the bill is empty, when I press Enter, then I see `Enter a bill amount.` An empty tip gives `Enter a tip percentage.` and an empty people field gives `Enter a number of people.`
 2. Given the bill is `twenty`, then I see `Bill amount must be a number, for example 1250 or 1,250.50.`
 3. Given the bill is `0`, then I see `Bill amount must be more than $0.00.` Given `-20`, I see `Bill amount cannot be negative.` Given `1000000.01`, I see `Bill amount cannot be more than $1,000,000.00.`
 4. Given the tip is `-5`, then I see `Tip percentage cannot be negative.` Given `101`, I see `Tip cannot be more than 100%.` Given `12.345`, I see `Tip percentage can have at most 2 decimal places.`
 5. Given people is `0` or `101`, then I see `Number of people must be between 1 and 100.` Given `2.5`, I see `Number of people must be a whole number.`
 6. Given the bill is `20.999`, then I see `Bill amount can have at most 2 decimal places.`
-7. Given an error is showing, when I correct the field and split again, then the message disappears and the result is shown.
+7. Given an error is showing, when I correct the field, then the message disappears as I type and the result appears once every field is valid.
 
 ---
 

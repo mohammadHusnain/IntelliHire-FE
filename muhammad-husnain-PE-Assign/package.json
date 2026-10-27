@@ -1,14 +1,27 @@
 {
   "name": "muhammad-husnain-calculator",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "description": "Basic, scientific, loan and bill-split calculator that runs in the browser.",
   "type": "module",
   "engines": {
-    "node": ">=18"
+    "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
-    "start": "node server.js",
-    "test": "node --test"
+    "start": "vite",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test",
+    "test:ui": "node e2e/ui-check.cjs"
+  },
+  "dependencies": {
+    "motion": "14.1.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "6.1.1",
+    "vite": "8.1.6"
   }
 }

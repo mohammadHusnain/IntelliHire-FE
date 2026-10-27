@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateLoanFromForm } from '../src/lib/loan.js';
+import { calculateLoanFromForm, validateLoanAmount, validateLoanRate, validateLoanYears } from '../src/lib/loan.js';
 import { formatCents } from '../src/lib/format.js';
 
 const shown = (form) => {
@@ -108,4 +108,13 @@ test('S-9 too many decimal places and fractional years', () => {
 
 test('S-9 the first invalid field is reported', () => {
   assert.equal(failure({ amount: '', rate: '', years: '' }).field, 'amount');
+});
+
+test('S-9 field validators give the same messages as the whole-form check', () => {
+  assert.deepEqual(validateLoanAmount('250,000'), { ok: true, value: 25_000_000 });
+  assert.deepEqual(validateLoanRate('6.5'), { ok: true, value: 6500 });
+  assert.deepEqual(validateLoanYears('30'), { ok: true, value: 30 });
+  assert.equal(validateLoanAmount('').message, failure({ amount: '', rate: '5', years: '5' }).message);
+  assert.equal(validateLoanRate('101').message, 'Interest rate cannot be more than 100%.');
+  assert.equal(validateLoanYears('2.5').message, 'Loan term must be a whole number.');
 });

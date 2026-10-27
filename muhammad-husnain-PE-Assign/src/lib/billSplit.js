@@ -36,34 +36,53 @@ export function splitBill({ billCents, tipHundredths, people }) {
   return { tipCents, totalCents, people, shares };
 }
 
-/**
- * Validates raw form text and calculates.
- * @returns {{ok: true, value: ReturnType<typeof splitBill>} | {ok: false, field: string, message: string}}
- */
-export function splitBillFromForm({ bill, tip, people }) {
-  const billPart = parseMoney(bill, {
+// Field validators. Each returns {ok: true, value} or {ok: false, message}.
+// Exported separately so the UI can validate a field as soon as it is edited.
+
+/** Bill text -> integer cents. */
+export function validateBill(bill) {
+  return parseMoney(bill, {
     label: 'bill amount',
     minCents: SPLIT_LIMITS.minCents,
     maxCents: SPLIT_LIMITS.maxCents,
     tooSmall: 'Bill amount must be more than $0.00.',
     tooLarge: 'Bill amount cannot be more than $1,000,000.00.',
   });
-  if (!billPart.ok) return { ok: false, field: 'bill', message: billPart.message };
+}
 
-  const tipPart = parsePercent(tip, {
+/** Tip text -> hundredths of a percent (12.5% -> 1250). */
+export function validateTip(tip) {
+  return parsePercent(tip, {
     label: 'tip percentage',
     decimals: SPLIT_LIMITS.tipDecimals,
     max: SPLIT_LIMITS.maxTipPercent,
     tooLarge: 'Tip cannot be more than 100%.',
   });
-  if (!tipPart.ok) return { ok: false, field: 'tip', message: tipPart.message };
+}
 
-  const peoplePart = parseWholeNumber(people, {
+/** People text -> whole number of people. */
+export function validatePeople(people) {
+  return parseWholeNumber(people, {
     label: 'number of people',
     min: SPLIT_LIMITS.minPeople,
     max: SPLIT_LIMITS.maxPeople,
     outOfRange: 'Number of people must be between 1 and 100.',
   });
+}
+
+/**
+ * Validates raw form text and calculates.
+ * Fields are checked in order (bill, tip, people) and the first failure is returned.
+ * @returns {{ok: true, value: ReturnType<typeof splitBill>} | {ok: false, field: string, message: string}}
+ */
+export function splitBillFromForm({ bill, tip, people }) {
+  const billPart = validateBill(bill);
+  if (!billPart.ok) return { ok: false, field: 'bill', message: billPart.message };
+
+  const tipPart = validateTip(tip);
+  if (!tipPart.ok) return { ok: false, field: 'tip', message: tipPart.message };
+
+  const peoplePart = validatePeople(people);
   if (!peoplePart.ok) return { ok: false, field: 'people', message: peoplePart.message };
 
   return {
