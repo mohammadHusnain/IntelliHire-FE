@@ -23,27 +23,79 @@ Source of truth for contracts: Doc §1.7, §2.4, §3.4, §4.5. These tables are 
 
 ## Module 1 — Authentication and account management (`accounts`)
 
-Source: Doc §1.7. All rows are **planned** until the module's completion report marks them implemented.
+Source: Doc §1.7. Implemented and tested on `backend/module-01`; deviations and additions are listed below the table.
 
 | Method | Endpoint | Access | Request | Success | Main errors | Status |
 |---|---|---|---|---|---|---|
-| POST | /api/auth/register/candidate/ | Public | full_name, email, password, confirm_password | 201 email, status | 400 field errors (duplicate email, weak password, mismatch) | planned |
-| POST | /api/auth/register/company/ | Public | company_name, industry, official_email, admin_full_name, admin_phone, password, confirm_password | 201 email, status | 400 field errors | planned |
-| POST | /api/auth/verify-email/ | Public | token | 200 detail, status | 400 expired or invalid | planned |
-| POST | /api/auth/resend-verification/ | Public | email | 200 always | 429 throttled | planned |
-| POST | /api/auth/login/ | Public | email, password | 200 access, refresh, user | 401 invalid credentials; 403 with code; 429 | planned |
-| POST | /api/auth/token/refresh/ | Public | refresh | 200 access, refresh | 401 invalid or blacklisted | planned |
-| POST | /api/auth/logout/ | Logged in | refresh | 205 | 400 invalid token | planned |
-| POST | /api/auth/password/forgot/ | Public | email | 200 always | 429 | planned |
-| POST | /api/auth/password/reset/ | Public | uid, token, new_password, confirm_password | 200 | 400 invalid link or weak password | planned |
-| POST | /api/auth/password/change/ | Logged in | old_password, new_password | 200 | 400 wrong old password | planned |
-| GET, PATCH | /api/auth/me/ | Logged in | full_name (PATCH) | 200 user | 401 | planned |
-| GET, PATCH | /api/auth/profile/ | Candidate | profile fields; multipart if avatar included | 200 profile | 400, 403 | planned |
-| PUT | /api/auth/profile/resume/ | Candidate | multipart file resume | 200 resume URL | 400 wrong type or too big | planned |
-| GET, POST | /api/auth/profile/education/ | Candidate | education fields | 200 list / 201 row | 400 | planned |
-| PATCH, DELETE | /api/auth/profile/education/<id>/ | Candidate | changed fields | 200 / 204 | 404 if not yours | planned |
-| GET, POST | /api/auth/profile/experience/ | Candidate | experience fields | 200 / 201 | 400 | planned |
-| PATCH, DELETE | /api/auth/profile/experience/<id>/ | Candidate | changed fields | 200 / 204 | 404 | planned |
+| POST | /api/auth/register/candidate/ | Public | full_name, email, password, confirm_password | 201 email, status | 400 field errors (duplicate email, weak password, mismatch) | implemented |
+| POST | /api/auth/register/company/ | Public | company_name, industry, official_email, admin_full_name, admin_phone, password, confirm_password | 201 email, status | 400 field errors | implemented |
+| POST | /api/auth/verify-email/ | Public | token | 200 detail, status | 400 expired or invalid | implemented |
+| POST | /api/auth/resend-verification/ | Public | email | 200 always | 429 throttled | implemented |
+| POST | /api/auth/login/ | Public | email, password | 200 access, refresh, user | 401 invalid credentials; 403 with code; 429 | implemented |
+| POST | /api/auth/token/refresh/ | Public | refresh | 200 access, refresh | 401 invalid or blacklisted | implemented |
+| POST | /api/auth/logout/ | Logged in | refresh | 205 | 400 invalid token | implemented |
+| POST | /api/auth/password/forgot/ | Public | email | 200 always | 429 | implemented |
+| POST | /api/auth/password/reset/ | Public | uid, token, new_password, confirm_password | 200 | 400 invalid link or weak password | implemented |
+| POST | /api/auth/password/change/ | Logged in | old_password, new_password | 200 | 400 wrong old password | implemented |
+| GET, PATCH | /api/auth/me/ | Logged in | full_name (PATCH) | 200 user | 401 | implemented |
+| GET, PATCH | /api/auth/profile/ | Candidate | profile fields; multipart if avatar included | 200 profile | 400, 403 | implemented |
+| PUT | /api/auth/profile/resume/ | Candidate | multipart file resume | 200 resume URL | 400 wrong type or too big | implemented |
+| GET, POST | /api/auth/profile/education/ | Candidate | education fields | 200 list / 201 row | 400 | implemented |
+| PATCH, DELETE | /api/auth/profile/education/<id>/ | Candidate | changed fields | 200 / 204 | 404 if not yours | implemented |
+| GET, POST | /api/auth/profile/experience/ | Candidate | experience fields | 200 / 201 | 400 | implemented |
+| PATCH, DELETE | /api/auth/profile/experience/<id>/ | Candidate | changed fields | 200 / 204 | 404 | implemented |
+
+### Module 1 — implemented behaviour
+
+**Approved additions (owner, Q8/Q9)**
+
+| Method | Endpoint | Access | Request | Success | Main errors | Status |
+|---|---|---|---|---|---|---|
+| GET | /api/auth/profile/resume/ | Candidate | none | 200 the CV as an attachment (original file name, `Cache-Control: private, no-store`) | 404 no resume | implemented |
+| POST | /api/platform-admin/users/<user_id>/suspend/ | Platform admin | none | 200 user object | 400 self or another platform admin; 404; 409 already suspended | implemented |
+| POST | /api/platform-admin/users/<user_id>/reactivate/ | Platform admin | none | 200 user object | 404; 409 not suspended | implemented |
+
+**Deviations from the Doc (all recorded in `DECISIONS.md`)**
+- `PUT /api/auth/profile/resume/` returns `{"resume": "/api/auth/profile/resume/"}`, a relative path to the authenticated download (D-023). The same path appears as `resume` in the profile.
+- The profile also carries `bio`, `target_role`, `experience_level` (`entry`/`mid`/`senior`), `portfolio_url` and read-only `resume_name` (D-025). Name and email are not in the profile; use `GET /api/auth/me/`.
+- Sign-up endpoints reject extra fields silently (no mass assignment); the company sign-up route is served by the `companies` app (D-027).
+- Multipart requests above 12 MB are refused with 413 `request_too_large` before anything is stored (D-035). Education and experience are capped at 50 rows each (400 `limit_reached`).
+
+**Response shapes**
+- Sign-up: `201 {"email", "status"}`. Verify: `200 {"detail", "status"}`. Login: `200 {"access", "refresh", "user"}`. Refresh: `200 {"access", "refresh"}`. Logout: `205` no body.
+- `user`: `{"id", "email", "full_name", "role", "status", "company"}`; `company` is `null` for candidates and platform admins, otherwise `{"id", "name", "member_role", "status"}`.
+- Access-token claims: `user_id`, `role`, `full_name`, `token_type`, `exp`, `iat`, `jti`. Authorisation always uses the database, never the claims.
+- Multipart profile requests send `skills` as repeated keys; JSON sends a list. `avatar: null` (JSON) removes the avatar.
+
+**Error codes (general errors are `{"detail", "code"}`; field errors are `{"field": ["message"]}`)**
+
+| Status | `code` | Meaning |
+|---|---|---|
+| 401 | `invalid_credentials` | Wrong email or password ("Invalid email or password.") |
+| 401 | `not_authenticated`, `authentication_failed`, `token_not_valid` | Missing/invalid access or refresh token |
+| 401 | `account_inactive`, `user_not_found` | Token valid but the account is not active / no longer exists |
+| 403 | `pending_verification`, `pending_approval`, `rejected`, `suspended` | Login refused for that account status (messages in `REQUIREMENTS.md`) |
+| 403 | `permission_denied` | "Unauthorized access." |
+| 400 | `expired`, `invalid_token` | Verification or reset link problems; logout with a bad refresh token |
+| 400 | `cannot_suspend_self`, `cannot_suspend_admin`, `limit_reached` | Rule violations |
+| 404 / 409 | `not_found` / `already_suspended`, `not_suspended` | |
+| 413 | `request_too_large` | Multipart body over 12 MB |
+| 429 | `throttled` | Rate limit |
+
+**Throttle scopes**: login 5/min (also used per user by change-password); registration 10/hour (candidate and company share it); resend-verification 3/hour; forgot-password 3/hour; reset-password 10/hour. Limits are per client IP (`NUM_PROXIES` controls how the IP is read).
+
+**Frontend field mapping for the candidate profile (for Phase 5)**
+
+| Frontend (`candidateStore`) | API |
+|---|---|
+| `fullName`, `email` | `GET /api/auth/me/` (`full_name`, `email`) |
+| `headline`, `location`, `bio`, `skills` | same names |
+| `targetRole`, `experience` | `target_role`, `experience_level` |
+| `links.linkedin`, `links.github`, `links.portfolio` | `linkedin_url`, `github_url`, `portfolio_url` |
+| `cv` `{name, size, uploadedAt}` | `resume` (download path), `resume_name`; size and upload time are not exposed |
+| `photo` (data URL) | `avatar` (URL; upload as multipart) |
+| Interview/notification/privacy preferences | not in Phase 1 (stay client-side) |
+
 
 ## Module 2 — Company management and platform-admin approval (`companies`)
 

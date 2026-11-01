@@ -10,9 +10,10 @@ backend/
     settings/{base,local,production,test}.py
     urls.py  wsgi.py  asgi.py            wsgi/asgi default to production
   apps/
-    common/                  no tables: validators, mail, exceptions, pagination, storage, constraints, JSON 404/500
-    accounts/                User, CandidateProfile, Education, Experience           (Module 1)
-    companies/               Company, CompanyMember, StaffInvitation                 (Module 2)
+    common/                  no tables: choices (shared enums), permissions, validators, mail, errors, exceptions,
+                             pagination, parsers, storage, constraints, JSON 404/500, test helpers
+    accounts/                User, CandidateProfile, Education, Experience; auth, tokens, profile, CV   (Module 1)
+    companies/               Company, CompanyMember, StaffInvitation; company sign-up (Module 1), review/members/invites (Module 2)
     jobs/  applications/     created when Modules 3 and 4 start
   documentation/  requirements/  scripts/  .env.example
 ```
@@ -32,17 +33,20 @@ Each feature app uses the split from the Doc: `models.py`, `serializers.py` (val
 - Default permission is authenticated; public views opt out explicitly. Default pagination is page-number, 20 per page (`page_size` up to 100); filter, search and ordering backends are on.
 - Errors keep DRF's shapes: field errors `{"field": ["message"]}`; general errors `{"detail": "message", "code": "..."}`. `apps/common/exceptions.py` adds `code` to general errors and wraps a bare list-style validation error as `{"non_field_errors": [...]}`. Unknown `/api/` paths and unhandled errors return JSON (`not_found` / `server_error`) and never expose internals.
 
-## Authentication and authorisation (implemented in Module 1)
+## Authentication and authorisation (Module 1, implemented)
 
-- Email + password; four user roles; account `status` gates everything. A status-aware SimpleJWT authentication class rejects any token whose user is not `active` (code `account_inactive`), so suspension takes effect on the next request.
-- Access token 15 min, refresh token 7 days, rotated on every refresh with the old one blacklisted. Both are returned in the JSON body (D-003). Custom access-token claims: `role`, `full_name`.
-- Verification and password-reset tokens use Django's signing and token generator and need no tables.
-- Role permission classes (`IsCandidate`, `IsCompanyUser`, `IsCompanyAdmin`, `CompanyRole(...)`, `IsPlatformAdmin`) decide who may call an endpoint; querysets decide which rows they see. Company-side querysets are always filtered to the caller's company so another company's ID returns 404.
+- Email + password; four user roles; the account `status` gates everything. `StatusAwareJWTAuthentication` loads the user (with company and membership in one query) on every request and rejects anyone who is not `active` with `account_inactive`, so suspension applies immediately. It is the default authentication class; public views set `authentication_classes = []` so a stale token cannot break them.
+- Login checks credentials itself (not Django's `authenticate()`), then the status, returning 401 for bad credentials and 403 with the status as `code` otherwise. Refresh is explicit: reload the user, require `active`, blacklist the old token under a row lock, issue a new pair with `role` and `full_name` read from the database.
+- Access token 15 min, refresh 7 days, both in the JSON body (D-003). Password change/reset and suspension blacklist every outstanding refresh token of the user.
+- Verification links use Django's signing (24 h, own salt); reset links use Django's token generator plus an encoded user id (1 h, die when the password changes). Neither needs a table.
+- Permission classes in `common/permissions.py` (`IsCandidate`, `IsPlatformAdmin`, `IsCompanyUser`, `IsCompanyAdmin`, `CompanyRole(...)`) answer 403 "Unauthorized access."; querysets decide which rows a user sees. They read the role and membership from the database, never from the token or the request.
+- Throttling uses DRF scoped rates keyed by client IP. `NUM_PROXIES` (default 0) controls how the IP is read, because trusting `X-Forwarded-For` would let clients evade limits.
+- Operations: schedule `python manage.py flushexpiredtokens` to purge expired rows from the token tables.
 
 ## Data and files
 
 - PostgreSQL with UUID primary keys on entities exposed in URLs, DB-level integrity constraints (see `DATABASE_SCHEMA.md`), transactions around multi-row operations, and `select_for_update` where the Doc requires row locking.
-- Files: `STORAGES["default"]` serves public images (avatars, logos) under `MEDIA_ROOT`. `STORAGES["private"]` holds CVs outside any public path with no URL; production swaps this alias to a private Azure Blob container through configuration only. All uploads are stored under random names. Validators check extension, size **and** magic bytes.
+- Files: `STORAGES["default"]` serves public images (avatars, logos) under `MEDIA_ROOT`. `STORAGES["private"]` holds CVs outside any public path with no URL; production swaps this alias to a private Azure Blob container through configuration only. All uploads are stored under random names. Validators check extension, size **and** magic bytes. `LimitedMultiPartParser` (the default multipart parser) refuses bodies over 12 MB from `Content-Length` before anything is written.
 - Email: `send_email_on_commit` queues the message with `transaction.on_commit`, so a rolled-back sign-up never emails. Only SMTP/OS delivery errors are caught and logged (without recipient addresses); programming errors still raise. Local development uses the console backend.
 
 ## Testing

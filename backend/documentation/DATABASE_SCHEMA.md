@@ -21,8 +21,8 @@ Conventions: UUID primary keys on entities that appear in URLs; `bigint` identit
 
 Index `user_role_status_idx (role, status)`. `PermissionsMixin` also creates the unused `accounts_user_groups` and `accounts_user_user_permissions` tables. `is_active` is derived (`status = 'active'`), not a column.
 
-### `accounts_candidateprofile`
-`id` bigint PK · `user_id` uuid **unique** FK→user **CASCADE** · `phone` 20 · `headline` 150 · `location` 150 · `avatar` varchar(100) (public storage, JPG/PNG ≤ 2 MB) · `linkedin_url`, `github_url` 300 · `skills` jsonb default `[]` · `resume` varchar(100) (**private** storage, PDF/DOCX ≤ 5 MB) · `resume_text` text · `updated_at`.
+### `accounts_candidateprofile` (`accounts.0001`, extended by `accounts.0002_candidate_profile_extensions`)
+`id` bigint PK · `user_id` uuid **unique** FK→user **CASCADE** · `phone` 20 · `headline` 150 · `location` 150 · `bio` 400 · `target_role` 100 · `experience_level` 10 (`entry` `mid` `senior` or empty; CHECK `profile_experience_level_valid`) · `avatar` varchar(100) (public storage, JPG/PNG ≤ 2 MB) · `linkedin_url`, `github_url`, `portfolio_url` 300 · `skills` jsonb default `[]` · `resume` varchar(100) (**private** storage, PDF/DOCX ≤ 5 MB) · `resume_original_name` 255 · `resume_text` text (≤ 15,000 characters, never contains NUL) · `updated_at`. Columns added in 0002: `bio`, `target_role`, `experience_level`, `portfolio_url`, `resume_original_name` (owner-approved, D-025).
 
 ### `accounts_education`
 `id` · `profile_id` FK→candidateprofile CASCADE · `institution` 200 · `degree` 150 · `field_of_study` 150 · `start_year` smallint · `end_year` smallint null (null = ongoing) · `grade` 50. CHECK `end_year IS NULL OR end_year >= start_year`.

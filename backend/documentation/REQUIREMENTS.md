@@ -65,3 +65,18 @@ Authoritative text: `source/IntelliHire_Django_Backend_Implementation_Guide_Phas
 ## Test cases (Doc, "Automated tests mapped to your report")
 
 TC-01–07, 12, 14–22 are specified one by one; each module's tests carry the TC IDs in their names, plus the company-isolation pattern on every company-side endpoint.
+
+## Module 1 traceability (implemented on `backend/module-01`)
+
+| Requirement / test case | Where it is verified |
+|---|---|
+| FR-01, TC-01, TC-02 candidate sign-up, duplicate email | `accounts/tests/test_register_candidate.py` (`test_tc01_…`, `test_tc02_…`) |
+| FR-02, TC-03 company sign-up (user + pending company + admin member, two emails, login refused until approved) | `companies/tests/test_company_registration.py` (`test_tc03_…`) |
+| Email verification and resend | `accounts/tests/test_email_verification.py` |
+| FR-03, TC-04, TC-05 login, status messages and codes | `accounts/tests/test_login.py` (`test_tc04_…`, `test_tc05_…`) |
+| FR-04 logout, token rotation and blacklisting | `accounts/tests/test_tokens.py` |
+| FR-05, TC-06 forgot, reset, change password | `accounts/tests/test_password_flows.py` (`test_tc06_…`) |
+| FR-06 profile, education, experience, CV upload and text extraction | `test_profile.py`, `test_education_experience.py`, `test_resume.py` |
+| FR-07, TC-07 roles, status-aware authentication, platform-admin endpoints | `common/tests/test_permissions.py`, `accounts/tests/test_platform_admin_users.py` (`test_tc07_…`), `accounts/tests/test_tokens.py` (`test_tc07_…`) |
+| Upload and request-size limits | `common/tests/test_validators.py`, `test_parsers.py` |
+
