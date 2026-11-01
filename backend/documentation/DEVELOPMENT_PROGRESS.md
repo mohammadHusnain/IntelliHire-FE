@@ -24,7 +24,7 @@ A step is "complete" only when implementation, executed tests, documentation and
 **Verified (executed here: Python 3.13, PostgreSQL 16.15)**
 - `python -m pytest`: **304 passed** (accounts 196, companies 39, common 69).
 - `makemigrations --check`: no changes. `spectacular --validate --fail-on-warn`: passes. `check --deploy` (production settings): only the two deliberately-off HSTS include-subdomains/preload warnings.
-- The committed tree was not re-run from a clean install after the Module 1 changes; the Foundation commit was (92 tests).
+- The committed tree was exported, installed into a fresh virtualenv from `requirements/dev.txt` and tested there: 304 passed.
 - Live HTTP smoke test against a running server: CORS allows only the configured origin; register → verification link taken from the real email output → login → profile update → CV upload and byte-identical download → logout → refresh refused; wrong CV type refused; no passwords or tokens in the server log.
 - TC-01 to TC-07 each have a named automated test (see `REQUIREMENTS.md`).
 
