@@ -1,0 +1,26 @@
+# Decisions
+
+Format: ID · decision · who · rationale. "Owner" = project owner. "Proposed" decisions were made by engineering judgement where the Doc is silent and can be reversed on request.
+
+| ID | Decision | By | Rationale |
+|---|---|---|---|
+| D-001 | **Tally/ERP integration is deferred.** Nothing Tally-related is designed or coded until the owner reopens it. | Owner | The Doc has no Tally content; no source defines version, mechanism or entities. |
+| D-002 | **PostgreSQL 16** (psycopg 3), not MySQL. | Owner (approved recommendation) | Doc says its design works on either; PostgreSQL enforces the "one pending invitation per company and email" rule in the database, has transactional migrations and stricter constraints. |
+| D-003 | **Refresh token is returned in the JSON body**, not an httpOnly cookie. Token delivery stays in one place so a later move to cookies is contained. | Owner (approved recommendation) | Matches the Doc's endpoint contracts; frontend and API will likely sit on different sites, where cross-site cookies are unreliable; avoids CSRF handling. Mitigated by 15-minute access tokens, rotation and blacklisting. |
+| D-004 | Django project `config/` + `apps/<name>/`; tests live inside each app; apps `jobs` and `applications` are created when their module starts. | Proposed | Follows the Doc's layout; no empty folders. Replaces the generic `src/modules/module-0N` sketch in the master instruction. |
+| D-005 | `IntelliHire-backend` is the backend integration branch; work happens on `backend/foundation` and `backend/module-0N`; merges only after tests pass and owner approval; `main` is never touched without approval. | Proposed (per master instruction) | Isolates backend work from the frontend. |
+| D-006 | Settings split `base/local/production/test`; env via django-environ; production fails fast on missing `ALLOWED_HOSTS`/`EMAIL_HOST`. | Proposed | Misconfiguration must not reach runtime. |
+| D-007 | No Celery/Redis. Emails go out via `transaction.on_commit`; deadline closing is a management command; production throttle counters use Django's database cache (`createcachetable`). | Proposed | Doc marks Celery/Redis optional; per-process in-memory throttling would be inaccurate across workers. |
+| D-008 | `/api/docs/` and `/api/schema/` are served only when `API_DOCS_ENABLED=True` (default off in production). | Proposed | Avoid publishing the API surface by default. |
+| D-009 | Error shape = DRF default plus `code` on general errors; a bare list-style `ValidationError` is wrapped as `non_field_errors`; `/api/` 404/500 return JSON without internals. | Proposed (Doc: "keep DRF's default shape") | Predictable errors for the React client. |
+| D-010 | Pagination: page size 20, optional `page_size` up to 100. | Proposed | Doc specifies 20 only. |
+| D-011 | Database integrity by constraint: lowercase email CHECKs, enum CHECKs on choice fields, case-insensitive unique company name, partial unique pending invitation; CHECKs on nullable columns must test `IS NOT NULL`. | Proposed | Application-level validation alone can be bypassed; a test exposed the NULL pitfall. |
+| D-012 | `User`: UUID PK, `is_active` derived from `status == active`, users created only through the manager or services (Django admin "add user" disabled). | Proposed | Keeps profile/company records consistent; implements "only active users can log in". |
+| D-013 | Private files use `STORAGES["private"]` (no URL, outside media root); images use the default storage; every upload gets a random name; validators check extension, size and magic bytes. | Doc §4.3 + Proposed | Production swaps the alias to a private Azure container by configuration. |
+| D-014 | The Foundation migration contains all seven starting models (User, CandidateProfile, Education, Experience, Company, CompanyMember, StaffInvitation). | Doc ("Project setup" step 1) | Company sign-up in Module 1 needs the company tables. |
+| D-015 | `send_email_on_commit` catches only SMTP/OS delivery errors, logs without recipient addresses, and lets programming errors raise. Module is `common/mail.py` (not `email.py`, to avoid shadowing the standard library name). | Proposed | Classified error handling; no PII in logs. |
+| D-016 | Image upload: JPG/PNG, ≤ 2 MB (Doc), messages "Only JPG and PNG images are accepted." / "Image must be 2 MB or smaller."; size message for CV: "File must be 5 MB or smaller." | Doc limits; messages proposed | Doc gives limits, and wording only for the CV type error. |
+| D-017 | Dependencies are added when first used: `pypdf` and `python-docx` arrive with Module 1's CV text extraction; `django-storages[azure]` with production storage. Tested on Python 3.13. | Proposed | No unused dependencies. |
+| D-018 | The Doc is stored at `documentation/source/` and these files summarise it with section references. | Proposed | Session continuity and traceability. |
+| D-019 | Until Module 1 ships `StatusAwareJWTAuthentication`, the default authentication class is SimpleJWT's `JWTAuthentication`; Foundation exposes no authenticated endpoints. | Proposed | The status-aware class belongs to Module 1 (Doc §1.5). |
+| D-020 | Field lengths where the Doc is silent: phone 20, headline 150, location 150, job title 100, grade 50, URLs 300. | Proposed | Reasonable bounds; changeable by migration. |
