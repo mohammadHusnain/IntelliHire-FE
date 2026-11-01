@@ -19,3 +19,4 @@ def api_exception_handler(exc, context):
     if detail is not None:
         response.data = {"detail": str(detail), "code": getattr(detail, "code", "error")}
     return response
+

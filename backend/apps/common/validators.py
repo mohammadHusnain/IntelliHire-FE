@@ -51,3 +51,13 @@ def validate_profile_image(file):
             f"Image must be {_megabytes(settings.IMAGE_MAX_UPLOAD_BYTES)} or smaller.",
             code="file_too_large",
         )
+
+
+_PHONE_CHARACTERS = frozenset("0123456789+- ")
+
+
+def validate_phone(value):
+    """Digits, spaces, + and - only, with 7 to 15 digits."""
+    digits = sum(character.isdigit() for character in value)
+    if not set(value) <= _PHONE_CHARACTERS or not 7 <= digits <= 15:
+        raise ValidationError("Enter a valid phone number.", code="invalid_phone")

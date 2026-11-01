@@ -32,13 +32,21 @@ def test_rest_framework_defaults(settings):
     rf = settings.REST_FRAMEWORK
     assert rf["DEFAULT_PERMISSION_CLASSES"] == ["rest_framework.permissions.IsAuthenticated"]
     assert rf["PAGE_SIZE"] == 20
+    assert rf["NUM_PROXIES"] == 0
+    assert rf["DEFAULT_AUTHENTICATION_CLASSES"] == ["apps.accounts.authentication.StatusAwareJWTAuthentication"]
     assert rf["DEFAULT_THROTTLE_RATES"] == {
         "login": "5/min",
         "register": "10/hour",
         "password_reset": "3/hour",
+        "password_reset_confirm": "10/hour",
         "resend_verification": "3/hour",
         "public_apply": "10/hour",
     }
+
+
+def test_the_schema_documents_bearer_authentication(client):
+    schema = client.get("/api/schema/?format=json").json()
+    assert schema["components"]["securitySchemes"]["jwtAuth"] == {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}
 
 
 def test_swagger_and_schema_are_served(client):

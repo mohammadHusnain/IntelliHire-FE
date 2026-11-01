@@ -52,3 +52,42 @@ def company_factory(user_factory):
         return Company.objects.create(**fields)
 
     return make
+
+
+@pytest.fixture
+def api_client():
+    from rest_framework.test import APIClient
+
+    return APIClient()
+
+
+@pytest.fixture
+def auth_client():
+    """A client logged in as `user` with a real access token (so status checks apply)."""
+    from rest_framework.test import APIClient
+
+    from apps.accounts import auth_tokens
+
+    def make(user):
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {auth_tokens.issue_tokens(user)['access']}")
+        return client
+
+    return make
+
+
+@pytest.fixture
+def member_factory(user_factory, company_factory):
+    """An active company user with a membership; the company is approved unless told otherwise."""
+    from apps.common.choices import CompanyStatus, MemberRole, UserRole
+    from apps.companies.models import CompanyMember
+
+    def make(role=MemberRole.RECRUITER, company=None, company_status=CompanyStatus.APPROVED, **user_overrides):
+        reason = "Registration details were incomplete." if company_status == CompanyStatus.REJECTED else ""
+        company = company or company_factory(status=company_status, rejection_reason=reason)
+        user_role = UserRole.COMPANY_ADMIN if role == MemberRole.ADMIN else UserRole.HR
+        user = user_factory(role=user_role, **user_overrides)
+        CompanyMember.objects.create(company=company, user=user, role=role)
+        return user
+
+    return make

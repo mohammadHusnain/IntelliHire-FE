@@ -5,16 +5,10 @@ from django.db import models
 from django.db.models.functions import Lower
 from django.utils.text import slugify
 
+from apps.common.choices import CompanyStatus, MemberRole
 from apps.common.constraints import enum_check
 from apps.common.storage import RandomUploadPath
 from apps.common.validators import validate_profile_image
-
-
-class CompanyStatus(models.TextChoices):
-    PENDING = "pending"
-    APPROVED = "approved"
-    REJECTED = "rejected"
-    SUSPENDED = "suspended"
 
 
 class CompanySize(models.TextChoices):
@@ -23,13 +17,6 @@ class CompanySize(models.TextChoices):
     SIZE_51_200 = "51-200"
     SIZE_201_1000 = "201-1000"
     SIZE_1000_PLUS = "1000+"
-
-
-class MemberRole(models.TextChoices):
-    ADMIN = "admin"
-    HR_MANAGER = "hr_manager"
-    RECRUITER = "recruiter"
-    VIEWER = "viewer"
 
 
 class InvitationStatus(models.TextChoices):

@@ -5,6 +5,7 @@ from django.db import models
 from django.db.models.functions import Lower
 from django.utils import timezone
 
+from apps.common.choices import UserRole, UserStatus
 from apps.common.constraints import enum_check
 from apps.common.storage import RandomUploadPath, private_storage
 from apps.common.validators import validate_cv_file, validate_profile_image
@@ -12,19 +13,10 @@ from apps.common.validators import validate_cv_file, validate_profile_image
 from .managers import UserManager
 
 
-class UserRole(models.TextChoices):
-    CANDIDATE = "candidate"
-    COMPANY_ADMIN = "company_admin"
-    HR = "hr"
-    PLATFORM_ADMIN = "platform_admin"
-
-
-class UserStatus(models.TextChoices):
-    PENDING_VERIFICATION = "pending_verification"
-    PENDING_APPROVAL = "pending_approval"
-    ACTIVE = "active"
-    REJECTED = "rejected"
-    SUSPENDED = "suspended"
+class ExperienceLevel(models.TextChoices):
+    ENTRY = "entry"
+    MID = "mid"
+    SENIOR = "senior"
 
 
 class User(AbstractBaseUser, PermissionsMixin):
@@ -70,11 +62,15 @@ class CandidateProfile(models.Model):
     phone = models.CharField(max_length=20, blank=True)
     headline = models.CharField(max_length=150, blank=True)
     location = models.CharField(max_length=150, blank=True)
+    bio = models.CharField(max_length=400, blank=True)
+    target_role = models.CharField(max_length=100, blank=True)
+    experience_level = models.CharField(max_length=10, choices=ExperienceLevel.choices, blank=True)
     avatar = models.ImageField(
         upload_to=RandomUploadPath("avatars"), blank=True, validators=[validate_profile_image]
     )
     linkedin_url = models.URLField(max_length=300, blank=True)
     github_url = models.URLField(max_length=300, blank=True)
+    portfolio_url = models.URLField(max_length=300, blank=True)
     skills = models.JSONField(default=list, blank=True)
     resume = models.FileField(
         upload_to=RandomUploadPath("resumes"),
@@ -82,8 +78,14 @@ class CandidateProfile(models.Model):
         blank=True,
         validators=[validate_cv_file],
     )
+    resume_original_name = models.CharField(max_length=255, blank=True)
     resume_text = models.TextField(blank=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            enum_check("experience_level", ExperienceLevel, "profile_experience_level_valid", allow_blank=True),
+        ]
 
     def __str__(self):
         return f"Profile of {self.user.email}"

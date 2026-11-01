@@ -68,7 +68,10 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "accounts.User"
 
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+        "OPTIONS": {"user_attributes": ("email", "full_name")},
+    },
     {
         "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
         "OPTIONS": {"min_length": 8},
@@ -77,6 +80,8 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 PASSWORD_RESET_TIMEOUT = 60 * 60
+EMAIL_VERIFICATION_MAX_AGE = 24 * 60 * 60
+COMPANY_EMAIL_BLOCKED_DOMAINS = [d.lower() for d in env.list("COMPANY_EMAIL_BLOCKED_DOMAINS", default=[])]
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
@@ -97,6 +102,7 @@ STORAGES = {
 
 CV_MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 IMAGE_MAX_UPLOAD_BYTES = 2 * 1024 * 1024
+MAX_REQUEST_BYTES = 12 * 1024 * 1024
 
 FRONTEND_URL = env("FRONTEND_URL").rstrip("/")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="IntelliHire <no-reply@localhost>")
@@ -107,12 +113,12 @@ CORS_ALLOW_CREDENTIALS = False
 API_DOCS_ENABLED = env.bool("API_DOCS_ENABLED", default=False)
 
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework_simplejwt.authentication.JWTAuthentication"],
+    "DEFAULT_AUTHENTICATION_CLASSES": ["apps.accounts.authentication.StatusAwareJWTAuthentication"],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "DEFAULT_PARSER_CLASSES": [
         "rest_framework.parsers.JSONParser",
-        "rest_framework.parsers.MultiPartParser",
+        "apps.common.parsers.LimitedMultiPartParser",
     ],
     "DEFAULT_PAGINATION_CLASS": "apps.common.pagination.StandardPagination",
     "PAGE_SIZE": 20,
@@ -123,10 +129,12 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "apps.common.exceptions.api_exception_handler",
+    "NUM_PROXIES": env.int("NUM_PROXIES", default=0),
     "DEFAULT_THROTTLE_RATES": {
         "login": "5/min",
         "register": "10/hour",
         "password_reset": "3/hour",
+        "password_reset_confirm": "10/hour",
         "resend_verification": "3/hour",
         "public_apply": "10/hour",
     },
