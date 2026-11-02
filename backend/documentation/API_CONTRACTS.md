@@ -13,15 +13,15 @@ Source of truth for contracts: Doc §1.7, §2.4, §3.4, §4.5. These tables are 
 
 | Prefix | App |
 |---|---|
-| `/api/auth/` | accounts |
-| `/api/company/` | companies (company admin and HR side) |
-| `/api/platform-admin/` | companies (platform-admin approval side) |
+| `/api/auth/` | `Module1_Authentication` (label `accounts`); company sign-up routes from `Module2_CompanyManagement` |
+| `/api/company/` | `Module2_CompanyManagement` (label `companies`): company admin and HR side |
+| `/api/platform-admin/` | `users/` from Module 1; `companies/` from Module 2 |
 | `/api/jobs/` | jobs (HR side) |
 | `/api/jobs/<job_id>/applications/`, `/api/applications/` | applications (HR side) |
-| `/api/public/` | jobs + applications (public form, no login) |
+| `/api/public/` | `invitations/` (Module 2); jobs + applications public form (Modules 3–4) |
 | `/api/docs/`, `/admin/` | Swagger UI, Django admin |
 
-## Module 1 — Authentication and account management (`accounts`)
+## Module 1 — Authentication and account management (`Module1_Authentication`)
 
 Source: Doc §1.7. Implemented and tested on `backend/module-01`; deviations and additions are listed below the table.
 
@@ -97,27 +97,43 @@ Source: Doc §1.7. Implemented and tested on `backend/module-01`; deviations and
 | Interview/notification/privacy preferences | not in Phase 1 (stay client-side) |
 
 
-## Module 2 — Company management and platform-admin approval (`companies`)
+## Module 2 — Company management and platform-admin approval (`Module2_CompanyManagement`)
 
-Source: Doc §2.4. All rows are **planned** until the module's completion report marks them implemented.
+Source: Doc §2.4. Implemented and tested on `backend/module-02`; behaviour notes and deviations follow the table.
 
 | Method | Endpoint | Access | Request | Success | Main errors | Status |
 |---|---|---|---|---|---|---|
-| GET, PATCH | /api/company/profile/ | Company user (PATCH: company admin) | profile fields; multipart for logo | 200 profile + profile_completion | 400, 403 | planned |
-| GET | /api/company/dashboard/ | Company user | none | 200 metrics object | 403 | planned |
-| GET | /api/company/members/ | Company user | none | 200 list | 403 | planned |
-| PATCH | /api/company/members/<id>/ | Company admin | role, job_title, is_active | 200 member | 400 last admin or self; 404 other company | planned |
-| GET, POST | /api/company/invitations/ | Company admin | email, full_name, role, job_title | 200 list / 201 invitation | 400 already registered or already invited | planned |
-| POST | /api/company/invitations/<id>/resend/ | Company admin | none | 200 | 409 wrong status | planned |
-| POST | /api/company/invitations/<id>/revoke/ | Company admin | none | 200 | 409 wrong status | planned |
-| GET | /api/public/invitations/<token>/ | Public | none | 200 company, role, email, full_name | 400 invalid, expired, revoked, used | planned |
-| POST | /api/public/invitations/<token>/accept/ | Public | full_name, password, confirm_password | 201 | 400 | planned |
-| POST | /api/auth/register/company/resubmit/ | Public | official_email, password, corrected company fields | 200 status pending | 400 wrong credentials or not rejected | planned |
-| GET | /api/platform-admin/companies/ | Platform admin | ?status, ?search | 200 paginated list | 403 | planned |
-| GET | /api/platform-admin/companies/<id>/ | Platform admin | none | 200 detail | 404 | planned |
-| POST | /api/platform-admin/companies/<id>/approve/ | Platform admin | none | 200 | 409 already reviewed | planned |
-| POST | /api/platform-admin/companies/<id>/reject/ | Platform admin | reason | 200 | 400 no reason; 409 | planned |
-| POST | /api/platform-admin/companies/<id>/suspend/ and /reactivate/ | Platform admin | reason (suspend) | 200 | 409 | planned |
+| GET, PATCH | /api/company/profile/ | Company user (PATCH: company admin) | name, industry, contact_phone, website, description, headquarters, company_size, logo (multipart) | 200 profile + profile_completion | 400, 403 | implemented |
+| GET | /api/company/dashboard/ | Company user | none | 200 metrics object | 403 | implemented (jobs/applicants/pipeline are zeros until Modules 3–4) |
+| GET | /api/company/members/ | Company user | none | 200 list | 403 | implemented |
+| PATCH | /api/company/members/<id>/ | Company admin | role, job_title, is_active | 200 member | 400 `cannot_modify_self`, `last_admin`; 404 other company | implemented |
+| GET, POST | /api/company/invitations/ | Company admin | email, full_name, role, job_title; `?status=` | 200 list / 201 invitation | 400 already registered or already invited | implemented |
+| POST | /api/company/invitations/<id>/resend/ | Company admin | none | 200 | 404; 409 `invalid_state`, `newer_invitation_pending` | implemented |
+| POST | /api/company/invitations/<id>/revoke/ | Company admin | none | 200 | 404; 409 `invalid_state` | implemented |
+| GET | /api/public/invitations/<token>/ | Public | none | 200 company, role, email, full_name | 400 `invalid_invitation`, `expired`, `revoked`, `already_used`, `company_unavailable` | implemented |
+| POST | /api/public/invitations/<token>/accept/ | Public | full_name, password, confirm_password | 201 email, status | 400 (same codes, `email_taken`, password rules); 429 | implemented |
+| POST | /api/auth/register/company/resubmit/ | Public | official_email, password, company_name, industry, admin_full_name, admin_phone | 200 detail, status `pending` | 400 `invalid_credentials`, `not_rejected`, name taken; 429 | implemented |
+| GET | /api/platform-admin/companies/ | Platform admin | `?status` (default `pending`; `all`), `?search`, `?page`, `?page_size` | 200 paginated list | 400 bad status; 403 | implemented |
+| GET | /api/platform-admin/companies/<id>/ | Platform admin | none | 200 detail | 404 | implemented |
+| POST | /api/platform-admin/companies/<id>/approve/ | Platform admin | none | 200 detail | 404; 409 `already_reviewed` | implemented |
+| POST | /api/platform-admin/companies/<id>/reject/ | Platform admin | reason (≥ 10 chars) | 200 detail | 400 reason; 409 `already_reviewed` | implemented |
+| POST | /api/platform-admin/companies/<id>/suspend/ | Platform admin | reason (≥ 10 chars) | 200 detail | 400 reason; 409 `invalid_state` (only approved) | implemented |
+| POST | /api/platform-admin/companies/<id>/reactivate/ | Platform admin | none | 200 detail | 409 `invalid_state` (only suspended) | implemented |
+
+### Module 2 — implemented behaviour
+
+- **Access gate.** `IsCompanyUser` = active member of an **approved** company; a pending, rejected or suspended company gets 403 "Unauthorized access." on every `/api/company/` endpoint. A suspended company's users can still log in (login only checks the user's status).
+- **Isolation.** Every company-side lookup is scoped to the caller's company; another company's member or invitation id returns 404, identical to a missing id.
+- **Review list** is paginated (`count`, `next`, `previous`, `results`); rows carry `id, name, industry, official_email, contact_phone, status, created_at, admin{id, full_name, email, email_verified, status, date_joined}`. Detail adds slug, website, description, headquarters, logo, company_size, `rejection_reason`, `suspension_reason`, `reviewed_by` (email), `reviewed_at`.
+- **Member** object: `id` (integer membership id), `full_name`, `email`, `role`, `job_title`, `joined_at`, `is_active`, `last_login`. The lists for members and invitations are unpaginated (a company team is small).
+- **Invitation** object: `id, email, full_name, role, job_title, status, created_at, expires_at, accepted_at`. The token is never returned by the API; it exists only in the email link `FRONTEND_URL/accept-invite?token=…`. A pending invitation past its expiry is reported and stored as `expired`.
+- **Accept** returns `{"email","status"}` and no tokens: the new user logs in normally (D-040).
+- **Resubmit** link in the rejection email: `FRONTEND_URL/resubmit-company` (frontend page to be built in Phase 5).
+- **Dashboard** shape: `company{name, logo, status, profile_completion}`, `jobs{open, draft, closed}`, `applicants{total, new_last_7_days}`, `pipeline{submitted, under_review, shortlisted, interview, selected, rejected, on_hold}`, `closing_soon[]`, `recent_applications[]`, `team{active_members, pending_invitations}`. `company` and `team` are live; the rest are zeros/empty until Modules 3–4.
+- **Profile completion** = share of the five optional fields (website, description, headquarters, logo, company_size) that are filled, in steps of 20.
+- **Throttles:** accept-invitation uses the `register` scope (10/hour); resubmit uses `login` (5/min). Invitation details are unthrottled but reveal nothing for an unknown token beyond `invalid_invitation`.
+
+**Deviations from the Doc (recorded in `DECISIONS.md`):** `suspension_reason` column and 10-character reason minimum for suspend (D-039); acceptance requires an approved company and returns no tokens (D-040); the resubmission email path (D-041); review-list pagination (D-042).
 
 ## Module 3 — Job posting and application form (`jobs`)
 

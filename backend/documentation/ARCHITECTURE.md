@@ -12,9 +12,11 @@ backend/
   apps/
     common/                  no tables: choices (shared enums), permissions, validators, mail, errors, exceptions,
                              pagination, parsers, storage, constraints, JSON 404/500, test helpers
-    accounts/                User, CandidateProfile, Education, Experience; auth, tokens, profile, CV   (Module 1)
-    companies/               Company, CompanyMember, StaffInvitation; company sign-up (Module 1), review/members/invites (Module 2)
-    jobs/  applications/     created when Modules 3 and 4 start
+    Module1_Authentication/  (label accounts) User, CandidateProfile, Education, Experience; auth, tokens, profile, CV
+    Module2_CompanyManagement/ (label companies) Company, CompanyMember, StaffInvitation; company sign-up,
+                             platform-admin review, profile, members, invitations, dashboard
+                             (services/, serializers/, views/ packages; urls.py, public_urls.py, platform_urls.py, auth_urls.py)
+    Module3_…/ Module4_…     created when Modules 3 and 4 start (same layout: models, services, serializers, views, urls, tests, README)
   documentation/  requirements/  scripts/  .env.example
 ```
 

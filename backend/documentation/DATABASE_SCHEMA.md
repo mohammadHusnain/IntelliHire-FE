@@ -30,7 +30,7 @@ Index `user_role_status_idx (role, status)`. `PermissionsMixin` also creates the
 ### `accounts_experience`
 `id` · `profile_id` FK CASCADE · `company` 200 · `position` 150 · `start_date` · `end_date` null · `is_current` · `description`. CHECK (`experience_dates_consistent`): `(is_current AND end_date IS NULL) OR (NOT is_current AND end_date IS NOT NULL AND end_date > start_date)`.
 
-### `companies_company` (migration `companies.0001`)
+### `companies_company` (migrations `companies.0001`, `companies.0002_company_suspension_reason`)
 | Column | Type | Rules |
 |---|---|---|
 | id | uuid PK | |
@@ -44,6 +44,7 @@ Index `user_role_status_idx (role, status)`. `PermissionsMixin` also creates the
 | company_size | varchar(10) | `1-10` `11-50` `51-200` `201-1000` `1000+` or empty |
 | status | varchar(20) | `pending` (default) `approved` `rejected` `suspended` |
 | rejection_reason | text | CHECK: required when `status = 'rejected'` |
+| suspension_reason | text | CHECK `company_suspended_has_reason`: required when `status = 'suspended'` (D-039) |
 | reviewed_by_id | FK→user **SET NULL** | |
 | reviewed_at | timestamptz null | |
 | created_by_id | FK→user **PROTECT** | founding admin |
@@ -68,4 +69,3 @@ Index `company_status_idx (status)`. Companies are never deleted (suspend instea
 - **`jobs_applicationfield`** (§3.1): `job` FK, `label`, `key` (unique per job), `field_type` (short_text, long_text, number, email, url, date, single_choice, multiple_choice, file), `required`, `options` JSON (2–20 unique items for choice types), `help_text`, `max_length`, `order`.
 - **`applications_application`** (§4.1): UUID PK; unique `reference`; `job` FK PROTECT; nullable `candidate_user`; built-in answer columns; `resume` (private, random name) and `resume_original_name`; `answers` JSON; `status` (`submitted` `under_review` `shortlisted` `interview` `selected` `rejected` `on_hold`); `ip_address`, `user_agent`; timestamps. **Unique `(job, email)`**; indexes `(job, status)`, `(job, submitted_at)`.
 - **`applications_applicationfile`** and **`applications_applicationstatuschange`** (§4.1): custom file answers; audit history of status changes (`changed_by` nullable for system changes).
-- Open schema question: where a company suspension reason is stored (Q21).

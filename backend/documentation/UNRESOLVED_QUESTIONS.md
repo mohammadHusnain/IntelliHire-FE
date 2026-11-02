@@ -16,6 +16,10 @@ Statuses: **Resolved** (decision recorded), **Open**, **Deferred**. "Needed befo
 | Q13 | Candidate sign-up payload | **Resolved:** Doc contract (D-025) |
 | Q14 | Extra profile fields | **Resolved:** added (D-025) |
 | Q18 | CV and photo rules | **Resolved:** Doc rules (D-026) |
+| Q7 | Platform-admin read access to jobs and applications | **Resolved:** not in Phase 1 (D-043) |
+| Q15 | Company field differences vs frontend | **Resolved:** Doc enums and fields win; frontend adapts in Phase 5 (D-043) |
+| Q19 | Auto-approve companies | **Resolved:** manual approval only (D-043) |
+| Q21 | Where a suspension reason is stored | **Resolved:** `suspension_reason` column (D-039) |
 | T-1 | Tally/ERP integration | **Deferred** by the owner (D-001) |
 
 ## Open
@@ -24,15 +28,11 @@ Statuses: **Resolved** (decision recorded), **Open**, **Deferred**. "Needed befo
 |---|---|---|---|
 | Q3 | Module 3 / deployment | Deployment target for Django and for the 5-minute `close_expired_jobs` schedule (cron, Azure, other); production email provider (SMTP/Gmail or SendGrid); how admin static files and Swagger assets are served. | Decide with the hosting choice. |
 | Q5 | Module 3 | Salary currency (Doc silent; frontend hard-codes "£"). | Free-text currency code, no default. |
-| Q7 | Module 2 | Doc §1.6 permission matrix lost its merged cells and says the platform admin sees all companies' dashboards, jobs and applications read-only, but no such endpoints exist. Add them? | Not in Phase 1 unless approved. |
 | Q11 | Phase 5 | Frontend roles `candidate/company/admin` vs backend `candidate/company_admin/hr/platform_admin`. | Backend names; frontend maps. |
 | Q12 | Phase 5 | Frontend lacks `pending_verification` / `pending_approval` and any verification flow. | Frontend adopts the Doc statuses. |
-| Q15 | Module 1–2 | Company fields: `location` vs `headquarters`; fixed industry list vs free text; size options differ (`201–500`/`500+` vs `201-1000`/`1000+`); no official email, phone, logo. | Doc enums and fields; frontend adapts. |
 | Q16 | Module 3 | Job fields: experience level vs `min_experience_years`; "Temporary" job type; extra `requirements`, `hiringStages`; no deadline, education level, custom fields; share link uses `/apply/<id>`. | Doc schema; add `requirements` only if the owner wants it. |
 | Q17 | Module 4 | Frontend stages (Applied, Screened, Shortlisted, Interviewed, Offer, Rejected) vs Doc statuses (`submitted`, `under_review`, `shortlisted`, `interview`, `selected`, `rejected`, `on_hold`): mapping not inferable (e.g. Offer vs selected). | Owner defines the mapping. |
-| Q19 | Module 2 | Frontend admin settings `autoApproveCompanies` and signup toggles contradict manual approval. | Not supported in Phase 1. |
 | Q20 | Phase 5 | Confirm frontend admin settings, audit log, analytics, communities, notifications and interview pages stay mock-only. | Yes. |
-| Q21 | Module 2 | Suspending a company takes a `reason` (Doc §2.4) but `Company` only stores `rejection_reason`. Where is the suspension reason kept? | Add `suspension_reason` by migration in Module 2. |
 | Q22 | Before local setup | Python version on the owner's machine (code is run on 3.13). | Use 3.12 or newer. |
 | Q23 | Deployment | Scheduling: `python manage.py flushexpiredtokens` (token tables) alongside `close_expired_jobs` (Module 3); set `NUM_PROXIES` for the hosting proxy chain. | Decide with Q3. |
 | Q24 | Phase 5 | The frontend profile page shows CV size and upload time and has no phone, education or experience editors; the API exposes only `resume_name`. Add `resume_size`/`resume_uploaded_at`, or drop them from the UI? | Drop from the UI unless wanted. |
