@@ -26,8 +26,8 @@ INSTALLED_APPS = [
     "django_filters",
     "drf_spectacular",
     "apps.common",
-    "apps.accounts",
-    "apps.companies",
+    "apps.Module1_Authentication",
+    "apps.Module2_CompanyManagement",
 ]
 
 MIDDLEWARE = [
@@ -81,6 +81,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 PASSWORD_RESET_TIMEOUT = 60 * 60
 EMAIL_VERIFICATION_MAX_AGE = 24 * 60 * 60
+STAFF_INVITE_EXPIRY_DAYS = 7
 COMPANY_EMAIL_BLOCKED_DOMAINS = [d.lower() for d in env.list("COMPANY_EMAIL_BLOCKED_DOMAINS", default=[])]
 
 LANGUAGE_CODE = "en-us"
@@ -113,7 +114,7 @@ CORS_ALLOW_CREDENTIALS = False
 API_DOCS_ENABLED = env.bool("API_DOCS_ENABLED", default=False)
 
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": ["apps.accounts.authentication.StatusAwareJWTAuthentication"],
+    "DEFAULT_AUTHENTICATION_CLASSES": ["apps.Module1_Authentication.authentication.StatusAwareJWTAuthentication"],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "DEFAULT_PARSER_CLASSES": [
@@ -155,6 +156,13 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
+    "ENUM_NAME_OVERRIDES": {
+        "UserStatusEnum": "apps.common.choices.UserStatus.choices",
+        "CompanyStatusEnum": "apps.common.choices.CompanyStatus.choices",
+        "InvitationStatusEnum": "apps.Module2_CompanyManagement.models.InvitationStatus.choices",
+        "UserRoleEnum": "apps.common.choices.UserRole.choices",
+        "MemberRoleEnum": "apps.common.choices.MemberRole.choices",
+    },
 }
 
 LOG_LEVEL = env("LOG_LEVEL", default="INFO")

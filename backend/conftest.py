@@ -3,8 +3,8 @@ import itertools
 import pytest
 from django.core.cache import cache
 
-from apps.accounts.models import User
-from apps.companies.models import Company
+from apps.Module1_Authentication.models import User
+from apps.Module2_CompanyManagement.models import Company
 
 
 @pytest.fixture(autouse=True)
@@ -66,7 +66,7 @@ def auth_client():
     """A client logged in as `user` with a real access token (so status checks apply)."""
     from rest_framework.test import APIClient
 
-    from apps.accounts import auth_tokens
+    from apps.Module1_Authentication import auth_tokens
 
     def make(user):
         client = APIClient()
@@ -80,11 +80,14 @@ def auth_client():
 def member_factory(user_factory, company_factory):
     """An active company user with a membership; the company is approved unless told otherwise."""
     from apps.common.choices import CompanyStatus, MemberRole, UserRole
-    from apps.companies.models import CompanyMember
+    from apps.Module2_CompanyManagement.models import CompanyMember
 
     def make(role=MemberRole.RECRUITER, company=None, company_status=CompanyStatus.APPROVED, **user_overrides):
-        reason = "Registration details were incomplete." if company_status == CompanyStatus.REJECTED else ""
-        company = company or company_factory(status=company_status, rejection_reason=reason)
+        reasons = {
+            CompanyStatus.REJECTED: {"rejection_reason": "Registration details were incomplete."},
+            CompanyStatus.SUSPENDED: {"suspension_reason": "Policy violation under review."},
+        }
+        company = company or company_factory(status=company_status, **reasons.get(company_status, {}))
         user_role = UserRole.COMPANY_ADMIN if role == MemberRole.ADMIN else UserRole.HR
         user = user_factory(role=user_role, **user_overrides)
         CompanyMember.objects.create(company=company, user=user, role=role)

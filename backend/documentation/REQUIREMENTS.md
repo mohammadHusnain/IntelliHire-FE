@@ -4,8 +4,8 @@ Authoritative text: `source/IntelliHire_Django_Backend_Implementation_Guide_Phas
 
 | # | Module | Doc section | Requirements | Tests | App |
 |---|---|---|---|---|---|
-| 1 | Authentication and account management | "Module 1" §1.1–1.9 | FR-01–07 | TC-01–07 | `accounts` |
-| 2 | Company management + platform-admin approval | "Module 2" §2.1–2.6 | FR-02, 15, 16, 19, 73 | TC-03, TC-12 | `companies` |
+| 1 | Authentication and account management | "Module 1" §1.1–1.9 | FR-01–07 | TC-01–07 | `Module1_Authentication` |
+| 2 | Company management + platform-admin approval | "Module 2" §2.1–2.6 | FR-02, 15, 16, 19, 73 | TC-03, TC-12 | `Module2_CompanyManagement` |
 | 3 | Job posting and application form | "Module 3" §3.1–3.5 | FR-20–26 | TC-14–16 | `jobs` |
 | 4 | Candidate application management | "Module 4" §4.1–4.6 | FR-27–33 | TC-17–22 | `applications` |
 
@@ -70,13 +70,27 @@ TC-01–07, 12, 14–22 are specified one by one; each module's tests carry the 
 
 | Requirement / test case | Where it is verified |
 |---|---|
-| FR-01, TC-01, TC-02 candidate sign-up, duplicate email | `accounts/tests/test_register_candidate.py` (`test_tc01_…`, `test_tc02_…`) |
-| FR-02, TC-03 company sign-up (user + pending company + admin member, two emails, login refused until approved) | `companies/tests/test_company_registration.py` (`test_tc03_…`) |
-| Email verification and resend | `accounts/tests/test_email_verification.py` |
-| FR-03, TC-04, TC-05 login, status messages and codes | `accounts/tests/test_login.py` (`test_tc04_…`, `test_tc05_…`) |
-| FR-04 logout, token rotation and blacklisting | `accounts/tests/test_tokens.py` |
-| FR-05, TC-06 forgot, reset, change password | `accounts/tests/test_password_flows.py` (`test_tc06_…`) |
+| FR-01, TC-01, TC-02 candidate sign-up, duplicate email | `Module1_Authentication/tests/test_register_candidate.py` (`test_tc01_…`, `test_tc02_…`) |
+| FR-02, TC-03 company sign-up (user + pending company + admin member, two emails, login refused until approved) | `Module2_CompanyManagement/tests/test_company_registration.py` (`test_tc03_…`) |
+| Email verification and resend | `Module1_Authentication/tests/test_email_verification.py` |
+| FR-03, TC-04, TC-05 login, status messages and codes | `Module1_Authentication/tests/test_login.py` (`test_tc04_…`, `test_tc05_…`) |
+| FR-04 logout, token rotation and blacklisting | `Module1_Authentication/tests/test_tokens.py` |
+| FR-05, TC-06 forgot, reset, change password | `Module1_Authentication/tests/test_password_flows.py` (`test_tc06_…`) |
 | FR-06 profile, education, experience, CV upload and text extraction | `test_profile.py`, `test_education_experience.py`, `test_resume.py` |
-| FR-07, TC-07 roles, status-aware authentication, platform-admin endpoints | `common/tests/test_permissions.py`, `accounts/tests/test_platform_admin_users.py` (`test_tc07_…`), `accounts/tests/test_tokens.py` (`test_tc07_…`) |
+| FR-07, TC-07 roles, status-aware authentication, platform-admin endpoints | `common/tests/test_permissions.py`, `Module1_Authentication/tests/test_platform_admin_users.py` (`test_tc07_…`), `Module1_Authentication/tests/test_tokens.py` (`test_tc07_…`) |
 | Upload and request-size limits | `common/tests/test_validators.py`, `test_parsers.py` |
 
+
+## Module 2 traceability (implemented on `backend/module-02`)
+
+| Requirement / test case | Where it is verified (`Module2_CompanyManagement/tests/`) |
+|---|---|
+| FR-73 platform-admin list/detail/approve/reject, 409 on second decision, suspend/reactivate | `test_company_review.py` |
+| TC-03 company sign-up and platform-admin notification | `test_company_registration.py` (`test_tc03_…`, `test_registration_notifies_active_platform_admins_only`) |
+| FR-15/FR-19 profile read/edit, logo, slug, name uniqueness, completion | `test_company_profile.py` |
+| Members: role, deactivate, self and last-admin rules, token revocation | `test_company_members.py` |
+| UC-04 invitations: create, hash-only storage, resend, revoke, expiry, public details, accept | `test_company_invitations.py` |
+| UC-04 A1 resubmission after rejection | `test_company_resubmission.py` |
+| FR-16 / TC-12 dashboard blocks | `test_company_dashboard.py` (jobs/applications blocks are zeros until Modules 3–4) |
+| Company B cannot see or change Company A | `test_company_isolation.py` |
+| Concurrent approve/reject, accept, mutual deactivation, duplicate company name | `test_company_concurrency.py` (real threads, committed transactions) |

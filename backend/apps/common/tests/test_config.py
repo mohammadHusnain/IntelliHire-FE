@@ -33,7 +33,7 @@ def test_rest_framework_defaults(settings):
     assert rf["DEFAULT_PERMISSION_CLASSES"] == ["rest_framework.permissions.IsAuthenticated"]
     assert rf["PAGE_SIZE"] == 20
     assert rf["NUM_PROXIES"] == 0
-    assert rf["DEFAULT_AUTHENTICATION_CLASSES"] == ["apps.accounts.authentication.StatusAwareJWTAuthentication"]
+    assert rf["DEFAULT_AUTHENTICATION_CLASSES"] == ["apps.Module1_Authentication.authentication.StatusAwareJWTAuthentication"]
     assert rf["DEFAULT_THROTTLE_RATES"] == {
         "login": "5/min",
         "register": "10/hour",
