@@ -8,12 +8,12 @@ A step is "complete" only when implementation, executed tests, documentation and
 |---|---|
 | 1 — Project understanding | Complete |
 | 2 — Backend foundation | **Complete.** Approved by the owner and merged into `IntelliHire-backend` (`a1c6cec`) |
-| 3 — Module 1: Authentication and accounts | **Implemented and verified on `backend/module-01`; awaiting owner approval** |
+| 3 — Module 1: Authentication and accounts | **Complete.** Approved by the owner and merged into `IntelliHire-backend` (`7fdb54b`); `main` untouched |
 | 3 — Modules 2, 3, 4 | Not started |
 | Dashboard, Integration (Phase 4) | Not started |
 | Phase 5 — Frontend integration | Not started; requires explicit owner authorisation |
 
-## Module 1 (branch `backend/module-01`, cut from `IntelliHire-backend`)
+## Module 1 (built on `backend/module-01`, merged into `IntelliHire-backend`)
 
 **Delivered**
 - All 17 Doc endpoints for authentication and the candidate profile, plus the owner-approved additions: authenticated CV download and platform-admin user suspend/reactivate (see `API_CONTRACTS.md`).
@@ -36,4 +36,4 @@ A step is "complete" only when implementation, executed tests, documentation and
 
 ## Next step
 
-Owner reviews the Module 1 completion report. On approval: merge `backend/module-01` into `IntelliHire-backend`, then start Module 2 on `backend/module-02`. Decisions needed first: Q7, Q15, Q19, Q21 (see `UNRESOLVED_QUESTIONS.md`).
+Start Module 2 on `backend/module-02` once the owner approves it. Decisions needed first: Q7, Q15, Q19, Q21 (see `UNRESOLVED_QUESTIONS.md`); defaults are recorded there.
