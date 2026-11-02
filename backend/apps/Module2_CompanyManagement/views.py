@@ -2,8 +2,8 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.response import Response
 
-from apps.accounts.serializers import RegistrationResponseSerializer
-from apps.accounts.views import PublicAPIView, sensitive
+from apps.Module1_Authentication.serializers import RegistrationResponseSerializer
+from apps.Module1_Authentication.views import PublicAPIView, sensitive
 
 from . import services
 from .serializers import CompanyRegistrationSerializer

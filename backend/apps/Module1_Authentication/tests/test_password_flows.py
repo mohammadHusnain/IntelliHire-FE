@@ -1,7 +1,7 @@
 import pytest
 from django.core import mail
 
-from apps.accounts import auth_tokens
+from apps.Module1_Authentication import auth_tokens
 from apps.common.tests.helpers import link_in
 
 pytestmark = pytest.mark.django_db

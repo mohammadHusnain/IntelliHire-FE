@@ -4,10 +4,10 @@ import pytest
 from django.core import mail
 from django.db import DatabaseError
 
-from apps.accounts.models import User
+from apps.Module1_Authentication.models import User
 from apps.common.choices import CompanyStatus
 from apps.common.tests.helpers import link_in
-from apps.companies.models import Company, CompanyMember
+from apps.Module2_CompanyManagement.models import Company, CompanyMember
 
 pytestmark = pytest.mark.django_db
 URL = "/api/auth/register/company/"
@@ -138,7 +138,7 @@ def test_status_and_role_cannot_be_chosen_by_the_client(api_client):
 
 
 def test_a_failure_rolls_everything_back_and_sends_no_email(api_client, django_capture_on_commit_callbacks):
-    with mock.patch("apps.companies.services.CompanyMember.objects.create", side_effect=DatabaseError):
+    with mock.patch("apps.Module2_CompanyManagement.services.CompanyMember.objects.create", side_effect=DatabaseError):
         with django_capture_on_commit_callbacks(execute=True):
             with pytest.raises(DatabaseError):
                 api_client.post(URL, payload(), format="json")
@@ -148,12 +148,12 @@ def test_a_failure_rolls_everything_back_and_sends_no_email(api_client, django_c
 
 def test_races_on_unique_values_become_field_errors(api_client, company_factory, user_factory):
     company_factory(name="Acme Software")
-    with mock.patch("apps.companies.serializers.CompanyRegistrationSerializer.validate_company_name", lambda self, v: v):
+    with mock.patch("apps.Module2_CompanyManagement.serializers.CompanyRegistrationSerializer.validate_company_name", lambda self, v: v):
         name_race = api_client.post(URL, payload(), format="json")
     assert name_race.status_code == 400 and "company_name" in name_race.json()
 
     user_factory(email="hr@acme.example")
-    with mock.patch("apps.companies.serializers.ensure_email_available"):
+    with mock.patch("apps.Module2_CompanyManagement.serializers.ensure_email_available"):
         email_race = api_client.post(URL, payload(company_name="Fresh Name"), format="json")
     assert email_race.status_code == 400 and email_race.json() == {"official_email": ["Email already registered."]}
 

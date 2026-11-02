@@ -2,7 +2,7 @@ import jwt
 import pytest
 from django.core import mail
 
-from apps.accounts.models import User
+from apps.Module1_Authentication.models import User
 from apps.common.choices import CompanyStatus, MemberRole
 
 pytestmark = pytest.mark.django_db

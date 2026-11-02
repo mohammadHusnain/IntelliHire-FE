@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError, transaction
 
-from apps.accounts.models import CandidateProfile, Education, Experience, User
+from apps.Module1_Authentication.models import CandidateProfile, Education, Experience, User
 
 pytestmark = pytest.mark.django_db
 

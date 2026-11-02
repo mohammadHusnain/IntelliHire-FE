@@ -1,8 +1,8 @@
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 
-from apps.accounts import resume
-from apps.accounts.models import CandidateProfile
+from apps.Module1_Authentication import resume
+from apps.Module1_Authentication.models import CandidateProfile
 from apps.common.tests.helpers import make_docx, make_image, make_pdf
 
 pytestmark = pytest.mark.django_db

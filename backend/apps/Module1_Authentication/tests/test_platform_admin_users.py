@@ -2,8 +2,8 @@ import uuid
 
 import pytest
 
-from apps.accounts import auth_tokens
-from apps.accounts.models import User
+from apps.Module1_Authentication import auth_tokens
+from apps.Module1_Authentication.models import User
 from apps.common.choices import CompanyStatus, MemberRole
 
 pytestmark = pytest.mark.django_db

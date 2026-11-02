@@ -1,7 +1,7 @@
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 
-from apps.accounts.models import CandidateProfile
+from apps.Module1_Authentication.models import CandidateProfile
 from apps.common.tests.helpers import make_image
 
 pytestmark = pytest.mark.django_db
@@ -169,7 +169,7 @@ def test_put_and_delete_are_not_allowed(auth_client, candidate):
 
 
 def test_profile_reads_use_a_constant_number_of_queries(auth_client, candidate, django_assert_max_num_queries):
-    from apps.accounts.models import Education
+    from apps.Module1_Authentication.models import Education
 
     profile = CandidateProfile.objects.get(user=candidate)
     for i in range(10):

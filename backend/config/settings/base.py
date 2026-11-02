@@ -26,8 +26,8 @@ INSTALLED_APPS = [
     "django_filters",
     "drf_spectacular",
     "apps.common",
-    "apps.accounts",
-    "apps.companies",
+    "apps.Module1_Authentication",
+    "apps.Module2_CompanyManagement",
 ]
 
 MIDDLEWARE = [
@@ -113,7 +113,7 @@ CORS_ALLOW_CREDENTIALS = False
 API_DOCS_ENABLED = env.bool("API_DOCS_ENABLED", default=False)
 
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": ["apps.accounts.authentication.StatusAwareJWTAuthentication"],
+    "DEFAULT_AUTHENTICATION_CLASSES": ["apps.Module1_Authentication.authentication.StatusAwareJWTAuthentication"],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "DEFAULT_PARSER_CLASSES": [

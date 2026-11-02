@@ -10,7 +10,7 @@ PROFILE = "/api/auth/profile/"
 
 @pytest.fixture
 def candidate_client(auth_client, user_factory):
-    from apps.accounts.models import CandidateProfile
+    from apps.Module1_Authentication.models import CandidateProfile
 
     user = user_factory()
     CandidateProfile.objects.create(user=user)

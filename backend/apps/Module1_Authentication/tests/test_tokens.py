@@ -2,8 +2,8 @@ import jwt
 import pytest
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
-from apps.accounts import auth_tokens
-from apps.accounts.models import User
+from apps.Module1_Authentication import auth_tokens
+from apps.Module1_Authentication.models import User
 
 pytestmark = pytest.mark.django_db
 REFRESH = "/api/auth/token/refresh/"
@@ -61,7 +61,7 @@ def test_a_suspended_user_cannot_refresh(api_client, user_factory):
 
 def test_refresh_is_atomic_so_a_failure_does_not_burn_the_old_token(api_client, user_factory, monkeypatch):
     pair = auth_tokens.issue_tokens(user_factory())
-    monkeypatch.setattr("apps.accounts.services.auth_tokens.issue_tokens", lambda user: 1 / 0)
+    monkeypatch.setattr("apps.Module1_Authentication.services.auth_tokens.issue_tokens", lambda user: 1 / 0)
     with pytest.raises(ZeroDivisionError):
         refresh(api_client, pair["refresh"])
     monkeypatch.undo()
@@ -131,7 +131,7 @@ def test_requests_without_or_with_a_bad_token_are_401(api_client):
 
 
 def test_blacklisting_works_exactly_once():
-    from apps.accounts.auth_tokens import InvalidRefreshToken, blacklist, load_refresh_token
+    from apps.Module1_Authentication.auth_tokens import InvalidRefreshToken, blacklist, load_refresh_token
 
     user = User.objects.create_user("a@example.com", "Str0ng!pass-123", full_name="A", role="candidate", status="active")
     token = load_refresh_token(auth_tokens.issue_tokens(user)["refresh"])

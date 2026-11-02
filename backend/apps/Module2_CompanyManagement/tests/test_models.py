@@ -5,8 +5,8 @@ from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
 from django.utils import timezone
 
-from apps.accounts.models import User
-from apps.companies.models import Company, CompanyMember, StaffInvitation
+from apps.Module1_Authentication.models import User
+from apps.Module2_CompanyManagement.models import Company, CompanyMember, StaffInvitation
 
 pytestmark = pytest.mark.django_db
 

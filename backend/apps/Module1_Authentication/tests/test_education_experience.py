@@ -1,6 +1,6 @@
 import pytest
 
-from apps.accounts.models import CandidateProfile, Education, Experience
+from apps.Module1_Authentication.models import CandidateProfile, Education, Experience
 
 pytestmark = pytest.mark.django_db
 EDU = "/api/auth/profile/education/"

@@ -5,7 +5,7 @@ from django.core import mail
 from django.db import DatabaseError
 from rest_framework import status
 
-from apps.accounts.models import CandidateProfile, User
+from apps.Module1_Authentication.models import CandidateProfile, User
 from apps.common.tests.helpers import link_in
 
 pytestmark = pytest.mark.django_db
@@ -106,7 +106,7 @@ def test_role_and_status_cannot_be_chosen_by_the_client(api_client):
 
 
 def test_failure_rolls_everything_back_and_sends_no_email(api_client, django_capture_on_commit_callbacks):
-    with mock.patch("apps.accounts.services.CandidateProfile.objects.create", side_effect=DatabaseError):
+    with mock.patch("apps.Module1_Authentication.services.CandidateProfile.objects.create", side_effect=DatabaseError):
         with django_capture_on_commit_callbacks(execute=True):
             with pytest.raises(DatabaseError):
                 api_client.post(URL, payload(), format="json")
@@ -116,7 +116,7 @@ def test_failure_rolls_everything_back_and_sends_no_email(api_client, django_cap
 
 def test_a_race_on_the_unique_email_is_reported_as_a_field_error(api_client, user_factory):
     user_factory(email="ayesha@example.com")
-    with mock.patch("apps.accounts.serializers.ensure_email_available"):
+    with mock.patch("apps.Module1_Authentication.serializers.ensure_email_available"):
         response = api_client.post(URL, payload(), format="json")
     assert response.status_code == 400
     assert response.json() == {"email": ["Email already registered."]}

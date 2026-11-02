@@ -1,8 +1,8 @@
 from django.conf import settings
 from rest_framework import serializers
 
-from apps.accounts.serializers import PasswordPairSerializer
-from apps.accounts.validators import ensure_email_available, normalize_email
+from apps.Module1_Authentication.serializers import PasswordPairSerializer
+from apps.Module1_Authentication.validators import ensure_email_available, normalize_email
 from apps.common.validators import validate_phone
 
 from .models import Company

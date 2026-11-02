@@ -1,9 +1,9 @@
 from django.db import IntegrityError, transaction
 from rest_framework import serializers
 
-from apps.accounts import emails as account_emails
-from apps.accounts.models import User
-from apps.accounts.validators import EMAIL_TAKEN
+from apps.Module1_Authentication import emails as account_emails
+from apps.Module1_Authentication.models import User
+from apps.Module1_Authentication.validators import EMAIL_TAKEN
 from apps.common.choices import MemberRole, UserRole, UserStatus
 from apps.common.errors import violated_constraint
 

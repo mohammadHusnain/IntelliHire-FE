@@ -2,7 +2,7 @@ from django.apps import AppConfig
 
 
 class AccountsConfig(AppConfig):
-    name = "apps.accounts"
+    name = "apps.Module1_Authentication"
     label = "accounts"
 
     def ready(self):

@@ -9,9 +9,9 @@ handler500 = "apps.common.views.api_server_error"
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("api/auth/", include("apps.companies.auth_urls")),
-    path("api/auth/", include("apps.accounts.urls")),
-    path("api/platform-admin/users/", include("apps.accounts.platform_urls")),
+    path("api/auth/", include("apps.Module2_CompanyManagement.auth_urls")),
+    path("api/auth/", include("apps.Module1_Authentication.urls")),
+    path("api/platform-admin/users/", include("apps.Module1_Authentication.platform_urls")),
 ]
 
 if settings.API_DOCS_ENABLED:
