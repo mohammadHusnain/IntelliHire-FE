@@ -1,6 +1,5 @@
 import pytest
 
-from apps.Module1_Authentication.models import User
 from apps.common.choices import CompanyStatus, MemberRole, UserRole, UserStatus
 from apps.Module2_CompanyManagement.models import CompanyMember
 
@@ -30,12 +29,6 @@ def company_with_admin(member_factory):
     admin = member_factory(MemberRole.ADMIN)
     return admin.company_membership.company, admin
 
-
-def roles():
-    return [role for role in MemberRole.values]
-
-
-__all__ = ["User"]
 
 
 @pytest.fixture

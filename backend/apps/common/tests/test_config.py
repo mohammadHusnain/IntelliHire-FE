@@ -2,7 +2,6 @@ import importlib
 from datetime import timedelta
 from io import StringIO
 
-import pytest
 from django.core.management import call_command
 from django.test import RequestFactory
 from django.urls import clear_url_caches

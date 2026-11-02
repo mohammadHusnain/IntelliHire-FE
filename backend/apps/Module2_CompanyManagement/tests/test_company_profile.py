@@ -5,7 +5,6 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 from apps.common.choices import CompanyStatus, MemberRole
 from apps.common.tests.helpers import make_image
-from apps.Module2_CompanyManagement.models import Company
 
 pytestmark = pytest.mark.django_db
 URL = "/api/company/profile/"

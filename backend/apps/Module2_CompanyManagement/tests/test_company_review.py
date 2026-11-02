@@ -2,7 +2,6 @@ import pytest
 from django.core import mail
 
 from apps.common.choices import CompanyStatus, MemberRole, UserStatus
-from apps.Module2_CompanyManagement.models import Company
 
 pytestmark = pytest.mark.django_db
 BASE = "/api/platform-admin/companies/"
