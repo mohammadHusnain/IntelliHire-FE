@@ -81,12 +81,18 @@ def resend_verification(email):
         emails.send_verification_email(user)
 
 
-def authenticate_credentials(email, password):
+def authenticate_password(email, password):
+    """The user for this email and password, or None. The account status is not looked at."""
     user = User.objects.select_related("company_membership__company").filter(email=normalize_email(email)).first()
     if user is None:
         User().set_password(password)  # equalise timing with the real-user path
-        raise ApiError(INVALID_CREDENTIALS, "invalid_credentials", 401)
-    if not user.check_password(password):
+        return None
+    return user if user.check_password(password) else None
+
+
+def authenticate_credentials(email, password):
+    user = authenticate_password(email, password)
+    if user is None:
         raise ApiError(INVALID_CREDENTIALS, "invalid_credentials", 401)
     if user.status != UserStatus.ACTIVE:
         raise ApiError(INACTIVE_MESSAGES[user.status], user.status, 403)

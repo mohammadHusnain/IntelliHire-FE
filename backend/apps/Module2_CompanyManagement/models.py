@@ -45,6 +45,7 @@ class Company(models.Model):
     company_size = models.CharField(max_length=10, choices=CompanySize.choices, blank=True)
     status = models.CharField(max_length=20, choices=CompanyStatus.choices, default=CompanyStatus.PENDING)
     rejection_reason = models.TextField(blank=True)
+    suspension_reason = models.TextField(blank=True)
     reviewed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -68,6 +69,10 @@ class Company(models.Model):
                 condition=~models.Q(status="rejected") | ~models.Q(rejection_reason=""),
                 name="company_rejected_has_reason",
             ),
+            models.CheckConstraint(
+                condition=~models.Q(status="suspended") | ~models.Q(suspension_reason=""),
+                name="company_suspended_has_reason",
+            ),
             enum_check("status", CompanyStatus, "company_status_valid"),
             enum_check("company_size", CompanySize, "company_size_valid", allow_blank=True),
         ]
@@ -80,7 +85,7 @@ class Company(models.Model):
     def _unique_slug(self):
         base = slugify(self.name)[:200] or "company"
         candidate, suffix = base, 1
-        while Company.objects.filter(slug=candidate).exists():
+        while Company.objects.filter(slug=candidate).exclude(pk=self.pk).exists():
             suffix += 1
             candidate = f"{base}-{suffix}"
         return candidate

@@ -138,7 +138,7 @@ def test_status_and_role_cannot_be_chosen_by_the_client(api_client):
 
 
 def test_a_failure_rolls_everything_back_and_sends_no_email(api_client, django_capture_on_commit_callbacks):
-    with mock.patch("apps.Module2_CompanyManagement.services.CompanyMember.objects.create", side_effect=DatabaseError):
+    with mock.patch("apps.Module2_CompanyManagement.services.registration.CompanyMember.objects.create", side_effect=DatabaseError):
         with django_capture_on_commit_callbacks(execute=True):
             with pytest.raises(DatabaseError):
                 api_client.post(URL, payload(), format="json")
@@ -148,12 +148,12 @@ def test_a_failure_rolls_everything_back_and_sends_no_email(api_client, django_c
 
 def test_races_on_unique_values_become_field_errors(api_client, company_factory, user_factory):
     company_factory(name="Acme Software")
-    with mock.patch("apps.Module2_CompanyManagement.serializers.CompanyRegistrationSerializer.validate_company_name", lambda self, v: v):
+    with mock.patch("apps.Module2_CompanyManagement.serializers.registration.CompanyRegistrationSerializer.validate_company_name", lambda self, v: v):
         name_race = api_client.post(URL, payload(), format="json")
     assert name_race.status_code == 400 and "company_name" in name_race.json()
 
     user_factory(email="hr@acme.example")
-    with mock.patch("apps.Module2_CompanyManagement.serializers.ensure_email_available"):
+    with mock.patch("apps.Module2_CompanyManagement.serializers.registration.ensure_email_available"):
         email_race = api_client.post(URL, payload(company_name="Fresh Name"), format="json")
     assert email_race.status_code == 400 and email_race.json() == {"official_email": ["Email already registered."]}
 
@@ -162,3 +162,13 @@ def test_company_and_candidate_sign_up_share_the_registration_throttle(api_clien
     for i in range(10):
         api_client.post("/api/auth/register/candidate/", {"full_name": "A", "email": f"a{i}@example.com", "password": PASSWORD, "confirm_password": PASSWORD}, format="json")
     assert api_client.post(URL, payload(), format="json").status_code == 429
+
+
+def test_registration_notifies_active_platform_admins_only(api_client, user_factory, django_capture_on_commit_callbacks):
+    user_factory(role="platform_admin", email="boss@intellihire.example")
+    user_factory(role="platform_admin", email="gone@intellihire.example", status="suspended")
+    with django_capture_on_commit_callbacks(execute=True):
+        assert api_client.post(URL, payload(), format="json").status_code == 201
+    notices = [m for m in mail.outbox if "awaiting review" in m.subject]
+    assert [m.to for m in notices] == [["boss@intellihire.example"]]
+    assert "Acme Software" in notices[0].subject and "/admin/companies" in notices[0].body

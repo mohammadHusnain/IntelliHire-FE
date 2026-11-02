@@ -5,7 +5,7 @@ from apps.Module1_Authentication.serializers import PasswordPairSerializer
 from apps.Module1_Authentication.validators import ensure_email_available, normalize_email
 from apps.common.validators import validate_phone
 
-from .models import Company
+from ..models import Company
 
 
 class CompanyRegistrationSerializer(PasswordPairSerializer):
@@ -30,3 +30,17 @@ class CompanyRegistrationSerializer(PasswordPairSerializer):
     def validate(self, attrs):
         self.check_passwords(attrs, email=attrs["official_email"], full_name=attrs["admin_full_name"])
         return attrs
+
+
+class CompanyResubmitSerializer(serializers.Serializer):
+    official_email = serializers.CharField(max_length=254)
+    password = serializers.CharField(write_only=True, trim_whitespace=False, max_length=128)
+    company_name = serializers.CharField(max_length=200)
+    industry = serializers.CharField(max_length=100)
+    admin_full_name = serializers.CharField(max_length=150)
+    admin_phone = serializers.CharField(max_length=20, validators=[validate_phone])
+
+
+class CompanyResubmitResponseSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+    status = serializers.CharField()

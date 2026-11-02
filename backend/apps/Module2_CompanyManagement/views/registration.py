@@ -5,8 +5,12 @@ from rest_framework.response import Response
 from apps.Module1_Authentication.serializers import RegistrationResponseSerializer
 from apps.Module1_Authentication.views import PublicAPIView, sensitive
 
-from . import services
-from .serializers import CompanyRegistrationSerializer
+from ..serializers.registration import (
+    CompanyRegistrationSerializer,
+    CompanyResubmitResponseSerializer,
+    CompanyResubmitSerializer,
+)
+from ..services import registration as services
 
 
 @sensitive
@@ -28,3 +32,16 @@ class CompanyRegisterView(PublicAPIView):
             password=data["password"],
         )
         return Response({"email": user.email, "status": user.status}, status=status.HTTP_201_CREATED)
+
+
+@sensitive
+class CompanyResubmitView(PublicAPIView):
+    serializer_class = CompanyResubmitSerializer
+    throttle_scope = "login"
+
+    @extend_schema(responses={200: CompanyResubmitResponseSerializer})
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        services.resubmit_company(**serializer.validated_data)
+        return Response({"detail": "Your registration has been resubmitted for review.", "status": "pending"})

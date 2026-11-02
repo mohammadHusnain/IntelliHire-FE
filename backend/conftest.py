@@ -83,8 +83,11 @@ def member_factory(user_factory, company_factory):
     from apps.Module2_CompanyManagement.models import CompanyMember
 
     def make(role=MemberRole.RECRUITER, company=None, company_status=CompanyStatus.APPROVED, **user_overrides):
-        reason = "Registration details were incomplete." if company_status == CompanyStatus.REJECTED else ""
-        company = company or company_factory(status=company_status, rejection_reason=reason)
+        reasons = {
+            CompanyStatus.REJECTED: {"rejection_reason": "Registration details were incomplete."},
+            CompanyStatus.SUSPENDED: {"suspension_reason": "Policy violation under review."},
+        }
+        company = company or company_factory(status=company_status, **reasons.get(company_status, {}))
         user_role = UserRole.COMPANY_ADMIN if role == MemberRole.ADMIN else UserRole.HR
         user = user_factory(role=user_role, **user_overrides)
         CompanyMember.objects.create(company=company, user=user, role=role)
