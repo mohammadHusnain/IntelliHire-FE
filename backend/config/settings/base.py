@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     "apps.common",
     "apps.Module1_Authentication",
     "apps.Module2_CompanyManagement",
+    "apps.Module3_JobPosting",
 ]
 
 MIDDLEWARE = [
@@ -162,6 +163,12 @@ SPECTACULAR_SETTINGS = {
         "InvitationStatusEnum": "apps.Module2_CompanyManagement.models.InvitationStatus.choices",
         "UserRoleEnum": "apps.common.choices.UserRole.choices",
         "MemberRoleEnum": "apps.common.choices.MemberRole.choices",
+        "JobStatusEnum": "apps.Module3_JobPosting.models.JobStatus.choices",
+        "EmploymentTypeEnum": "apps.Module3_JobPosting.models.EmploymentType.choices",
+        "WorkModeEnum": "apps.Module3_JobPosting.models.WorkMode.choices",
+        "EducationLevelEnum": "apps.Module3_JobPosting.models.EducationLevel.choices",
+        "CloseReasonEnum": "apps.Module3_JobPosting.models.CloseReason.choices",
+        "FieldTypeEnum": "apps.Module3_JobPosting.models.FieldType.choices",
     },
 }
 

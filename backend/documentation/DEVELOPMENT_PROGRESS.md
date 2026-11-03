@@ -9,8 +9,9 @@ A step is "complete" only when implementation, executed tests, documentation and
 | 1 — Project understanding | Complete |
 | 2 — Backend foundation | **Complete.** Approved by the owner and merged into `IntelliHire-backend` (`a1c6cec`) |
 | 3 — Module 1: Authentication and accounts | **Complete.** Approved by the owner and merged into `IntelliHire-backend` (`7fdb54b`); `main` untouched |
-| 3 — Module 2: Company management | **Built and verified on `backend/module-02`; awaiting owner approval** (not merged) |
-| 3 — Modules 3, 4 | Not started |
+| 3 — Module 2: Company management | **Complete.** Approved by the owner and merged into `IntelliHire-backend` (`53826a8`) |
+| 3 — Module 3: Job posting and form | **Built and verified on `backend/module-03`; awaiting owner approval** (not merged) |
+| 3 — Module 4 | Not started |
 | Dashboard, Integration (Phase 4) | Not started |
 | Phase 5 — Frontend integration | Not started; requires explicit owner authorisation |
 
@@ -35,7 +36,7 @@ A step is "complete" only when implementation, executed tests, documentation and
 
 **Known limits** are listed in D-037.
 
-## Module 2 (built on `backend/module-02`; not merged)
+## Module 2 (built on `backend/module-02`, merged into `IntelliHire-backend`)
 
 **Delivered**
 - All 15 Doc §2.4 endpoints: platform-admin company review (list, detail, approve, reject, suspend, reactivate), company profile, dashboard, members, invitations (create, list, resend, revoke), public invitation details/accept, and resubmission after rejection.
@@ -55,6 +56,27 @@ A step is "complete" only when implementation, executed tests, documentation and
 - Jobs/applications metrics (Modules 3–4); SMTP delivery and Azure storage not exercised (Q3).
 - The last-admin guard is unreachable through the API (the caller is always an active admin who cannot touch themselves), so it is tested at service level and acts as a safety net for races.
 
+## Module 3 (built on `backend/module-03`; not merged)
+
+**Delivered**
+- All 14 endpoint rows of Doc §3.4: job list/create/detail/edit/delete-draft, publish (permanent slug and share URL), close, reopen, duplicate, form preview, custom fields (list, add, edit, delete, reorder with the post-application locking rules) and the public job endpoint.
+- Built-in application fields defined once (`builtin_fields.py`) for Module 4 to reuse; one form-schema builder for preview and public.
+- `close_expired_jobs` management command (bulk update).
+- Migration `jobs.0001_initial` with database-level state constraints (D-060).
+- Decisions D-048 to D-060; Q5 and Q16 resolved by defaults.
+
+**Honest scope notes**
+- `applications_count` is 0 and the "locked after the first application" rule has no real applications to react to until Module 4. The rule is implemented and tested with the application check patched to true.
+- TC-16's "submit returns 410" belongs to Module 4's submit endpoint; here the public endpoint reports `accepting: false` and the command closes the job.
+- The dashboard's jobs/applications blocks are still zeros; they are wired in the dashboard step after Module 4 (Doc build order).
+- Scheduling the command every 5 minutes is documented but not set up anywhere (deployment target, Q3/Q23).
+
+**Verified (executed here: Python 3.13, PostgreSQL 16)**
+- `python -m pytest`: **827 passed** = 511 earlier tests (unchanged) + 316 new Module 3 tests, including real-thread concurrency tests (5 runs in a row, stable).
+- `makemigrations --check`: no changes. `spectacular --validate --fail-on-warn`: passes. `check`: no issues.
+- Live HTTP self-test on `runserver` + PostgreSQL: 72 of 72 steps behaved as specified (company approval, staff roles, TC-14 publish, drafts, filters, custom fields and reorder, preview = public form, locked edits, duplicate, close/reopen, TC-16 expired job and the real command, Company B isolation). No 500s; no passwords or JWTs in the server log. Test data removed afterwards.
+- Real bug found by the new tests and fixed: the second custom field got order 0 again (a falsy-zero error in the next-order calculation).
+
 ## Next step
 
-Owner reviews and approves Module 2. After approval: merge `backend/module-02` into `IntelliHire-backend` (never `main`), then start Module 3 (jobs) on `backend/module-03`. The owner will check the live database after Module 3.
+Owner reviews and approves Module 3. After approval: merge `backend/module-03` into `IntelliHire-backend` (never `main`), then start Module 4 (applications) on `backend/module-04`. The owner will check the live database after Module 3 (PostgreSQL setup instructions can be repeated on request).

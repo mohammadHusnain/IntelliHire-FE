@@ -94,3 +94,19 @@ TC-01–07, 12, 14–22 are specified one by one; each module's tests carry the 
 | FR-16 / TC-12 dashboard blocks | `test_company_dashboard.py` (jobs/applications blocks are zeros until Modules 3–4) |
 | Company B cannot see or change Company A | `test_company_isolation.py` |
 | Concurrent approve/reject, accept, mutual deactivation, duplicate company name | `test_company_concurrency.py` (real threads, committed transactions) |
+
+## Module 3 traceability (implemented on `backend/module-03`)
+
+| Requirement / test case | Where it is verified (`Module3_JobPosting/tests/`) |
+|---|---|
+| Data model, status rules, `is_accepting_applications`, share URL, indexes | `test_job_models.py` |
+| FR-20, TC-14 create, draft, publish-on-create, validation, role access | `test_job_create.py` (`test_tc14_…`) |
+| List, filters, search, ordering, `applications_count`, `days_left`, detail | `test_job_list_detail.py` |
+| FR-21 edit rules for draft, open and closed jobs | `test_job_edit.py` |
+| FR-22, FR-24, FR-25 publish, slug generation and collisions, FR-26 close, reopen, delete, duplicate, TC-16 auto-close command | `test_job_lifecycle.py` (`test_tc16_…`) |
+| FR-23 custom fields: keys, validation, locking after applications, reorder, state gate | `test_custom_fields.py` |
+| FR-24, TC-15 form schema, preview equals public, public endpoint states | `test_form_schema.py` (`test_tc15_…`, `test_tc16_…`) |
+| Company B cannot see or change Company A's jobs (every endpoint) | `test_job_isolation.py` |
+| Concurrent publish, field-key allocation, close/delete races | `test_job_concurrency.py` (real threads) |
+
+Not verifiable until Module 4 exists: TC-16's "submit returns 410", and the lock rules against real applications (they are tested now with the application check patched to true).

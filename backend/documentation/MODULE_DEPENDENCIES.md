@@ -20,7 +20,7 @@ Foundation ─► Module 1 ─► Module 2 ─► Module 3 ─► Module 4 ─�
 
 ## Rules that keep the dependency graph acyclic
 
-1. **Model imports flow one way:** `common ← Module1_Authentication ← Module2_CompanyManagement ← jobs ← applications`. A lower app never imports models from a higher one at module level.
+1. **Model imports flow one way:** `common ← Module1_Authentication ← Module2_CompanyManagement ← Module3_JobPosting ← applications`. A lower app never imports models from a higher one at module level.
 2. Company sign-up touches `User` and `Company`. Its serializer, service and view live in `companies` (routed at `/api/auth/register/company/`) and use helpers from `accounts`, so `accounts` never imports `companies` (D-027). Shared enums (roles, statuses, member roles) live in `common/choices.py` so `common` permission classes need no app imports (D-028).
 3. The dashboard view belongs to the `companies` app but reads `jobs` and `applications`; it imports them inside its own function, and returns zeros until those modules exist.
 4. Shared pieces (permission classes, validators, email helper, pagination, storage, exception handler) live once in `apps/common`. Module business rules never live there.

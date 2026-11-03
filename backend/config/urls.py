@@ -14,7 +14,9 @@ urlpatterns = [
     path("api/platform-admin/users/", include("apps.Module1_Authentication.platform_urls")),
     path("api/platform-admin/companies/", include("apps.Module2_CompanyManagement.platform_urls")),
     path("api/company/", include("apps.Module2_CompanyManagement.urls")),
+    path("api/jobs/", include("apps.Module3_JobPosting.urls")),
     path("api/public/", include("apps.Module2_CompanyManagement.public_urls")),
+    path("api/public/", include("apps.Module3_JobPosting.public_urls")),
 ]
 
 if settings.API_DOCS_ENABLED:
