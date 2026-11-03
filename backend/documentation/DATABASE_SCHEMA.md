@@ -58,6 +58,36 @@ Index `company_status_idx (status)`. Companies are never deleted (suspend instea
 ### `companies_staffinvitation`
 `id` uuid PK · `company_id` FK PROTECT · `email` (lowercase CHECK) · `full_name` 150 · `role` · `job_title` 100 · `token_hash` varchar(64) **unique** (SHA-256 of the raw token; the raw token is only in the email) · `status` (`pending` `accepted` `revoked` `expired`) · `invited_by_id` FK PROTECT · `created_at` · `expires_at` · `accepted_at` null. **Partial unique** `(company, email) WHERE status = 'pending'` (`invitation_one_pending_per_email`). Index `invitation_company_status_idx (company, status)`.
 
+### `jobs_jobposting` (migration `jobs.0001_initial`)
+| Column | Type | Rules |
+|---|---|---|
+| id | uuid PK | |
+| company_id | FK→company **PROTECT** | always set by the backend |
+| title 150, department 100 | varchar | required |
+| description, responsibilities | text | optional (description needed to publish) |
+| employment_type | varchar(20) | `full_time` `part_time` `internship` `contract`, or empty (draft) |
+| work_mode | varchar(10) | `onsite` `remote` `hybrid`, or empty |
+| location | varchar(200) | optional |
+| required_skills, soft_skills | jsonb list | |
+| min_experience_years | smallint | CHECK 0–30, default 0 |
+| education_level | varchar(20) | `none` `intermediate` `bachelor` `master` `phd`, default `none` |
+| salary_min, salary_max | integer null | CHECK max ≥ min when both set |
+| salary_currency | varchar(10) | free text |
+| show_salary | bool | default false |
+| openings | smallint | CHECK ≥ 1, default 1 |
+| deadline | timestamptz null | |
+| status | varchar(10) | `draft` (default) `open` `closed` |
+| form_slug | varchar(32) **unique, null** | null for drafts; set on publish; never changed |
+| close_reason | varchar(10) null | `manual` `deadline` |
+| published_at, closed_at | timestamptz null | |
+| created_by_id, updated_by_id | FK→user **SET NULL** | audit |
+| created_at, updated_at | timestamptz | |
+
+State CHECKs: `job_draft_has_no_slug`; `job_open_is_published` (slug, published_at, deadline not null); `job_closed_has_close_info` (slug, published_at, closed_at, close_reason not null); `job_only_closed_has_close_info` (close info null unless closed). Indexes: `job_company_status_idx (company, status)`, `job_status_deadline_idx (status, deadline)`.
+
+### `jobs_applicationfield` (`jobs.0001_initial`)
+`id` bigint identity · `job_id` FK **CASCADE** (`related_name custom_fields`) · `label` 150 · `key` slug 150 (unique per job, generated from the label, never changes) · `field_type` (`short_text` `long_text` `number` `email` `url` `date` `single_choice` `multiple_choice` `file`, CHECK) · `required` · `options` jsonb list (2–20 unique items for choice types, empty otherwise: validated in code) · `help_text` 500 · `max_length` int null (CHECK ≥ 1; text types only) · `order` smallint. Unique `(job, key)`; index `(job, order)`; ordered by `(order, id)`.
+
 ### Other tables
 - `token_blacklist_*` (SimpleJWT): outstanding and blacklisted refresh tokens.
 - `django_cache` — production only, created by `manage.py createcachetable`; holds throttle counters.
@@ -65,7 +95,5 @@ Index `company_status_idx (status)`. Companies are never deleted (suspend instea
 
 ## Planned (Doc, not yet migrated)
 
-- **`jobs_jobposting`** (Doc §3.1): UUID PK; `company` FK; title 150, department 100, description, responsibilities; employment type, work mode, location; `required_skills`/`soft_skills` JSON; `min_experience_years` 0–30; education level; salary min/max/currency/show; openings; `deadline`; `status` (`draft` `open` `closed`); nullable unique `form_slug`; `close_reason`; `published_at`, `closed_at`; `created_by`, `updated_by`; timestamps. Indexes `(company, status)` and `(status, deadline)`.
-- **`jobs_applicationfield`** (§3.1): `job` FK, `label`, `key` (unique per job), `field_type` (short_text, long_text, number, email, url, date, single_choice, multiple_choice, file), `required`, `options` JSON (2–20 unique items for choice types), `help_text`, `max_length`, `order`.
 - **`applications_application`** (§4.1): UUID PK; unique `reference`; `job` FK PROTECT; nullable `candidate_user`; built-in answer columns; `resume` (private, random name) and `resume_original_name`; `answers` JSON; `status` (`submitted` `under_review` `shortlisted` `interview` `selected` `rejected` `on_hold`); `ip_address`, `user_agent`; timestamps. **Unique `(job, email)`**; indexes `(job, status)`, `(job, submitted_at)`.
 - **`applications_applicationfile`** and **`applications_applicationstatuschange`** (§4.1): custom file answers; audit history of status changes (`changed_by` nullable for system changes).

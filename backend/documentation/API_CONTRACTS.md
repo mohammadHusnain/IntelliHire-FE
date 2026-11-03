@@ -16,9 +16,9 @@ Source of truth for contracts: Doc §1.7, §2.4, §3.4, §4.5. These tables are 
 | `/api/auth/` | `Module1_Authentication` (label `accounts`); company sign-up routes from `Module2_CompanyManagement` |
 | `/api/company/` | `Module2_CompanyManagement` (label `companies`): company admin and HR side |
 | `/api/platform-admin/` | `users/` from Module 1; `companies/` from Module 2 |
-| `/api/jobs/` | jobs (HR side) |
+| `/api/jobs/` | `Module3_JobPosting` (label `jobs`): HR side |
 | `/api/jobs/<job_id>/applications/`, `/api/applications/` | applications (HR side) |
-| `/api/public/` | `invitations/` (Module 2); jobs + applications public form (Modules 3–4) |
+| `/api/public/` | `invitations/` (Module 2); `jobs/<slug>/` (Module 3); apply (Module 4) |
 | `/api/docs/`, `/admin/` | Swagger UI, Django admin |
 
 ## Module 1 — Authentication and account management (`Module1_Authentication`)
@@ -135,26 +135,44 @@ Source: Doc §2.4. Implemented and tested on `backend/module-02`; behaviour note
 
 **Deviations from the Doc (recorded in `DECISIONS.md`):** `suspension_reason` column and 10-character reason minimum for suspend (D-039); acceptance requires an approved company and returns no tokens (D-040); the resubmission email path (D-041); review-list pagination (D-042).
 
-## Module 3 — Job posting and application form (`jobs`)
+## Module 3 — Job posting and application form (`Module3_JobPosting`)
 
-Source: Doc §3.4. All rows are **planned** until the module's completion report marks them implemented.
+Source: Doc §3.4. Implemented and tested on `backend/module-03`; behaviour notes and deviations follow the table.
 
 | Method | Endpoint | Access | Request | Success | Main errors | Status |
 |---|---|---|---|---|---|---|
-| GET | /api/jobs/ | Company user | ?status, ?department, ?employment_type, ?search, ?ordering | 200 paginated list | 403 | planned |
-| POST | /api/jobs/ | Admin, HR manager, recruiter | job fields, optional publish flag | 201 job | 400 field errors | planned |
-| GET | /api/jobs/<id>/ | Company user | none | 200 job with custom fields | 404 other company | planned |
-| PATCH | /api/jobs/<id>/ | Admin, HR manager, recruiter | changed fields | 200 job | 400; 409 closed or locked field | planned |
-| DELETE | /api/jobs/<id>/ | Admin, HR manager | none | 204 | 409 not a draft | planned |
-| POST | /api/jobs/<id>/publish/ | Admin, HR manager, recruiter | none | 200 job with share_url | 400 incomplete; 409 not a draft | planned |
-| POST | /api/jobs/<id>/close/ | Admin, HR manager, recruiter | none | 200 job | 409 not open | planned |
-| POST | /api/jobs/<id>/reopen/ | Admin, HR manager | deadline | 200 job | 400 past deadline; 409 not closed | planned |
-| POST | /api/jobs/<id>/duplicate/ | Admin, HR manager, recruiter | none | 201 new draft |  | planned |
-| GET | /api/jobs/<id>/form-preview/ | Company user | none | 200 form schema |  | planned |
-| GET, POST | /api/jobs/<id>/fields/ | Admin, HR manager, recruiter (GET: any member) | label, field_type, required, options, help_text | 200 list / 201 field | 400 bad options | planned |
-| PATCH, DELETE | /api/jobs/<id>/fields/<field_id>/ | Admin, HR manager, recruiter | changed fields | 200 / 204 | 409 locked after applications | planned |
-| POST | /api/jobs/<id>/fields/reorder/ | Admin, HR manager, recruiter | ordered list of field IDs | 200 list | 400 IDs do not match | planned |
-| GET | /api/public/jobs/<form_slug>/ | Public | none | 200 form schema + accepting flag | 404 unknown slug | planned |
+| GET | /api/jobs/ | Company user | ?status, ?department, ?employment_type, ?search, ?ordering, ?page, ?page_size | 200 paginated list | 400 bad filter; 403 | implemented |
+| POST | /api/jobs/ | Admin, HR manager, recruiter | job fields, optional `publish` flag | 201 job | 400 field errors; 403 | implemented |
+| GET | /api/jobs/<id>/ | Company user | none | 200 job with custom fields | 404 other company | implemented |
+| PATCH | /api/jobs/<id>/ | Admin, HR manager, recruiter | changed fields | 200 job | 400; 409 `job_closed`, `deadline_passed`, `field_locked` | implemented |
+| DELETE | /api/jobs/<id>/ | Admin, HR manager | none | 204 | 409 `invalid_state` (not a draft) | implemented |
+| POST | /api/jobs/<id>/publish/ | Admin, HR manager, recruiter | none | 200 job with share_url | 400 incomplete; 409 not a draft; 503 `slug_unavailable` | implemented |
+| POST | /api/jobs/<id>/close/ | Admin, HR manager, recruiter | none | 200 job | 409 not open | implemented |
+| POST | /api/jobs/<id>/reopen/ | Admin, HR manager | deadline | 200 job | 400 past/too-far deadline; 409 not closed | implemented |
+| POST | /api/jobs/<id>/duplicate/ | Admin, HR manager, recruiter | none | 201 new draft | 404 | implemented |
+| GET | /api/jobs/<id>/form-preview/ | Company user | none | 200 form schema | 404 | implemented |
+| GET, POST | /api/jobs/<id>/fields/ | Admin, HR manager, recruiter (GET: any member) | label, field_type, required, options, help_text, max_length | 200 list / 201 field | 400 bad options; 409 `field_locked`, `job_closed`, `deadline_passed` | implemented |
+| PATCH, DELETE | /api/jobs/<id>/fields/<field_id>/ | Admin, HR manager, recruiter | changed fields | 200 / 204 | 404; 409 `field_locked` after applications | implemented |
+| POST | /api/jobs/<id>/fields/reorder/ | Admin, HR manager, recruiter | `{"field_ids": [...]}` (a bare list also works) | 200 list | 400 IDs do not match | implemented |
+| GET | /api/public/jobs/<form_slug>/ | Public | none | 200 form schema + accepting flag | 404 unknown slug or draft | implemented |
+
+### Module 3 — implemented behaviour
+
+- **Access.** All `/api/jobs/` endpoints need an active member of an **approved** company. Viewers only read. Every lookup is scoped to the caller's company, so another company's job or field is 404.
+- **Job object.** List items: `id, title, department, employment_type, work_mode, location, status, deadline, days_left, applications_count, share_url, created_at, published_at`. Detail adds `description, responsibilities, required_skills, soft_skills, min_experience_years, education_level, salary_min, salary_max, salary_currency, show_salary, openings, form_slug, close_reason, closed_at, updated_at, created_by{id, full_name}, custom_fields[]`.
+- **Server-owned fields.** `company`, `status`, `form_slug`, `close_reason`, `published_at`, `created_by` in a request body are ignored.
+- **Create.** A draft needs only `title` and `department`. With `"publish": true` the job is validated and opened in the same transaction; if validation fails nothing is saved (400).
+- **Publish validation** (400, errors keyed by field): title, department, description, at least one required skill, employment type, location unless `work_mode` is `remote`, valid custom fields, and a deadline between 1 hour and about 6 months ahead. `work_mode` itself is not required (Doc list).
+- **Edit.** Draft: everything. Open and before the deadline: only title, description, responsibilities, required/soft skills, salary fields, location and deadline (a future time, at most about 6 months ahead). Any other changed field returns 409 `field_locked`; sending an unchanged value is fine. The job must stay publishable. Open past its deadline: 409 `deadline_passed`. Closed: 409 `job_closed`.
+- **Reopen** needs a future deadline (at most about 6 months ahead), keeps the same slug and clears the close reason and time.
+- **Custom field keys** are generated from the label once (`LinkedIn Profile URL` → `linkedin_profile_url`; suffix `_2`, `_3` on a clash with another field or a built-in key) and never change. At most 30 custom fields per job (400 `limit_reached`). `order` starts at 0.
+- **After the first application** (Module 4): fields cannot be deleted, change type, become required, lose or rename options, and no new required field can be added (409 `field_locked`). Labels, help text, order and added options stay editable.
+- **Form schema** (preview and public): `{accepting, message, job{title, company{name, logo}, department, location, work_mode, employment_type, description, responsibilities, required_skills, soft_skills, deadline, salary|null}, fields[]}`. Each field: `key, label, type, required, options, option_labels, help_text, max_length, built_in`. The seven built-in fields come first (`full_name, email, phone, education_level, institution, graduation_year, resume`), then the custom fields in order. `salary` appears only when `show_salary` is true. `accepting` is false for drafts (preview only), closed jobs, jobs past their deadline and companies that are not approved; `message` then says why.
+- **days_left** is the number of days to the deadline, rounded up; `null` for closed jobs and jobs without a deadline.
+- **applications_count** is 0 until Module 4 exists; the annotation and the lock rule read the `applications` table through one helper (`services/applications_link.py`).
+- **`close_expired_jobs`**: `python manage.py close_expired_jobs` closes open jobs past their deadline (reason `deadline`) in one bulk update. Schedule it every 5 minutes (see `Module3_JobPosting/README.md`).
+
+**Deviations and clarifications (in `DECISIONS.md`):** D-048 to D-060.
 
 ## Module 4 — Candidate application management (`applications`)
 

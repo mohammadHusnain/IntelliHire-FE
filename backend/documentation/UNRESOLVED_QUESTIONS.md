@@ -20,6 +20,8 @@ Statuses: **Resolved** (decision recorded), **Open**, **Deferred**. "Needed befo
 | Q15 | Company field differences vs frontend | **Resolved:** Doc enums and fields win; frontend adapts in Phase 5 (D-043) |
 | Q19 | Auto-approve companies | **Resolved:** manual approval only (D-043) |
 | Q21 | Where a suspension reason is stored | **Resolved:** `suspension_reason` column (D-039) |
+| Q5 | Salary currency | **Resolved:** free-text currency code, whole-number amounts (D-055) |
+| Q16 | Job fields vs frontend | **Resolved:** Doc schema wins; frontend adapts in Phase 5 (D-055) |
 | T-1 | Tally/ERP integration | **Deferred** by the owner (D-001) |
 
 ## Open
@@ -27,10 +29,8 @@ Statuses: **Resolved** (decision recorded), **Open**, **Deferred**. "Needed befo
 | ID | Needed before | Question | Recommendation |
 |---|---|---|---|
 | Q3 | Module 3 / deployment | Deployment target for Django and for the 5-minute `close_expired_jobs` schedule (cron, Azure, other); production email provider (SMTP/Gmail or SendGrid); how admin static files and Swagger assets are served. | Decide with the hosting choice. |
-| Q5 | Module 3 | Salary currency (Doc silent; frontend hard-codes "£"). | Free-text currency code, no default. |
 | Q11 | Phase 5 | Frontend roles `candidate/company/admin` vs backend `candidate/company_admin/hr/platform_admin`. | Backend names; frontend maps. |
 | Q12 | Phase 5 | Frontend lacks `pending_verification` / `pending_approval` and any verification flow. | Frontend adopts the Doc statuses. |
-| Q16 | Module 3 | Job fields: experience level vs `min_experience_years`; "Temporary" job type; extra `requirements`, `hiringStages`; no deadline, education level, custom fields; share link uses `/apply/<id>`. | Doc schema; add `requirements` only if the owner wants it. |
 | Q17 | Module 4 | Frontend stages (Applied, Screened, Shortlisted, Interviewed, Offer, Rejected) vs Doc statuses (`submitted`, `under_review`, `shortlisted`, `interview`, `selected`, `rejected`, `on_hold`): mapping not inferable (e.g. Offer vs selected). | Owner defines the mapping. |
 | Q20 | Phase 5 | Confirm frontend admin settings, audit log, analytics, communities, notifications and interview pages stay mock-only. | Yes. |
 | Q22 | Before local setup | Python version on the owner's machine (code is run on 3.13). | Use 3.12 or newer. |
