@@ -47,10 +47,11 @@ async function step(name, fn) {
 /** Newest link of `kind` mailed to `to`, read from the backend's console e-mail output. */
 async function mailedLink(kind, to) {
   for (let i = 0; i < 40; i += 1) {
-    const text = readFileSync(LOG, "utf8");
-    const at = text.lastIndexOf(`To: ${to}`);
-    if (at >= 0) {
-      const match = text.slice(at).match(new RegExp(`https?://[^\\s"<]+/${kind}\\?[^\\s"<]+`));
+    // Mails are separated by a rule of dashes; take the newest one for `to` that carries this kind of link.
+    const mails = readFileSync(LOG, "utf8").split(/^-{20,}$/m).filter((m) => m.includes(`To: ${to}`));
+    const pattern = new RegExp(`https?://[^\\s"<]+/${kind}\\?[^\\s"<]+`);
+    for (const mail of mails.reverse()) {
+      const match = mail.match(pattern);
       if (match) return match[0];
     }
     await new Promise((r) => setTimeout(r, 250));
