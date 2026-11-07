@@ -127,3 +127,15 @@ Not verifiable until Module 4 exists: TC-16's "submit returns 410", and the lock
 | TC-22 and company isolation on every endpoint | `test_isolation.py` |
 | Real `applications_count` and the post-application field locks | `test_module3_link.py` |
 | Duplicate-submission race, unique references, status-change chain, close-versus-submit race | `test_concurrency.py` (real threads) |
+
+## Integration traceability (`integration_tests/`)
+
+| Requirement | Where it is verified |
+|---|---|
+| FR-16, TC-12 dashboard: every block, real numbers, agreement with Modules 3 and 4, isolation, bounded queries | `test_dashboard.py` (`test_tc12_…`) |
+| Cross-module rules: company and user suspension, member deactivation, role changes, invitation to first job, rejection to resubmission to approval to jobs, close/reopen/auto-close, duplicate, locks | `test_cross_module_rules.py` |
+| FR-07, TC-07 and the isolation rule on **every** operation (anonymous 401, wrong role 403, another company 404, public endpoints ignore a bad token) | `test_surface_sweep.py` |
+| Checks, migrations, schema validity, dependency direction, Doc test-case coverage, tables | `test_quality_gates.py` |
+| TC-01 to TC-22 as one story across all modules | `test_full_journey.py` |
+
+TC-12 previously had its pieces tested but no single named test; it now has one.

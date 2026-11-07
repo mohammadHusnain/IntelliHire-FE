@@ -21,6 +21,7 @@ backend/
     Module4_ApplicationManagement/ (label applications) Application, ApplicationFile, ApplicationStatusChange; public
                              apply, validation against the job's form, private file storage, HR lists/detail/status/
                              downloads/export (services/, serializers/, views/)
+  integration_tests/       cross-module suite: dashboard, cross-module rules, schema-driven security sweeps, quality gates, end-to-end journey
   documentation/  requirements/  scripts/  .env.example
 ```
 

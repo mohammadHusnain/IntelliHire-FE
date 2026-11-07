@@ -104,7 +104,7 @@ Source: Doc §2.4. Implemented and tested on `backend/module-02`; behaviour note
 | Method | Endpoint | Access | Request | Success | Main errors | Status |
 |---|---|---|---|---|---|---|
 | GET, PATCH | /api/company/profile/ | Company user (PATCH: company admin) | name, industry, contact_phone, website, description, headquarters, company_size, logo (multipart) | 200 profile + profile_completion | 400, 403 | implemented |
-| GET | /api/company/dashboard/ | Company user | none | 200 metrics object | 403 | implemented (jobs/applicants/pipeline are zeros until Modules 3–4) |
+| GET | /api/company/dashboard/ | Company user | none | 200 metrics object | 403 | implemented (all blocks are real since Module 4; D-071) |
 | GET | /api/company/members/ | Company user | none | 200 list | 403 | implemented |
 | PATCH | /api/company/members/<id>/ | Company admin | role, job_title, is_active | 200 member | 400 `cannot_modify_self`, `last_admin`; 404 other company | implemented |
 | GET, POST | /api/company/invitations/ | Company admin | email, full_name, role, job_title; `?status=` | 200 list / 201 invitation | 400 already registered or already invited | implemented |
@@ -129,7 +129,7 @@ Source: Doc §2.4. Implemented and tested on `backend/module-02`; behaviour note
 - **Invitation** object: `id, email, full_name, role, job_title, status, created_at, expires_at, accepted_at`. The token is never returned by the API; it exists only in the email link `FRONTEND_URL/accept-invite?token=…`. A pending invitation past its expiry is reported and stored as `expired`.
 - **Accept** returns `{"email","status"}` and no tokens: the new user logs in normally (D-040).
 - **Resubmit** link in the rejection email: `FRONTEND_URL/resubmit-company` (frontend page to be built in Phase 5).
-- **Dashboard** shape: `company{name, logo, status, profile_completion}`, `jobs{open, draft, closed}`, `applicants{total, new_last_7_days}`, `pipeline{submitted, under_review, shortlisted, interview, selected, rejected, on_hold}`, `closing_soon[]`, `recent_applications[]`, `team{active_members, pending_invitations}`. `company` and `team` are live; the rest are zeros/empty until Modules 3–4.
+- **Dashboard** shape: `company{name, logo, status, profile_completion}`, `jobs{open, draft, closed}`, `applicants{total, new_last_7_days}`, `pipeline{submitted, under_review, shortlisted, interview, selected, rejected, on_hold}`, `closing_soon[]`, `recent_applications[]`, `team{active_members, pending_invitations}`. All blocks are live: `jobs` counts by stored status; `applicants.total` and `pipeline` count the company's applications; `new_last_7_days` counts applications submitted in the last 7 days; `closing_soon` lists open jobs whose deadline is within 7 days (soonest first, at most 20) with their application count; `recent_applications` is the latest 5. Numbers agree with `GET /api/jobs/` and the application lists.
 - **Profile completion** = share of the five optional fields (website, description, headquarters, logo, company_size) that are filled, in steps of 20.
 - **Throttles:** accept-invitation uses the `register` scope (10/hour); resubmit uses `login` (5/min). Invitation details are unthrottled but reveal nothing for an unknown token beyond `invalid_invitation`.
 

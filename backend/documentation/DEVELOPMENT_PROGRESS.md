@@ -11,8 +11,8 @@ A step is "complete" only when implementation, executed tests, documentation and
 | 3 — Module 1: Authentication and accounts | **Complete.** Approved by the owner and merged into `IntelliHire-backend` (`7fdb54b`); `main` untouched |
 | 3 — Module 2: Company management | **Complete.** Approved by the owner and merged into `IntelliHire-backend` (`53826a8`) |
 | 3 — Module 3: Job posting and form | **Complete.** Approved by the owner and merged into `IntelliHire-backend` (`941f3f4`) |
-| 3 — Module 4: Applications | **Built and verified on `IntelliHire-backend`; awaiting owner approval** |
-| Dashboard, Integration (Phase 4) | Not started |
+| 3 — Module 4: Applications | **Built and verified on `IntelliHire-backend`** (`7a57b04`) |
+| Company dashboard, Integration (Phase 4) | **Built and verified on `IntelliHire-backend`; awaiting owner approval** |
 | Phase 5 — Frontend integration | Not started; requires explicit owner authorisation |
 
 ## Module 1 (built on `backend/module-01`, merged into `IntelliHire-backend`)
@@ -95,6 +95,24 @@ A step is "complete" only when implementation, executed tests, documentation and
 - `makemigrations --check`: no changes. `spectacular --validate --fail-on-warn`: passes. `check`: no issues. `check --deploy` (production settings): only the two deliberate HSTS notes.
 - Live HTTP self-test on `runserver` + PostgreSQL with real multipart uploads: 51 of 51 steps behaved as specified (TC-16 to TC-22 flows, duplicates, honeypot, HR review, status history, downloads, CSV, locked fields, Company B isolation). No 500s; no passwords, JWTs or resume text in the log; files on disk have random names. Test data and files were removed afterwards.
 
+## Phase 4: dashboard and integration (built directly on `IntelliHire-backend`)
+
+**Delivered**
+- Analysis and plan: `MODULE_DEPENDENCIES.md` (integration points, guards).
+- The company dashboard now reads real jobs and applications (D-071).
+- `integration_tests/` (149 tests): dashboard, cross-module rules, schema-driven sweeps over all 68 operations, quality gates, and one full end-to-end journey over HTTP.
+- Gap closed: TC-12 had no named test.
+
+**Verified (executed here: Python 3.13, PostgreSQL 16)**
+- `python -m pytest`: **1159 passed** = 1010 earlier tests (unchanged) + 149 integration tests; the apps-only run (1010), the integration-only run (149) and a reversed module order all pass; the concurrency tests (12) ran 3 more times without a failure.
+- Sweeps: all 68 operations classified; every protected operation answers 401 without a token; the wrong role gets 403 "Unauthorized access." everywhere; all 22 company-side operations that take an id answer 404 for another company and nothing changes; public endpoints ignore a garbage token.
+- Live HTTP run on `runserver` + PostgreSQL: 60 of 60 steps passed (the Module 4 flow plus dashboard-equals-lists checks). No 500s; no passwords or JWTs in the log. Test data removed afterwards.
+- Defects found by the integration work: none in Modules 1 to 4. (TC-12's missing named test was a test-coverage gap, now closed.)
+
+**Honest scope notes**
+- Still not built: Azure Blob storage and signed URLs, SMTP and scheduling in production (deployment target undecided, Q3/Q23), candidate emails on status change (Module 10), Tally/ERP (deferred).
+- Phase 5 (connecting the React frontend) has not started; it changes `frontend/` and needs the owner's explicit go-ahead.
+
 ## Next step
 
-Owner reviews and approves Module 4. After approval: the company dashboard step (real job and applicant counts, Doc build order step 7), then the integration pass (Phase 4). Phase 5 (frontend connection) only on explicit authorisation.
+Owner approves Phase 4. Then, on explicit authorisation, Phase 5: connect the frontend page by page in the Doc's order, using the field mappings and known differences listed in `API_CONTRACTS.md`. Before that, the deployment questions (Q3, Q23) should be answered.
