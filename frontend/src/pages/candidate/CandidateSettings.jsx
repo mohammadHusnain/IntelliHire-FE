@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Bell, Check, ChevronRight, Database, Download, Eye, Laptop, Loader2, Lock, LogOut, Mic, Minus, Plus,
   RotateCcw, ShieldCheck, UserRound,
@@ -9,7 +9,7 @@ import Reveal from "@/components/shared/Reveal";
 import AuthField from "@/components/shared/AuthField";
 import { useLogout } from "@/hooks/useLogout";
 import { useCandidateActions, useCandidateRecord } from "@/store/candidateStore";
-import { authApi } from "@/api/authApi";
+import { useAuthStore } from "@/store/authStore";
 import { DIFFICULTIES, INTERVIEW_TYPES, LENGTHS } from "@/lib/interview/questionBank";
 import { speechRecognitionSupported } from "@/hooks/useSpeechRecognition";
 import { formatDate } from "@/lib/candidateStats";
@@ -58,6 +58,8 @@ export default function CandidateSettings() {
   const { profile, prefs, sessions } = record;
   const { updatePrefs, resetPractice } = useCandidateActions();
   const logout = useLogout();
+  const navigate = useNavigate();
+  const changePasswordAction = useAuthStore((s) => s.changePassword);
   const [tab, setTab] = useState("account");
   const [tick, setTick] = useState(0);
   const [pwd, setPwd] = useState({ current: "", next: "", confirm: "" });
@@ -80,16 +82,22 @@ export default function CandidateSettings() {
     if (pwd.confirm !== pwd.next) errs.confirm = "Passwords do not match";
     setPwdErrors(errs);
     if (Object.keys(errs).length) return;
+    if (pwdBusy) return;
     setPwdBusy(true);
-    try {
-      await authApi.changePassword(profile.email, pwd.current, pwd.next);
-      setPwd({ current: "", next: "", confirm: "" });
-      toast({ title: "Password updated", message: "Use your new password the next time you log in." });
-    } catch (err) {
-      toast({ type: "error", title: "Password not changed", message: err.message });
-    } finally {
-      setPwdBusy(false);
+    const result = await changePasswordAction({ current: pwd.current, next: pwd.next });
+    setPwdBusy(false);
+    if (result.success) {
+      // The server ends every session of this account on a password change, and the store has already
+      // signed this browser out, so continue at the login page.
+      navigate("/login", { replace: true });
+      return;
     }
+    const fields = result.fieldErrors || {};
+    if (fields.old_password || fields.new_password) {
+      setPwdErrors({ current: fields.old_password?.[0] || "", next: fields.new_password?.[0] || "" });
+      return;
+    }
+    toast({ type: "error", title: "Password not changed", message: result.error });
   };
 
   const exportData = () => {

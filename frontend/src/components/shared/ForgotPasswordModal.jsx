@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Loader2, Mail, MailCheck, X } from "lucide-react";
 import AuthField from "./AuthField";
-import { authApi } from "@/api/authApi";
+import { useAuthStore } from "@/store/authStore";
 
 const EMAIL_RX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -11,6 +11,7 @@ export default function ForgotPasswordModal({ open, onClose, initialEmail = "" }
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [sentTo, setSentTo] = useState("");
+  const forgotPassword = useAuthStore((s) => s.forgotPassword);
 
   useEffect(() => {
     if (!open) return;
@@ -23,17 +24,16 @@ export default function ForgotPasswordModal({ open, onClose, initialEmail = "" }
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!EMAIL_RX.test(email)) return setError("Enter a valid email address");
+    if (loading) return;
+    const address = email.trim();
+    if (!EMAIL_RX.test(address)) return setError("Enter a valid email address");
     setError("");
     setLoading(true);
-    try {
-      await authApi.forgotPassword(email);
-      setSentTo(email);
-    } catch (err) {
-      setError(err.message || "Something went wrong. Try again.");
-    } finally {
-      setLoading(false);
-    }
+    // The server answers the same way for every address, so the confirmation never reveals who has an account.
+    const result = await forgotPassword(address);
+    setLoading(false);
+    if (result.success) setSentTo(address);
+    else setError(result.error || "Something went wrong. Try again.");
   };
 
   return createPortal(

@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import {
   Award, Briefcase, Camera, CheckCircle2, ChevronRight, Circle, CloudUpload, Eye, FileText, Globe, Loader2,
-  Lock, Mail, MapPin, Plus, RefreshCw, Sparkles, Trash2, TrendingUp, UserRound, X,
+  Lock, Mail, MapPin, Phone, Plus, RefreshCw, Sparkles, Trash2, TrendingUp, UserRound, X,
 } from "lucide-react";
 import { Card, CardHeader, ScoreRing, Segmented } from "@/components/app/primitives";
 import Reveal from "@/components/shared/Reveal";
@@ -11,6 +11,10 @@ import AuthField from "@/components/shared/AuthField";
 import { GithubIcon, LinkedinIcon } from "@/components/shared/BrandIcons";
 import RolePicker from "@/components/candidate/RolePicker";
 import { Avatar } from "@/components/app/HeaderMenus";
+import { EducationCard, ExperienceCard } from "@/components/candidate/ProfileRowsCard";
+import { USE_MOCK_API } from "@/config/env";
+import { changedFields, mapFieldErrors, profileApi } from "@/api/profileApi";
+import { useAuthStore } from "@/store/authStore";
 import { useCandidateActions, useCandidateRecord } from "@/store/candidateStore";
 import { formatDate, profileCompletion, sessionStats } from "@/lib/candidateStats";
 import { skillsForRole } from "@/lib/interview/questionBank";
@@ -20,11 +24,14 @@ const BIO_MAX = 400;
 const MAX_SKILLS = 20;
 const SECTION_FOR = { photo: "basics", headline: "basics", targetRole: "role", skills: "role", bio: "about", links: "links", cv: "cv" };
 
+const CV_EXTENSION_RX = /\.(pdf|docx)$/i;
+
 const pickDraft = (p) => ({
   fullName: p.fullName,
+  phone: p.phone || "",
   headline: p.headline,
   location: p.location,
-  experience: p.experience || "mid",
+  experience: USE_MOCK_API ? p.experience || "mid" : p.experience || "",
   bio: p.bio,
   targetRole: p.targetRole,
   skills: [...p.skills],
@@ -48,6 +55,38 @@ function resizeImage(file, size = 320) {
     img.onerror = reject;
     img.src = url;
   });
+}
+
+// The server stores a small JPEG: crop to a square, scale down and re-encode (also turns WebP etc. into JPEG).
+function resizeToBlob(file, size = 320) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const s = Math.min(img.width, img.height);
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = size;
+      canvas.getContext("2d").drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
+      URL.revokeObjectURL(url);
+      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("encode failed"))), "image/jpeg", 0.85);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("decode failed"));
+    };
+    img.src = url;
+  });
+}
+
+function saveBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename || "cv";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function CvPreview({ url, name, onClose }) {
@@ -78,6 +117,10 @@ function CvPreview({ url, name, onClose }) {
 export default function CandidateProfile() {
   const { profile, sessions, prefs } = useCandidateRecord();
   const { updateProfile } = useCandidateActions();
+  const user = useAuthStore((s) => s.user);
+  const updateMe = useAuthStore((s) => s.updateMe);
+  const [cvProgress, setCvProgress] = useState(null); // null when no upload is running
+  const cvAbort = useRef(null);
   const [draft, setDraft] = useState(() => pickDraft(profile));
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
@@ -147,11 +190,41 @@ export default function CandidateProfile() {
       toast({ type: "error", title: "Check the highlighted fields", message: `${Object.keys(e).length} field${Object.keys(e).length > 1 ? "s need" : " needs"} attention before saving.` });
       return;
     }
+    if (saving) return;
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 450));
-    updateProfile({ ...draft, fullName: draft.fullName.trim(), headline: draft.headline.trim(), location: draft.location.trim() });
-    setSaving(false);
-    toast({ title: "Profile saved", message: completion.percent === 100 ? "Your profile is complete. Interviews will match it closely." : `${completion.percent}% complete. ${completion.items.filter((i) => !i.done).length} steps left.` });
+    try {
+      if (USE_MOCK_API) {
+        await new Promise((r) => setTimeout(r, 450));
+        updateProfile({ ...draft, fullName: draft.fullName.trim(), headline: draft.headline.trim(), location: draft.location.trim() });
+      } else {
+        await saveToServer();
+      }
+      toast({ title: "Profile saved", message: completion.percent === 100 ? "Your profile is complete. Interviews will match it closely." : `${completion.percent}% complete. ${completion.items.filter((i) => !i.done).length} steps left.` });
+    } catch (error) {
+      const fields = mapFieldErrors(error.fieldErrors);
+      if (Object.keys(fields).length) setErrors((current) => ({ ...current, ...fields }));
+      toast({ type: "error", title: "Profile not saved", message: error.message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Real backend: send only what changed. The name lives on the account, everything else on the profile.
+  const saveToServer = async () => {
+    const trimmed = { ...draft, fullName: draft.fullName.trim(), headline: draft.headline.trim(), location: draft.location.trim() };
+    let account = user;
+    if (trimmed.fullName !== base.fullName) {
+      const me = await updateMe({ fullName: trimmed.fullName });
+      if (!me.success) {
+        const failure = new Error(me.error);
+        failure.fieldErrors = { full_name: me.fieldErrors?.full_name || [me.error] };
+        throw failure;
+      }
+      account = me.user;
+    }
+    const changes = changedFields(trimmed, base);
+    const next = Object.keys(changes).length ? await profileApi.save(changes, account) : null;
+    updateProfile(next ? { ...next, fullName: account.name } : { fullName: account.name });
   };
 
   const onPhoto = async (file) => {
@@ -160,24 +233,70 @@ export default function CandidateProfile() {
     if (file.size > 8 * 1024 * 1024) return toast({ type: "error", title: "Image too large", message: "Choose an image under 8 MB." });
     setPhotoBusy(true);
     try {
-      updateProfile({ photo: await resizeImage(file) });
+      if (USE_MOCK_API) updateProfile({ photo: await resizeImage(file) });
+      else updateProfile({ photo: (await profileApi.setAvatar(await resizeToBlob(file), user)).photo });
       toast({ title: "Photo updated", message: "Your new photo is live across IntelliHire." });
-    } catch {
-      toast({ type: "error", title: "Couldn't read that image", message: "Try a different file." });
+    } catch (error) {
+      const serverMessage = error?.fieldErrors?.avatar?.[0] || error?.message;
+      toast({ type: "error", title: "Couldn't update the photo", message: error?.status ? serverMessage : "Try a different file." });
     } finally {
       setPhotoBusy(false);
     }
   };
 
-  const onCv = (file) => {
-    if (!file) return;
-    const okType = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"].includes(file.type);
-    if (!okType) return toast({ type: "error", title: "Unsupported file", message: "Upload your CV as a PDF or Word document." });
+  const onCv = async (file) => {
+    if (!file || cvProgress !== null) return;
+    if (!CV_EXTENSION_RX.test(file.name)) return toast({ type: "error", title: "Unsupported file", message: "Upload your CV as a PDF or DOCX file." });
     if (file.size > 5 * 1024 * 1024) return toast({ type: "error", title: "File too large", message: "Your CV must be under 5 MB." });
-    if (cvUrl) URL.revokeObjectURL(cvUrl);
-    setCvUrl(file.type === "application/pdf" ? URL.createObjectURL(file) : null);
-    updateProfile({ cv: { name: file.name, size: file.size, uploadedAt: Date.now() } });
-    toast({ title: "CV uploaded", message: `${file.name} will be used to personalise your questions.` });
+    if (USE_MOCK_API) {
+      if (cvUrl) URL.revokeObjectURL(cvUrl);
+      setCvUrl(file.type === "application/pdf" ? URL.createObjectURL(file) : null);
+      updateProfile({ cv: { name: file.name, size: file.size, uploadedAt: Date.now() } });
+      toast({ title: "CV uploaded", message: `${file.name} will be used to personalise your questions.` });
+      return;
+    }
+    const controller = new AbortController();
+    cvAbort.current = controller;
+    setCvProgress(0);
+    try {
+      const next = await profileApi.uploadResume(file, user, { onProgress: setCvProgress, signal: controller.signal });
+      if (cvUrl) URL.revokeObjectURL(cvUrl);
+      setCvUrl(/\.pdf$/i.test(file.name) ? URL.createObjectURL(file) : null);
+      updateProfile({ cv: next.cv });
+      toast({ title: "CV uploaded", message: `${file.name} will be used to personalise your questions.` });
+    } catch (error) {
+      if (error.code === "aborted") toast({ type: "info", title: "Upload cancelled", message: "Your previous CV was kept." });
+      else toast({ type: "error", title: "CV not uploaded", message: error.fieldErrors?.resume?.[0] || error.message });
+    } finally {
+      cvAbort.current = null;
+      setCvProgress(null);
+    }
+  };
+
+  const cancelCv = () => cvAbort.current?.abort();
+
+  // The CV is private: it is fetched with the login token, then shown (PDF) or saved (DOCX).
+  const openCv = async () => {
+    if (cvUrl) return setPreview(true);
+    try {
+      const { blob, filename } = await profileApi.downloadResume();
+      if (blob.type === "application/pdf" || /\.pdf$/i.test(filename || profile.cv?.name || "")) {
+        setCvUrl(URL.createObjectURL(blob));
+        setPreview(true);
+      } else saveBlob(blob, filename || profile.cv?.name);
+    } catch (error) {
+      toast({ type: "error", title: "Couldn't open the CV", message: error.message });
+    }
+  };
+
+  const removePhoto = async () => {
+    try {
+      if (USE_MOCK_API) updateProfile({ photo: null });
+      else updateProfile({ photo: (await profileApi.removeAvatar(user)).photo });
+      toast({ type: "info", title: "Photo removed" });
+    } catch (error) {
+      toast({ type: "error", title: "Couldn't remove the photo", message: error.message });
+    }
   };
 
   const removeCv = () => {
@@ -222,7 +341,7 @@ export default function CandidateProfile() {
                 {profile.targetRole && <span className="inline-flex items-center gap-1.5"><Briefcase size={14} /> Targeting {profile.targetRole}</span>}
                 <span>Member since {formatDate(profile.joinedAt, { month: "long", year: "numeric" })}</span>
                 {profile.photo && (
-                  <button type="button" onClick={() => { updateProfile({ photo: null }); toast({ type: "info", title: "Photo removed" }); }} className="font-semibold text-stone-500 hover:text-red-600">
+                  <button type="button" onClick={removePhoto} className="font-semibold text-stone-500 hover:text-red-600">
                     Remove photo
                   </button>
                 )}
@@ -248,6 +367,9 @@ export default function CandidateProfile() {
                 <AuthField label="Full name" icon={UserRound} value={draft.fullName} onChange={(e) => set("fullName", e.target.value)} error={errors.fullName} autoComplete="name" />
                 <AuthField label="Email" icon={Mail} value={profile.email} readOnly hint="Used to sign in. Contact support to change it." trailing={<Lock size={13} className="text-stone-400" />} className="[&_input]:bg-stone-50 [&_input]:text-stone-500" />
                 <AuthField label="Headline" icon={Briefcase} value={draft.headline} onChange={(e) => set("headline", e.target.value)} placeholder="e.g. Frontend Developer at Acme" maxLength={80} />
+                {!USE_MOCK_API && (
+                  <AuthField label="Phone" icon={Phone} type="tel" value={draft.phone} onChange={(e) => set("phone", e.target.value)} error={errors.phone} placeholder="+92 300 1234567" autoComplete="tel" />
+                )}
                 <AuthField label="Location" icon={MapPin} value={draft.location} onChange={(e) => set("location", e.target.value)} placeholder="City, Country" autoComplete="address-level2" />
               </div>
               <div className="mt-5">
@@ -353,12 +475,33 @@ export default function CandidateProfile() {
               </div>
             </Card>
           </Reveal>
+          {!USE_MOCK_API && (
+            <>
+              <Reveal>
+                <EducationCard rows={profile.education || []} onRowsChange={(education) => updateProfile({ education })} />
+              </Reveal>
+              <Reveal>
+                <ExperienceCard rows={profile.experienceRows || []} onRowsChange={(experienceRows) => updateProfile({ experienceRows })} />
+              </Reveal>
+            </>
+          )}
         </div>
 
         <div className="min-w-0 space-y-6">
           <Reveal delay={60}>
             <Card id="section-cv" className="scroll-mt-24 p-6">
               <CardHeader icon={FileText} title="CV" subtitle="Used to tailor interview questions." />
+              {cvProgress !== null && (
+                <div role="status" className="mt-5 rounded-2xl border border-[var(--line)] bg-stone-50/60 p-3.5">
+                  <div className="h-2 overflow-hidden rounded-full bg-stone-200">
+                    <div className="h-2 rounded-full bg-brand transition-all" style={{ width: `${cvProgress}%` }} />
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-[12.5px] text-stone-600">
+                    <span>Uploading… {cvProgress}%</span>
+                    <button type="button" onClick={cancelCv} className="font-semibold text-stone-700 hover:text-red-600">Cancel</button>
+                  </div>
+                </div>
+              )}
               {profile.cv ? (
                 <div className="mt-5">
                   <div className="flex items-center gap-3 rounded-2xl border border-[var(--line)] bg-stone-50/60 p-3.5">
@@ -368,20 +511,23 @@ export default function CandidateProfile() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[13.5px] font-semibold text-ink">{profile.cv.name}</p>
                       <p className="text-[12px] text-stone-500">
-                        {profile.cv.size ? `${Math.max(1, Math.round(profile.cv.size / 1024))} KB · ` : ""}Uploaded {formatDate(profile.cv.uploadedAt)}
+                        {profile.cv.size ? `${Math.max(1, Math.round(profile.cv.size / 1024))} KB · ` : ""}
+                        {profile.cv.uploadedAt ? `Uploaded ${formatDate(profile.cv.uploadedAt)}` : "Stored privately"}
                       </p>
                     </div>
                   </div>
-                  <div className="mt-3 grid grid-cols-3 gap-2">
-                    <button type="button" onClick={() => setPreview(true)} disabled={!cvUrl} title={cvUrl ? "Preview" : "Preview is available for PDFs uploaded in this session"} className="btn-secondary !h-9 !px-2 text-[12.5px] disabled:cursor-not-allowed disabled:opacity-50">
+                  <div className={`mt-3 grid gap-2 ${USE_MOCK_API ? "grid-cols-3" : "grid-cols-2"}`}>
+                    <button type="button" onClick={USE_MOCK_API ? () => setPreview(true) : openCv} disabled={USE_MOCK_API && !cvUrl} title={USE_MOCK_API && !cvUrl ? "Preview is available for PDFs uploaded in this session" : "Open your CV"} className="btn-secondary !h-9 !px-2 text-[12.5px] disabled:cursor-not-allowed disabled:opacity-50">
                       <Eye size={14} /> View
                     </button>
-                    <button type="button" onClick={() => cvRef.current?.click()} className="btn-secondary !h-9 !px-2 text-[12.5px]">
+                    <button type="button" onClick={() => cvRef.current?.click()} disabled={cvProgress !== null} className="btn-secondary !h-9 !px-2 text-[12.5px] disabled:opacity-50">
                       <RefreshCw size={14} /> Replace
                     </button>
-                    <button type="button" onClick={() => setConfirmCv(true)} className="btn-secondary !h-9 !px-2 text-[12.5px] hover:!border-red-200 hover:!text-red-600">
-                      <Trash2 size={14} /> Remove
-                    </button>
+                    {USE_MOCK_API && (
+                      <button type="button" onClick={() => setConfirmCv(true)} className="btn-secondary !h-9 !px-2 text-[12.5px] hover:!border-red-200 hover:!text-red-600">
+                        <Trash2 size={14} /> Remove
+                      </button>
+                    )}
                   </div>
                   {confirmCv && (
                     <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 p-3.5 animate-fade-in-up">
@@ -396,7 +542,7 @@ export default function CandidateProfile() {
               ) : (
                 <button
                   type="button"
-                  onClick={() => cvRef.current?.click()}
+                  onClick={() => cvProgress === null && cvRef.current?.click()}
                   onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
                   onDragLeave={() => setDragging(false)}
                   onDrop={(e) => { e.preventDefault(); setDragging(false); onCv(e.dataTransfer.files[0]); }}
@@ -408,10 +554,10 @@ export default function CandidateProfile() {
                     <CloudUpload size={22} />
                   </span>
                   <span className="text-[14px] font-semibold text-ink">{dragging ? "Drop to upload" : "Upload your CV"}</span>
-                  <span className="text-[12px] text-stone-500">PDF or Word · up to 5 MB</span>
+                  <span className="text-[12px] text-stone-500">PDF or DOCX · up to 5 MB</span>
                 </button>
               )}
-              <input ref={cvRef} type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={(e) => { onCv(e.target.files[0]); e.target.value = ""; }} />
+              <input ref={cvRef} type="file" accept=".pdf,.docx" className="hidden" onChange={(e) => { onCv(e.target.files[0]); e.target.value = ""; }} />
             </Card>
           </Reveal>
 

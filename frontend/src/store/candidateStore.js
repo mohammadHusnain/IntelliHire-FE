@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { USE_MOCK_API } from "@/config/env";
 import { useAuthStore } from "@/store/authStore";
 import { buildDemoSessions } from "@/lib/interview/demoHistory";
 
@@ -63,8 +64,9 @@ function seedNotifications(profile, sessions) {
   return list;
 }
 
-function newRecord(user) {
-  const profile = profileFrom(user);
+function newRecord(user, serverProfile) {
+  // With the real backend the profile always comes from the server; the demo derives one from the account.
+  const profile = serverProfile ? { ...serverProfile, joinedAt: Date.now() } : profileFrom(user);
   const sessions = user.id === DEMO_USER_ID ? buildDemoSessions(profile.skills) : [];
   return {
     profile,
@@ -93,9 +95,19 @@ export const useCandidateStore = create(
       return {
         records: {},
         actions: {
-          ensure(user) {
+          ensure(user, serverProfile) {
             if (!user?.id || get().records[user.id]) return;
-            set((s) => ({ records: { ...s.records, [user.id]: newRecord(user) } }));
+            set((s) => ({ records: { ...s.records, [user.id]: newRecord(user, serverProfile) } }));
+          },
+          /** Real backend: replace the profile part of the record with what the server just returned. */
+          hydrateProfile(user, serverProfile) {
+            if (!user?.id) return;
+            set((s) => {
+              const existing = s.records[user.id];
+              if (!existing) return { records: { ...s.records, [user.id]: newRecord(user, serverProfile) } };
+              const joinedAt = existing.profile?.joinedAt || Date.now();
+              return { records: { ...s.records, [user.id]: { ...existing, profile: { ...serverProfile, joinedAt } } } };
+            });
           },
           updateProfile(changes) {
             patch((r) => ({ ...r, profile: { ...r.profile, ...changes, links: { ...r.profile.links, ...(changes.links || {}) } } }));
@@ -172,7 +184,18 @@ export const useCandidateStore = create(
       name: "intellihire_candidate",
       version: 1,
       storage: createJSONStorage(() => localStorage),
-      partialize: (s) => ({ records: s.records }),
+      // Profile data belongs to the server. Only an identity snapshot is kept locally (the demo admin
+      // pages read it), so a stale copy of the profile can never outlive a logout or another login.
+      partialize: (s) => ({
+        records: USE_MOCK_API
+          ? s.records
+          : Object.fromEntries(
+              Object.entries(s.records).map(([id, record]) => [
+                id,
+                { ...record, profile: { fullName: record.profile?.fullName || "", email: record.profile?.email || "", joinedAt: record.profile?.joinedAt } },
+              ]),
+            ),
+      }),
     },
   ),
 );

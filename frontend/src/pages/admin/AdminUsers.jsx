@@ -8,7 +8,10 @@ import { ActionDialog, DataTable, Drawer, Field, SearchField, SelectField, Tabs 
 import { Avatar } from "@/components/app/HeaderMenus";
 import Reveal from "@/components/shared/Reveal";
 import { accountsApi } from "@/api/authApi";
-import { ACCOUNT_STATUS, allAccounts, practiceSummaryFor } from "@/lib/adminStats";
+import { usersApi } from "@/api/usersApi";
+import { USE_MOCK_API } from "@/config/env";
+import { useAdminAccounts } from "@/hooks/useAdminAccounts";
+import { ACCOUNT_STATUS, practiceSummaryFor } from "@/lib/adminStats";
 import { logAudit } from "@/store/auditStore";
 import { formatDate, relativeTime } from "@/lib/candidateStats";
 import { downloadFile, toCsv } from "@/lib/csv";
@@ -21,7 +24,8 @@ const SORTS = {
 };
 
 const ACTIONS = {
-  suspend: { status: "suspended", title: (n) => `Suspend ${n}?`, message: "They are signed out immediately and cannot sign back in.", confirm: "Suspend account", reason: true, tone: "danger", audit: "suspend", toast: "suspended" },
+  // The real API takes no reason for a suspension, so none is asked for outside demo mode.
+  suspend: { status: "suspended", title: (n) => `Suspend ${n}?`, message: "They are signed out immediately and cannot sign back in.", confirm: "Suspend account", reason: USE_MOCK_API, tone: "danger", audit: "suspend", toast: "suspended" },
   activate: { status: "active", title: (n) => `Reactivate ${n}?`, message: "They regain access to their workspace straight away.", confirm: "Reactivate", reason: false, audit: "activate", toast: "reactivated" },
   delete: { title: (n) => `Delete ${n}?`, message: "This permanently removes the account and cannot be undone. Their practice data stays on their own device.", confirm: "Delete account", reason: true, tone: "danger", audit: "delete", toast: "deleted" },
 };
@@ -40,14 +44,16 @@ function RowActions({ a, full, setDialog }) {
           <PauseCircle size={15} /> Suspend
         </button>
       )}
-      <button
-        type="button"
-        onClick={() => setDialog({ kind: "delete", targets: [a] })}
-        aria-label={`Delete ${a.name}`}
-        className="icon-btn flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--line)] text-stone-400 hover:border-red-200 hover:text-red-600"
-      >
-        <Trash2 size={15} />
-      </button>
+      {USE_MOCK_API && (
+        <button
+          type="button"
+          onClick={() => setDialog({ kind: "delete", targets: [a] })}
+          aria-label={`Delete ${a.name}`}
+          className="icon-btn flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--line)] text-stone-400 hover:border-red-200 hover:text-red-600"
+        >
+          <Trash2 size={15} />
+        </button>
+      )}
     </div>
   );
 }
@@ -63,10 +69,7 @@ export default function AdminUsers() {
   const [dialog, setDialog] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  const accounts = useMemo(() => {
-    void version;
-    return allAccounts();
-  }, [version]);
+  const { accounts, status: loadStatus, error: loadError, truncated } = useAdminAccounts(version);
 
   const counts = useMemo(
     () => ({
@@ -98,7 +101,8 @@ export default function AdminUsers() {
     const failed = [];
     for (const t of targets) {
       try {
-        if (kind === "delete") await accountsApi.remove(t.id);
+        if (!USE_MOCK_API) await (kind === "suspend" ? usersApi.suspend(t.id) : usersApi.reactivate(t.id));
+        else if (kind === "delete") await accountsApi.remove(t.id);
         else await accountsApi.setStatus(t.id, cfg.status, reason);
         logAudit({ action: cfg.audit, targetType: t.role, targetId: t.id, targetName: t.name, reason });
         ok.push(t);
@@ -189,6 +193,16 @@ export default function AdminUsers() {
 
   return (
     <div className="space-y-6">
+      {!USE_MOCK_API && loadStatus === "error" && (
+        <div role="alert" className="flex items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-[14px] text-red-700">
+          <span>{loadError || "Couldn't load the accounts."}</span>
+          <button type="button" onClick={() => setVersion((v) => v + 1)} className="btn-secondary !h-9">Try again</button>
+        </div>
+      )}
+      {!USE_MOCK_API && loadStatus === "loading" && <p role="status" className="text-[13.5px] text-stone-500">Loading accounts…</p>}
+      {!USE_MOCK_API && truncated && (
+        <p className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-[13px] text-amber-800">Showing the first 1,000 accounts. Narrow the list with search.</p>
+      )}
       <PageHeader
         eyebrow="Accounts"
         title={<>Every <em>account</em> on the platform</>}

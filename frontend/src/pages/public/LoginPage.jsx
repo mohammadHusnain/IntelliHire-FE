@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ArrowRight, Building2, CheckCircle2, ChevronDown, Loader2, Lock, Mail, ShieldCheck, User, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import AuthLayout from "@/components/layout/AuthLayout";
 import AuthField from "@/components/shared/AuthField";
 import ForgotPasswordModal from "@/components/shared/ForgotPasswordModal";
-import { DEMO_USERS } from "@/api/authApi";
-import { ADMIN_CREDENTIALS } from "@/store/authStore";
+import ResendVerification from "@/components/shared/ResendVerification";
+import { USE_MOCK_API } from "@/config/env";
+import { useCountdown } from "@/hooks/useCountdown";
+import { useAuthStore } from "@/store/authStore";
 
 const EMAIL_RX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -16,37 +18,67 @@ const ROLE_META = {
   admin: { label: "Admin", icon: ShieldCheck },
 };
 
-const DEMO_ACCOUNTS = [
-  ...DEMO_USERS,
-  { email: ADMIN_CREDENTIALS.email, password: ADMIN_CREDENTIALS.password, role: "admin", name: "Super Admin" },
-];
+// Shown above the form when the user lands here without clicking "log out".
+const NOTICES = {
+  expired: "Your session expired. Please log in again.",
+  suspended: "Your account has been suspended.",
+  "password-changed": "Password updated. Log in with your new password.",
+  "password-reset": "Password updated. Log in with your new password.",
+};
 
 const validateEmail = (v) => (!v ? "Email is required" : !EMAIL_RX.test(v) ? "Enter a valid email address" : "");
-const validatePassword = (v) => (!v ? "Password is required" : v.length < 6 ? "Password must be at least 6 characters" : "");
+// The server owns the password rules; at login only "not empty" is checked.
+const validatePassword = (v) => (!v ? "Password is required" : "");
 
 export default function LoginPage() {
   const { login, isLoading } = useAuth();
   const location = useLocation();
+  const notice = useAuthStore((s) => s.notice);
+  const clearNotice = useAuthStore((s) => s.clearNotice);
   const justRegistered = !!location.state?.registered;
 
   const [email, setEmail] = useState(justRegistered ? location.state?.email || "" : "");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState({});
   const [authError, setAuthError] = useState("");
+  const [unverified, setUnverified] = useState(false);
+  const [demoAccounts, setDemoAccounts] = useState([]);
+  const [throttleLeft, startThrottle] = useCountdown();
+  const formRef = useRef(null);
+  const submitting = useRef(false);
   const [shakeKey, setShakeKey] = useState(0);
   const [showDemo, setShowDemo] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
 
+  // The demo accounts (and their passwords) are only loaded in demo mode; a real build never contains them.
+  useEffect(() => {
+    if (import.meta.env.VITE_USE_MOCK_API !== "true") return; // literal check: removed from real builds
+    import("@/api/mock/credentials").then((m) => setDemoAccounts(m.DEMO_ACCOUNTS));
+  }, []);
+
   const submit = async (e) => {
     e.preventDefault();
+    if (submitting.current || throttleLeft > 0) return;
     const next = { email: validateEmail(email), password: validatePassword(password) };
     setErrors(next);
     setAuthError("");
-    if (next.email || next.password) return;
-    const result = await login(email.trim(), password);
-    if (!result.success) {
-      setAuthError(result.error || "Invalid email or password.");
-      setShakeKey((k) => k + 1);
+    setUnverified(false);
+    if (next.email || next.password) {
+      requestAnimationFrame(() => formRef.current?.querySelector('[aria-invalid="true"]')?.focus());
+      return;
+    }
+    submitting.current = true;
+    clearNotice();
+    try {
+      const result = await login(email.trim(), password);
+      if (!result.success) {
+        setAuthError(result.error || "Invalid email or password.");
+        setUnverified(result.code === "pending_verification");
+        if (result.retryAfterSeconds) startThrottle(result.retryAfterSeconds);
+        setShakeKey((k) => k + 1);
+      }
+    } finally {
+      submitting.current = false;
     }
   };
 
@@ -77,8 +109,15 @@ export default function LoginPage() {
         <div className="mt-6 flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 animate-fade-in-up">
           <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-emerald-600" />
           <p className="text-[14px] text-emerald-800">
-            <span className="font-semibold">Account created.</span> Log in below to get started.
+            <span className="font-semibold">Account created.</span> Open the verification link we emailed to{" "}
+            <span className="font-semibold">{location.state?.email || "you"}</span>, then log in below.
           </p>
+        </div>
+      )}
+
+      {notice && NOTICES[notice] && !authError && (
+        <div role="status" className="mt-6 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <p className="text-[14px] text-amber-800">{NOTICES[notice]}</p>
         </div>
       )}
 
@@ -88,7 +127,10 @@ export default function LoginPage() {
           role="alert"
           className="mt-6 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 animate-shake"
         >
-          <p className="flex-1 text-[14px] text-red-700">{authError}</p>
+          <div className="flex-1">
+            <p className="text-[14px] text-red-700">{authError}</p>
+            {unverified && <ResendVerification email={email.trim()} className="mt-2" />}
+          </div>
           <button
             type="button"
             onClick={() => setAuthError("")}
@@ -100,7 +142,7 @@ export default function LoginPage() {
         </div>
       )}
 
-      <form onSubmit={submit} noValidate className="mt-8 space-y-5">
+      <form ref={formRef} onSubmit={submit} noValidate className="mt-8 space-y-5">
         <AuthField
           label="Email"
           icon={Mail}
@@ -129,11 +171,13 @@ export default function LoginPage() {
           }
         />
 
-        <button type="submit" disabled={isLoading} className="btn-primary btn-lg w-full">
+        <button type="submit" disabled={isLoading || throttleLeft > 0} className="btn-primary btn-lg w-full">
           {isLoading ? (
             <>
               <Loader2 size={18} className="animate-spin" /> Signing in…
             </>
+          ) : throttleLeft > 0 ? (
+            <>Try again in {throttleLeft}s</>
           ) : (
             <>
               Log in <ArrowRight size={18} className="btn-arrow" />
@@ -142,7 +186,8 @@ export default function LoginPage() {
         </button>
       </form>
 
-      {/* Demo accounts */}
+      {/* Demo accounts (demo mode only) */}
+      {USE_MOCK_API && demoAccounts.length > 0 && (
       <div className="mt-6 overflow-hidden rounded-2xl border border-dashed border-stone-300 bg-stone-50/60">
         <button
           type="button"
@@ -156,7 +201,7 @@ export default function LoginPage() {
         <div className="accordion-panel" data-open={showDemo}>
           <div>
             <div className="grid grid-cols-3 gap-2 px-3 pb-3">
-              {DEMO_ACCOUNTS.map((acc) => {
+              {demoAccounts.map((acc) => {
                 const meta = ROLE_META[acc.role] || ROLE_META.candidate;
                 const Icon = meta.icon;
                 const active = email === acc.email;
@@ -182,6 +227,7 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+      )}
 
       <p className="mt-8 text-center text-[14px] text-stone-500">
         Don&apos;t have an account?{" "}

@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "@/store/authStore";
-import { ROLE_DASHBOARDS } from "@/config/routes";
+import { resolvePostLoginPath } from "@/lib/authMap";
 
 /**
  * useAuth — convenience hook that bundles auth state with
@@ -22,11 +22,9 @@ export function useAuth() {
     async (email, password) => {
       const result = await storeLogin(email, password);
       if (result.success) {
-        const dest =
-          location.state?.from?.pathname ||
-          ROLE_DASHBOARDS[result.user.role] ||
-          "/";
-        navigate(dest, { replace: true });
+        const from = location.state?.from;
+        const requested = from?.pathname ? `${from.pathname}${from.search || ""}${from.hash || ""}` : null;
+        navigate(resolvePostLoginPath(result.user, requested), { replace: true });
       }
       return result;
     },

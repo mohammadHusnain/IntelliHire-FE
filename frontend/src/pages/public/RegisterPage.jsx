@@ -5,9 +5,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft, ArrowRight, Building2, Check, CheckCircle2, ChevronDown, CloudUpload,
-  FileText, Globe, ImagePlus, Info, Loader2, Lock, Mail, Pencil, Search, User, X,
+  FileText, Globe, ImagePlus, Info, Loader2, Lock, Mail, Pencil, Phone, Search, User, X,
 } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
+import { USE_MOCK_API } from "@/config/env";
 import { ROLE_CATEGORIES } from "@/data/rolesData";
 import { SKILLS_LIST, ROLE_SKILLS } from "@/data/skillsData";
 import AuthLayout from "@/components/layout/AuthLayout";
@@ -23,6 +24,25 @@ const INDUSTRIES = [
 const COMPANY_SIZES = ["1–10", "11–50", "51–200", "201–500", "500+"];
 const MAX_SKILLS = 15;
 const EMAIL_RX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const CV_EXTENSION_RX = /\.(pdf|docx)$/i;
+
+// Backend field name -> form field name, and the wizard step each form field lives on.
+const SERVER_FIELD = {
+  full_name: "fullName", email: "email", password: "password", confirm_password: "confirmPassword",
+  target_role: "desiredRole", skills: "skills", linkedin_url: "linkedIn", github_url: "github", resume: "cv",
+  company_name: "companyName", industry: "industry", official_email: "email", admin_full_name: "fullName", admin_phone: "phone",
+};
+const STEP_OF = { fullName: 1, email: 1, password: 1, confirmPassword: 1, desiredRole: 2, skills: 2, linkedIn: 3, github: 3, cv: 3, companyName: 2, industry: 2, phone: 2 };
+
+/** {backend_field: [msg]} -> { formField: firstMessage } */
+function mapServerErrors(fieldErrors = {}) {
+  const mapped = {};
+  for (const [field, messages] of Object.entries(fieldErrors)) {
+    const key = SERVER_FIELD[field];
+    if (key && !mapped[key]) mapped[key] = messages[0];
+  }
+  return mapped;
+}
 
 const PANEL = {
   company: {
@@ -110,7 +130,8 @@ const labelCls = "mb-1.5 block text-[13px] font-medium text-stone-700";
 export default function RegisterPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const register = useAuthStore((s) => s.register);
+  const registerCandidate = useAuthStore((s) => s.registerCandidate);
+  const registerCompany = useAuthStore((s) => s.registerCompany);
 
   const [step, setStep] = useState(1);
   const [dir, setDir] = useState(null);
@@ -124,7 +145,7 @@ export default function RegisterPage() {
       fullName: "", email: "", password: "", confirmPassword: "",
       desiredRole: "", skills: [], linkedIn: "", github: "",
       cvFile: null, cvFileName: "", cvSize: 0,
-      companyName: "", industry: "", companySize: "", website: "", description: "", logoPreview: null,
+      companyName: "", industry: "", phone: "", companySize: "", website: "", description: "", logoPreview: null,
     };
   });
   const upd = (field, value) => {
@@ -170,6 +191,7 @@ export default function RegisterPage() {
     if (s === 2 && form.role === "company") {
       if (!form.companyName.trim()) e.companyName = "Company name is required";
       if (!form.industry) e.industry = "Select an industry";
+      if (!USE_MOCK_API && !form.phone.trim()) e.phone = "Phone number is required";
       if (form.website && !/^https?:\/\/.+\..+/.test(form.website)) e.website = "Enter a full URL, including https://";
     }
     if (s === 3) {
@@ -195,23 +217,41 @@ export default function RegisterPage() {
   const handleSubmit = async () => {
     setIsLoading(true);
     try {
-      const payload = {
-        name: form.fullName,
-        email: form.email,
-        password: form.password,
-        role: form.role === "company" ? "company" : "candidate",
-        ...(form.role === "individual"
-          ? { desiredRole: form.desiredRole, skills: form.skills, linkedIn: form.linkedIn, github: form.github, cvFileName: form.cvFileName }
-          : { companyName: form.companyName, industry: form.industry, companySize: form.companySize, website: form.website, description: form.description, logoFileName: form.logoPreview ? "company-logo.png" : "" }),
-      };
-      const result = await register(payload);
+      const account = { fullName: form.fullName.trim(), email: form.email.trim(), password: form.password, confirmPassword: form.confirmPassword };
+      const result =
+        form.role === "company"
+          ? await registerCompany({
+              ...account,
+              companyName: form.companyName.trim(),
+              industry: form.industry,
+              phone: form.phone.trim(),
+              companySize: form.companySize,
+              website: form.website,
+              description: form.description,
+            })
+          : await registerCandidate({
+              ...account,
+              targetRole: form.desiredRole,
+              skills: form.skills,
+              linkedinUrl: form.linkedIn.trim(),
+              githubUrl: form.github.trim(),
+              cvFile: form.cvFile,
+            });
       if (result.success) {
-        navigate("/login", { replace: true, state: { registered: true, email: result.email } });
-      } else {
-        setErrors({ submit: result.error });
+        navigate("/login", { replace: true, state: { registered: true, email: account.email } });
+        return;
       }
-    } catch {
-      setErrors({ submit: "Something went wrong. Please try again." });
+      // Show the server's message on the right input, and go back to the step that holds it.
+      const fieldErrors = mapServerErrors(result.fieldErrors);
+      const stepsWithErrors = Object.keys(fieldErrors).map((key) => STEP_OF[key]).filter(Boolean);
+      if (stepsWithErrors.length) {
+        const target = Math.min(...stepsWithErrors);
+        if (target !== step) {
+          setDir("back");
+          setStep(target);
+        }
+      }
+      setErrors({ ...fieldErrors, submit: result.error });
     } finally {
       setIsLoading(false);
     }
@@ -228,8 +268,7 @@ export default function RegisterPage() {
 
   const handleFile = (file) => {
     if (!file) return;
-    const valid = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
-    if (!valid.includes(file.type)) return setErrors((e) => ({ ...e, cv: "Upload a PDF or Word document" }));
+    if (!CV_EXTENSION_RX.test(file.name)) return setErrors((e) => ({ ...e, cv: "Upload a PDF or DOCX file" }));
     if (file.size > 5 * 1024 * 1024) return setErrors((e) => ({ ...e, cv: "File must be under 5 MB" }));
     setErrors((e) => ({ ...e, cv: "" }));
     setForm((f) => ({ ...f, cvFile: file, cvFileName: file.name, cvSize: file.size }));
@@ -494,37 +533,39 @@ export default function RegisterPage() {
 
   const renderCompany = () => (
     <div className="space-y-5">
+      {USE_MOCK_API && (
       <div>
-        <p className={labelCls}>
-          Company logo <span className="font-normal text-stone-400">(optional)</span>
-        </p>
-        <input ref={logoRef} type="file" accept="image/png,image/jpeg" className="hidden" onChange={(e) => handleLogo(e.target.files[0])} />
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={() => logoRef.current?.click()}
-            className={`group flex h-[72px] w-[72px] shrink-0 items-center justify-center overflow-hidden rounded-2xl border transition-all duration-300 ${
-              form.logoPreview ? "border-[var(--line)]" : "border-dashed border-stone-300 bg-stone-50 hover:border-brand hover:bg-brand-soft"
-            }`}
-            aria-label={form.logoPreview ? "Change logo" : "Upload logo"}
-          >
-            {form.logoPreview ? (
-              <img src={form.logoPreview} alt="Company logo preview" className="h-full w-full object-cover" />
-            ) : (
-              <ImagePlus size={22} className="text-stone-400 transition-colors group-hover:text-brand" />
-            )}
-          </button>
-          <div className="text-[12px] text-stone-500">
-            <p>PNG or JPG, up to 2 MB.</p>
-            {form.logoPreview && (
-              <button type="button" onClick={() => upd("logoPreview", null)} className="mt-1 font-semibold text-red-600 hover:text-red-700">
-                Remove logo
-              </button>
-            )}
+          <p className={labelCls}>
+            Company logo <span className="font-normal text-stone-400">(optional)</span>
+          </p>
+          <input ref={logoRef} type="file" accept="image/png,image/jpeg" className="hidden" onChange={(e) => handleLogo(e.target.files[0])} />
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => logoRef.current?.click()}
+              className={`group flex h-[72px] w-[72px] shrink-0 items-center justify-center overflow-hidden rounded-2xl border transition-all duration-300 ${
+                form.logoPreview ? "border-[var(--line)]" : "border-dashed border-stone-300 bg-stone-50 hover:border-brand hover:bg-brand-soft"
+              }`}
+              aria-label={form.logoPreview ? "Change logo" : "Upload logo"}
+            >
+              {form.logoPreview ? (
+                <img src={form.logoPreview} alt="Company logo preview" className="h-full w-full object-cover" />
+              ) : (
+                <ImagePlus size={22} className="text-stone-400 transition-colors group-hover:text-brand" />
+              )}
+            </button>
+            <div className="text-[12px] text-stone-500">
+              <p>PNG or JPG, up to 2 MB.</p>
+              {form.logoPreview && (
+                <button type="button" onClick={() => upd("logoPreview", null)} className="mt-1 font-semibold text-red-600 hover:text-red-700">
+                  Remove logo
+                </button>
+              )}
+            </div>
           </div>
+          <FieldError>{errors.logo}</FieldError>
         </div>
-        <FieldError>{errors.logo}</FieldError>
-      </div>
+      )}
 
       <AuthField label="Company name" icon={Building2} placeholder="Acme Inc." autoComplete="organization"
         value={form.companyName} onChange={(e) => upd("companyName", e.target.value)} error={errors.companyName} />
@@ -547,52 +588,67 @@ export default function RegisterPage() {
         <FieldError>{errors.industry}</FieldError>
       </div>
 
+      {!USE_MOCK_API && (
+        <AuthField label="Your phone number" icon={Phone} type="tel" placeholder="+92 300 1234567" autoComplete="tel"
+          value={form.phone} onChange={(e) => upd("phone", e.target.value)} error={errors.phone}
+          hint="The number our team can reach you on during review." />
+      )}
+
+      {USE_MOCK_API && (
+        <>
       <div>
-        <p className={labelCls}>
-          Team size <span className="font-normal text-stone-400">(employees)</span>
+            <p className={labelCls}>
+              Team size <span className="font-normal text-stone-400">(employees)</span>
+            </p>
+            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Team size">
+              {COMPANY_SIZES.map((s) => {
+                const on = form.companySize === `${s} employees`;
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    onClick={() => upd("companySize", on ? "" : `${s} employees`)}
+                    className={`h-10 rounded-xl border px-4 text-[13px] font-semibold transition-all duration-200 ${
+                      on ? "border-ink bg-ink text-white" : "border-[var(--line)] bg-white text-stone-600 hover:border-stone-300 hover:text-ink"
+                    }`}
+                  >
+                    {s}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+    
+          <AuthField label="Website" icon={Globe} type="url" placeholder="https://yourcompany.com" autoComplete="url"
+            value={form.website} onChange={(e) => upd("website", e.target.value)} error={errors.website} />
+    
+          <div>
+            <label htmlFor="description" className={labelCls}>
+              About the company <span className="font-normal text-stone-400">(optional)</span>
+            </label>
+            <div className="relative">
+              <textarea
+                id="description"
+                rows={4}
+                value={form.description}
+                onChange={(e) => upd("description", e.target.value.slice(0, 500))}
+                placeholder="Your mission, culture and what makes your team a great place to work."
+                className="field !h-auto resize-none py-3 pb-7"
+              />
+              <span className="pointer-events-none absolute bottom-2.5 right-3.5 text-[11px] tabular-nums text-stone-400">
+                {form.description.length}/500
+              </span>
+            </div>
+          </div>
+        </>
+      )}
+      {!USE_MOCK_API && (
+        <p className="text-[13px] text-stone-500">
+          You will add your logo, team size, website and description after your company is approved.
         </p>
-        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Team size">
-          {COMPANY_SIZES.map((s) => {
-            const on = form.companySize === `${s} employees`;
-            return (
-              <button
-                key={s}
-                type="button"
-                role="radio"
-                aria-checked={on}
-                onClick={() => upd("companySize", on ? "" : `${s} employees`)}
-                className={`h-10 rounded-xl border px-4 text-[13px] font-semibold transition-all duration-200 ${
-                  on ? "border-ink bg-ink text-white" : "border-[var(--line)] bg-white text-stone-600 hover:border-stone-300 hover:text-ink"
-                }`}
-              >
-                {s}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <AuthField label="Website" icon={Globe} type="url" placeholder="https://yourcompany.com" autoComplete="url"
-        value={form.website} onChange={(e) => upd("website", e.target.value)} error={errors.website} />
-
-      <div>
-        <label htmlFor="description" className={labelCls}>
-          About the company <span className="font-normal text-stone-400">(optional)</span>
-        </label>
-        <div className="relative">
-          <textarea
-            id="description"
-            rows={4}
-            value={form.description}
-            onChange={(e) => upd("description", e.target.value.slice(0, 500))}
-            placeholder="Your mission, culture and what makes your team a great place to work."
-            className="field !h-auto resize-none py-3 pb-7"
-          />
-          <span className="pointer-events-none absolute bottom-2.5 right-3.5 text-[11px] tabular-nums text-stone-400">
-            {form.description.length}/500
-          </span>
-        </div>
-      </div>
+      )}
 
       <div className="flex gap-3 rounded-2xl border border-brand/20 bg-brand-soft p-4">
         <Info size={17} className="mt-0.5 shrink-0 text-brand" />
@@ -656,10 +712,10 @@ export default function RegisterPage() {
               <CloudUpload size={22} />
             </span>
             <span className="text-[14px] font-semibold text-ink">{isDragging ? "Drop to upload" : "Drop your CV here, or browse"}</span>
-            <span className="text-[12px] text-stone-500">PDF or Word · up to 5 MB</span>
+            <span className="text-[12px] text-stone-500">PDF or DOCX · up to 5 MB</span>
           </button>
         )}
-        <input ref={fileRef} type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={(e) => handleFile(e.target.files[0])} />
+        <input ref={fileRef} type="file" accept=".pdf,.docx" className="hidden" onChange={(e) => handleFile(e.target.files[0])} />
         <FieldError>{errors.cv}</FieldError>
       </div>
     </div>

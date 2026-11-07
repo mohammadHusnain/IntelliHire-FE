@@ -11,6 +11,8 @@ export const ROUTES = {
   HOME: "/",
   LOGIN: "/login",
   REGISTER: "/register",
+  VERIFY_EMAIL: "/verify-email",
+  RESET_PASSWORD: "/reset-password",
   UNAUTHORIZED: "/unauthorized",
 
   // Candidate

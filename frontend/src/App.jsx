@@ -14,6 +14,8 @@ import CompanyLayout, { CompanyGate } from "@/components/company/CompanyLayout";
 const LandingPage = lazy(() => import("@/pages/public/LandingPage"));
 const LoginPage = lazy(() => import("@/pages/public/LoginPage"));
 const RegisterPage = lazy(() => import("@/pages/public/RegisterPage"));
+const VerifyEmailPage = lazy(() => import("@/pages/public/VerifyEmailPage"));
+const ResetPasswordPage = lazy(() => import("@/pages/public/ResetPasswordPage"));
 const NotFoundPage = lazy(() => import("@/pages/public/NotFoundPage"));
 const UnauthorizedPage = lazy(() => import("@/pages/public/UnauthorizedPage"));
 
@@ -71,6 +73,8 @@ function App() {
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
             <Route path="/register" element={<GuestRoute><RegisterPage /></GuestRoute>} />
+            <Route path="/verify-email" element={<VerifyEmailPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
             {/* ── Candidate Routes (role-guarded) ── */}

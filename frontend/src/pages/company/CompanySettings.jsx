@@ -5,7 +5,8 @@ import AuthField from "@/components/shared/AuthField";
 import Reveal from "@/components/shared/Reveal";
 import { useCompanyActions, useCompanyRecord } from "@/store/companyStore";
 import { useLogout } from "@/hooks/useLogout";
-import { authApi } from "@/api/authApi";
+import { useNavigate } from "react-router-dom";
+import { useAuthStore } from "@/store/authStore";
 import { formatDate } from "@/lib/candidateStats";
 import { downloadFile } from "@/lib/csv";
 import { toast } from "@/store/toastStore";
@@ -33,6 +34,8 @@ export default function CompanySettings() {
   const record = useCompanyRecord();
   const { updateProfile, updatePrefs } = useCompanyActions();
   const logout = useLogout();
+  const navigate = useNavigate();
+  const changePasswordAction = useAuthStore((s) => s.changePassword);
   const [tab, setTab] = useState("company");
   const [tick, setTick] = useState(0);
   const [draft, setDraft] = useState(() => ({ ...record.profile }));
@@ -77,16 +80,22 @@ export default function CompanySettings() {
     if (pwd.confirm !== pwd.next) errs.confirm = "Passwords do not match";
     setPwdErrors(errs);
     if (Object.keys(errs).length) return;
+    if (pwdBusy) return;
     setPwdBusy(true);
-    try {
-      await authApi.changePassword(record.profile.email, pwd.current, pwd.next);
-      setPwd({ current: "", next: "", confirm: "" });
-      toast({ title: "Password updated", message: "Use your new password the next time you log in." });
-    } catch (err) {
-      toast({ type: "error", title: "Password not changed", message: err.message });
-    } finally {
-      setPwdBusy(false);
+    const result = await changePasswordAction({ current: pwd.current, next: pwd.next });
+    setPwdBusy(false);
+    if (result.success) {
+      // The server ends every session of this account on a password change, and the store has already
+      // signed this browser out, so continue at the login page.
+      navigate("/login", { replace: true });
+      return;
     }
+    const fields = result.fieldErrors || {};
+    if (fields.old_password || fields.new_password) {
+      setPwdErrors({ current: fields.old_password?.[0] || "", next: fields.new_password?.[0] || "" });
+      return;
+    }
+    toast({ type: "error", title: "Password not changed", message: result.error });
   };
 
   const exportData = () => {

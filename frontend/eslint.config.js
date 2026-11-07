@@ -18,4 +18,14 @@ export default defineConfig([
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
   },
+  {
+    // build/test tooling runs in Node, not in the browser
+    files: ['vite.config.js', 'e2e/**/*.{js,mjs}', 'scripts/**/*.{js,mjs}'],
+    languageOptions: { globals: globals.node },
+  },
+  {
+    files: ['src/**/*.test.{js,jsx}', 'src/test/**/*.{js,jsx}'],
+    languageOptions: { globals: { ...globals.browser, ...globals.vitest, ...globals.node } },
+    rules: { 'react-refresh/only-export-components': 'off' },
+  },
 ])
