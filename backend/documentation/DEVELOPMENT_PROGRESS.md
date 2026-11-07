@@ -11,8 +11,8 @@ A step is "complete" only when implementation, executed tests, documentation and
 | 3 — Module 1: Authentication and accounts | **Complete.** Approved by the owner and merged into `IntelliHire-backend` (`7fdb54b`); `main` untouched |
 | 3 — Module 2: Company management | **Complete.** Approved by the owner and merged into `IntelliHire-backend` (`53826a8`) |
 | 3 — Module 3: Job posting and form | **Complete.** Approved by the owner and merged into `IntelliHire-backend` (`941f3f4`) |
-| 3 — Module 4: Applications | **Built and verified on `IntelliHire-backend`** (`7a57b04`) |
-| Company dashboard, Integration (Phase 4) | **Built and verified on `IntelliHire-backend`; awaiting owner approval** |
+| 3 — Module 4: Applications | **Complete.** Verified on a fresh clone of GitHub and approved by the owner; on `IntelliHire-backend` (`7a57b04`) |
+| Company dashboard, Integration (Phase 4) | **Complete.** Verified on a fresh clone of GitHub and approved by the owner; on `IntelliHire-backend` (`f1adaaf`) |
 | Phase 5 — Frontend integration | Not started; requires explicit owner authorisation |
 
 ## Module 1 (built on `backend/module-01`, merged into `IntelliHire-backend`)
@@ -95,7 +95,7 @@ A step is "complete" only when implementation, executed tests, documentation and
 - `makemigrations --check`: no changes. `spectacular --validate --fail-on-warn`: passes. `check`: no issues. `check --deploy` (production settings): only the two deliberate HSTS notes.
 - Live HTTP self-test on `runserver` + PostgreSQL with real multipart uploads: 51 of 51 steps behaved as specified (TC-16 to TC-22 flows, duplicates, honeypot, HR review, status history, downloads, CSV, locked fields, Company B isolation). No 500s; no passwords, JWTs or resume text in the log; files on disk have random names. Test data and files were removed afterwards.
 
-## Phase 4: dashboard and integration (built directly on `IntelliHire-backend`)
+## Phase 4: dashboard and integration (on `IntelliHire-backend`; approved)
 
 **Delivered**
 - Analysis and plan: `MODULE_DEPENDENCIES.md` (integration points, guards).
@@ -115,4 +115,6 @@ A step is "complete" only when implementation, executed tests, documentation and
 
 ## Next step
 
-Owner approves Phase 4. Then, on explicit authorisation, Phase 5: connect the frontend page by page in the Doc's order, using the field mappings and known differences listed in `API_CONTRACTS.md`. Before that, the deployment questions (Q3, Q23) should be answered.
+Phase 4 and Module 4 are approved. Phase 5, on the owner's explicit go-ahead: connect the frontend page by page in the Doc's order, using the field mappings and known differences listed in `API_CONTRACTS.md`. Before that, the deployment questions (Q3, Q23) should be answered.
+
+**Approval check (before approving).** A fresh clone of `origin/IntelliHire-backend` at `f1adaaf` was installed into a new virtualenv: 1159 tests passed; every Doc §4 requirement and TC-16 to TC-22 were run by name and passed; the 68-operation sweeps, quality gates and the end-to-end journey passed; `makemigrations --check`, the OpenAPI validation and `check` were clean.
