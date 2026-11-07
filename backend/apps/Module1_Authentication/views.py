@@ -1,7 +1,8 @@
 from django.http import FileResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.debug import sensitive_post_parameters
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from django.db.models import Count
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.exceptions import NotFound
 from rest_framework.generics import GenericAPIView, ListCreateAPIView, RetrieveUpdateAPIView
@@ -10,13 +11,17 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
+from apps.common.choices import UserStatus
 from apps.common.errors import ApiError
 from apps.common.parsers import LimitedMultiPartParser
 from apps.common.permissions import IsCandidate, IsPlatformAdmin
 
 from . import services
-from .models import CandidateProfile, Education, Experience
+from .filters import AdminUserFilter
+from .models import CandidateProfile, Education, Experience, User
 from .serializers import (
+    AdminUserListResponseSerializer,
+    AdminUserSerializer,
     MAX_EDUCATION_ROWS,
     MAX_EXPERIENCE_ROWS,
     CandidateProfileSerializer,
@@ -61,11 +66,9 @@ class CandidateRegisterView(PublicAPIView):
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = services.register_candidate(
-            full_name=serializer.validated_data["full_name"],
-            email=serializer.validated_data["email"],
-            password=serializer.validated_data["password"],
-        )
+        data = dict(serializer.validated_data)
+        data.pop("confirm_password")
+        user = services.register_candidate(**data)
         return Response({"email": user.email, "status": user.status}, status=status.HTTP_201_CREATED)
 
 
@@ -273,6 +276,42 @@ class EducationDetailView(_ProfileRowsMixin, UpdateModelMixin, DestroyModelMixin
 class ExperienceDetailView(EducationDetailView):
     serializer_class = ExperienceSerializer
     model = Experience
+
+
+class UserListView(GenericAPIView):
+    """Platform admin: every account, filterable, with status counts for the tabs."""
+
+    permission_classes = [IsPlatformAdmin]
+    serializer_class = AdminUserSerializer
+    filterset_class = AdminUserFilter
+    ordering_fields = ["date_joined", "full_name", "email", "last_login"]
+    ordering = ["-date_joined", "-id"]
+
+    def get_queryset(self):
+        return User.objects.select_related("company_membership__company")
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("search", str, required=False, description="Part of the email, name or company name."),
+            OpenApiParameter("ordering", str, required=False, description="date_joined, full_name, email or last_login; prefix with - for descending."),
+        ],
+        description=(
+            "Paginated accounts. `role` and `status` may be repeated to match several values. "
+            "`status_counts` covers every account matching the role and search filters (ignoring `status`) so tabs stay stable."
+        ),
+        responses={200: AdminUserListResponseSerializer},
+    )
+    def get(self, request):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        response = self.get_paginated_response(AdminUserSerializer(page, many=True).data)
+        params = request.query_params.copy()
+        params.pop("status", None)  # the tabs show every status, so the status filter must not narrow them
+        scope = AdminUserFilter(params, queryset=self.get_queryset()).qs
+        counts = {status: 0 for status in UserStatus.values}
+        counts.update({row["status"]: row["total"] for row in scope.values("status").annotate(total=Count("pk"))})
+        response.data["status_counts"] = {**counts, "total": sum(counts.values())}
+        return response
 
 
 class _UserStatusView(GenericAPIView):

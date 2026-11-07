@@ -13,7 +13,7 @@ Statuses: **Resolved** (decision recorded), **Open**, **Deferred**. "Needed befo
 | Q8 | User suspend/reactivate | **Resolved:** added (D-022) |
 | Q9 | Profile CV privacy | **Resolved:** authenticated download (D-023) |
 | Q10 | User deletion | **Resolved:** not in Phase 1 (D-024) |
-| Q13 | Candidate sign-up payload | **Resolved:** Doc contract (D-025) |
+| Q13 | Candidate sign-up payload | **Resolved:** Doc contract (D-025), then **extended by the owner** with optional profile answers and a CV (D-073) |
 | Q14 | Extra profile fields | **Resolved:** added (D-025) |
 | Q18 | CV and photo rules | **Resolved:** Doc rules (D-026) |
 | Q7 | Platform-admin read access to jobs and applications | **Resolved:** not in Phase 1 (D-043) |

@@ -40,7 +40,14 @@ def derive_status(user):
     return UserStatus.ACTIVE
 
 
-def register_candidate(*, full_name, email, password):
+def register_candidate(*, full_name, email, password, resume=None, **profile_fields):
+    """Create the account and its profile in one transaction.
+
+    `profile_fields` are the optional sign-up answers (target_role, skills, linkedin_url, github_url).
+    An attached CV is stored privately and its text extracted; if anything fails the stored file is
+    removed again, so no half-created account and no orphan file remain.
+    """
+    stored = []
     try:
         with transaction.atomic():
             user = User.objects.create_user(
@@ -50,13 +57,29 @@ def register_candidate(*, full_name, email, password):
                 role=UserRole.CANDIDATE,
                 status=UserStatus.PENDING_VERIFICATION,
             )
-            CandidateProfile.objects.create(user=user)
+            profile = CandidateProfile(user=user, **profile_fields)
+            if resume is not None:
+                profile.resume_text = extract_resume_text(resume, Path(resume.name).suffix.lower())
+                profile.resume.save(resume.name, resume, save=False)
+                stored.append(profile.resume.name)
+                profile.resume_original_name = Path(resume.name).name[:255]
+            profile.save()
             emails.send_verification_email(user)
     except IntegrityError as exc:
+        _discard_files(stored)
         if "email" in violated_constraint(exc):
             raise serializers.ValidationError({"email": [EMAIL_TAKEN]})
         raise
+    except BaseException:
+        _discard_files(stored)
+        raise
     return user
+
+
+def _discard_files(names):
+    storage = private_storage()
+    for name in names:
+        storage.delete(name)
 
 
 def verify_email(token):

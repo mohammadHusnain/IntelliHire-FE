@@ -139,3 +139,10 @@ Not verifiable until Module 4 exists: TC-16's "submit returns 410", and the lock
 | TC-01 to TC-22 as one story across all modules | `test_full_journey.py` |
 
 TC-12 previously had its pieces tested but no single named test; it now has one.
+
+## Phase 5 backend additions traceability
+
+| Requirement | Where it is verified (`Module1_Authentication/tests/`) |
+|---|---|
+| D-073 sign-up with profile answers and CV: JSON and multipart, validation, atomic rollback, no orphan file, throttle, size cap, data visible after login | `test_register_candidate_profile.py` |
+| D-074 admin users list: access, shape, filters, search, ordering, pagination, status counts, bounded queries | `test_platform_admin_user_list.py` |

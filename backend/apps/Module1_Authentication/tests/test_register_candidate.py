@@ -106,7 +106,7 @@ def test_role_and_status_cannot_be_chosen_by_the_client(api_client):
 
 
 def test_failure_rolls_everything_back_and_sends_no_email(api_client, django_capture_on_commit_callbacks):
-    with mock.patch("apps.Module1_Authentication.services.CandidateProfile.objects.create", side_effect=DatabaseError):
+    with mock.patch("apps.Module1_Authentication.services.CandidateProfile.save", side_effect=DatabaseError):
         with django_capture_on_commit_callbacks(execute=True):
             with pytest.raises(DatabaseError):
                 api_client.post(URL, payload(), format="json")

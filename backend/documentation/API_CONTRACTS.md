@@ -27,7 +27,7 @@ Source: Doc §1.7. Implemented and tested on `backend/module-01`; deviations and
 
 | Method | Endpoint | Access | Request | Success | Main errors | Status |
 |---|---|---|---|---|---|---|
-| POST | /api/auth/register/candidate/ | Public | full_name, email, password, confirm_password | 201 email, status | 400 field errors (duplicate email, weak password, mismatch) | implemented |
+| POST | /api/auth/register/candidate/ | Public | full_name, email, password, confirm_password; optional target_role, skills, linkedin_url, github_url, resume (JSON, or multipart when a CV is attached; D-073) | 201 email, status | 400 field errors (duplicate email, weak password, mismatch, bad CV or URL); 413; 429 | implemented |
 | POST | /api/auth/register/company/ | Public | company_name, industry, official_email, admin_full_name, admin_phone, password, confirm_password | 201 email, status | 400 field errors | implemented |
 | POST | /api/auth/verify-email/ | Public | token | 200 detail, status | 400 expired or invalid | implemented |
 | POST | /api/auth/resend-verification/ | Public | email | 200 always | 429 throttled | implemented |
@@ -52,10 +52,13 @@ Source: Doc §1.7. Implemented and tested on `backend/module-01`; deviations and
 | Method | Endpoint | Access | Request | Success | Main errors | Status |
 |---|---|---|---|---|---|---|
 | GET | /api/auth/profile/resume/ | Candidate | none | 200 the CV as an attachment (original file name, `Cache-Control: private, no-store`) | 404 no resume | implemented |
+| GET | /api/platform-admin/users/ | Platform admin | ?role, ?status (repeat to match several), ?search, ?ordering, ?page, ?page_size | 200 paginated accounts + `status_counts` (D-074) | 400 bad filter; 403 | implemented |
 | POST | /api/platform-admin/users/<user_id>/suspend/ | Platform admin | none | 200 user object | 400 self or another platform admin; 404; 409 already suspended | implemented |
 | POST | /api/platform-admin/users/<user_id>/reactivate/ | Platform admin | none | 200 user object | 404; 409 not suspended | implemented |
 
 **Deviations from the Doc (all recorded in `DECISIONS.md`)**
+- Candidate sign-up also accepts the optional profile answers and a CV (owner decision D-073); sign-up with only the four account fields still works. Skills are repeated keys in multipart. The CV follows the profile CV rules (PDF/DOCX, 5 MB), is stored privately and its text extracted; a rejected sign-up leaves no file behind.
+- `GET /api/platform-admin/users/` (D-074) rows: `id, email, full_name, role, status, email_verified, date_joined, last_login, company{id,name,member_role,status}|null`; default order newest first; `status_counts` ignores the `status` filter so tabs stay stable.
 - `PUT /api/auth/profile/resume/` returns `{"resume": "/api/auth/profile/resume/"}`, a relative path to the authenticated download (D-023). The same path appears as `resume` in the profile.
 - The profile also carries `bio`, `target_role`, `experience_level` (`entry`/`mid`/`senior`), `portfolio_url` and read-only `resume_name` (D-025). Name and email are not in the profile; use `GET /api/auth/me/`.
 - Sign-up endpoints reject extra fields silently (no mass assignment); the company sign-up route is served by the `companies` app (D-027).

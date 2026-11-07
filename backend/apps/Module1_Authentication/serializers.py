@@ -25,6 +25,18 @@ FUTURE_YEARS = 10
 RESUME_DOWNLOAD_PATH = "/api/auth/profile/resume/"
 
 
+def clean_skills(value):
+    """Trim, drop blanks, de-duplicate case-insensitively and cap the list."""
+    cleaned, seen = [], set()
+    for skill in (item.strip() for item in value):
+        if skill and skill.lower() not in seen:
+            seen.add(skill.lower())
+            cleaned.append(skill)
+    if len(cleaned) > MAX_SKILLS:
+        raise serializers.ValidationError(f"Add at most {MAX_SKILLS} skills.")
+    return cleaned
+
+
 class DetailSerializer(serializers.Serializer):
     detail = serializers.CharField()
 
@@ -74,8 +86,21 @@ class PasswordPairSerializer(serializers.Serializer):
 
 
 class CandidateRegistrationSerializer(PasswordPairSerializer):
+    """Account fields plus optional profile fields collected at sign-up (owner decision D-073).
+
+    Accepts JSON, or multipart when a CV is attached (`skills` as repeated keys).
+    """
+
     full_name = serializers.CharField(max_length=150)
     email = serializers.EmailField(max_length=254)
+    target_role = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    skills = serializers.ListField(child=serializers.CharField(max_length=MAX_SKILL_LENGTH), required=False)
+    linkedin_url = serializers.URLField(max_length=300, required=False, allow_blank=True)
+    github_url = serializers.URLField(max_length=300, required=False, allow_blank=True)
+    resume = serializers.FileField(required=False, validators=[validate_cv_file])
+
+    def validate_skills(self, value):
+        return clean_skills(value)
 
     def validate_email(self, value):
         email = normalize_email(value)
@@ -234,14 +259,7 @@ class CandidateProfileSerializer(serializers.ModelSerializer):
         return RESUME_DOWNLOAD_PATH if profile.resume else None
 
     def validate_skills(self, value):
-        cleaned, seen = [], set()
-        for skill in (item.strip() for item in value):
-            if skill and skill.lower() not in seen:
-                seen.add(skill.lower())
-                cleaned.append(skill)
-        if len(cleaned) > MAX_SKILLS:
-            raise serializers.ValidationError(f"Add at most {MAX_SKILLS} skills.")
-        return cleaned
+        return clean_skills(value)
 
     def update(self, instance, validated_data):
         old_avatar = instance.avatar.name if "avatar" in validated_data else ""
@@ -251,3 +269,26 @@ class CandidateProfileSerializer(serializers.ModelSerializer):
                 storage = instance.avatar.storage
                 transaction.on_commit(lambda: storage.delete(old_avatar))
         return instance
+
+
+class AdminUserSerializer(serializers.ModelSerializer):
+    """A user as the platform admin sees them in the users list (never any credential)."""
+
+    company = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ["id", "email", "full_name", "role", "status", "email_verified", "date_joined", "last_login", "company"]
+        read_only_fields = fields
+
+    @extend_schema_field(CompanySummarySerializer(allow_null=True))
+    def get_company(self, user):
+        return UserSerializer.get_company(self, user)
+
+
+class AdminUserListResponseSerializer(serializers.Serializer):
+    count = serializers.IntegerField()
+    next = serializers.CharField(allow_null=True)
+    previous = serializers.CharField(allow_null=True)
+    results = AdminUserSerializer(many=True)
+    status_counts = serializers.DictField(child=serializers.IntegerField())
