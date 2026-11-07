@@ -17,8 +17,8 @@ Source of truth for contracts: Doc §1.7, §2.4, §3.4, §4.5. These tables are 
 | `/api/company/` | `Module2_CompanyManagement` (label `companies`): company admin and HR side |
 | `/api/platform-admin/` | `users/` from Module 1; `companies/` from Module 2 |
 | `/api/jobs/` | `Module3_JobPosting` (label `jobs`): HR side |
-| `/api/jobs/<job_id>/applications/`, `/api/applications/` | applications (HR side) |
-| `/api/public/` | `invitations/` (Module 2); `jobs/<slug>/` (Module 3); apply (Module 4) |
+| `/api/jobs/<job_id>/applications/`, `/api/applications/` | `Module4_ApplicationManagement` (label `applications`): HR side |
+| `/api/public/` | `invitations/` (Module 2); `jobs/<slug>/` (Module 3); `jobs/<slug>/apply/` (Module 4) |
 | `/api/docs/`, `/admin/` | Swagger UI, Django admin |
 
 ## Module 1 — Authentication and account management (`Module1_Authentication`)
@@ -174,20 +174,40 @@ Source: Doc §3.4. Implemented and tested on `backend/module-03`; behaviour note
 
 **Deviations and clarifications (in `DECISIONS.md`):** D-048 to D-060.
 
-## Module 4 — Candidate application management (`applications`)
+## Module 4 — Candidate application management (`Module4_ApplicationManagement`)
 
-Source: Doc §4.5. All rows are **planned** until the module's completion report marks them implemented.
+Source: Doc §4.5. Implemented and tested on `IntelliHire-backend`; behaviour notes follow the table.
 
 | Method | Endpoint | Access | Request | Success | Main errors | Status |
 |---|---|---|---|---|---|---|
-| POST | /api/public/jobs/<form_slug>/apply/ | Public | multipart: built-in fields, resume, custom answers and files | 201 reference, job title, company, submitted_at | 400 field errors; 404; 410 closed; 429; 503 | planned |
-| GET | /api/jobs/<job_id>/applications/ | Company user | ?status, ?search, ?submitted_after, ?submitted_before, ?education_level, ?ordering | 200 paginated list + status counts | 404 other company | planned |
-| GET | /api/applications/ | Company user | ?job, plus the filters above | 200 paginated list |  | planned |
-| GET | /api/applications/<id>/ | Company user | none | 200 full detail | 404 | planned |
-| PATCH | /api/applications/<id>/status/ | Admin, HR manager, recruiter | status, note | 200 application | 400 invalid status; 403 viewer | planned |
-| GET | /api/applications/<id>/resume/ | Company user | none | file download or signed URL | 404 | planned |
-| GET | /api/applications/<id>/files/<field_key>/ | Company user | none | file download | 404 | planned |
-| GET | /api/jobs/<job_id>/applications/export/ | Company user | none | CSV file |  | planned |
+| POST | /api/public/jobs/<form_slug>/apply/ | Public | multipart: built-in fields, `resume`, custom answers and files | 201 reference, job_title, company, submitted_at | 400 field errors; 404; 410 closed; 413; 415; 429; 503 | implemented |
+| GET | /api/jobs/<job_id>/applications/ | Company user | ?status, ?search, ?submitted_after, ?submitted_before, ?education_level, ?ordering | 200 paginated list + `status_counts` | 400 bad filter; 404 other company | implemented |
+| GET | /api/applications/ | Company user | ?job, plus the filters above | 200 paginated list with job | 400 | implemented |
+| GET | /api/applications/<id>/ | Company user | none | 200 full detail | 404 | implemented |
+| PATCH | /api/applications/<id>/status/ | Admin, HR manager, recruiter | status, note | 200 application detail | 400 invalid or unchanged status; 403 viewer; 404 | implemented |
+| GET | /api/applications/<id>/resume/ | Company user | none | file download (attachment) | 404 | implemented |
+| GET | /api/applications/<id>/files/<field_key>/ | Company user | none | file download (attachment) | 404 | implemented |
+| GET | /api/jobs/<job_id>/applications/export/ | Company user | none | CSV file | 404 | implemented |
+
+### Module 4 — implemented behaviour
+
+- **Submit format.** `multipart/form-data` only (JSON gets 415). Text answers are form fields named by the field `key`; files are file parts (`resume` for the CV, custom file fields under their key). **Multiple-choice answers are repeated keys.** Unknown keys are ignored. Request bodies above 12 MB get 413 before anything is stored.
+- **Order of checks.** Unknown slug or draft: 404 → honeypot → job row locked and `is_accepting_applications` checked (410 "This position is no longer accepting applications.") → every built-in and custom field validated → duplicate email → save.
+- **Errors.** One 400 with every problem keyed by field key: `{"email": ["Email is required."], "resume": ["Only PDF and DOCX files are accepted."], ...}`. Built-in messages: `<Label> is required.`, `Enter a valid email address.`, `Enter a valid phone number.`, graduation year between 1970 and the current year + 6, CV "Only PDF and DOCX files are accepted." / "File must be 5 MB or smaller.". Duplicate: "You have already applied for this position with this email.".
+- **Custom field rules.** Required → "<Label> is required."; short text ≤ 255 (or the field's `max_length`), long text ≤ 5000; number must parse (stored as a number); email and URL (http/https) valid; date `YYYY-MM-DD`; single choice must be an option; multiple choice must be a subset; files follow the CV rules (PDF/DOCX, 5 MB).
+- **Honeypot.** The hidden form field `hp-website` must stay empty. If filled, the response looks like a success (201, a fake reference) but nothing is saved and no email is sent.
+- **Throttle.** 10 submissions per hour per IP (`public_apply`).
+- **Storage.** Files live in the private storage under `applications/<job_id>/<random>.<ext>`, never under their own name and never at a public URL. HR downloads through the two protected endpoints (attachment with the original name, `Cache-Control: private, no-store`). If anything fails, files already written are deleted.
+- **Failures.** A temporary database error is retried once; a second failure returns 503 "We could not save your application. Please try again." with no partial record and no orphan file. A failing mail server never fails the application.
+- **Candidate link.** If a valid candidate token is sent, `candidate_user` is set; a company or invalid token is ignored. The endpoint never requires a login.
+- **Confirmation email** (after commit): applicant gets job title, company, submission time (UTC) and the reference `IH-XXXXXX`.
+- **List rows:** `id, reference, full_name, email, phone, education_level, institution, status, submitted_at, has_cv` (company-wide list adds `job{id, title}`). `status_counts` has every status plus `total` for the job and ignores the filters (so tabs stay stable). Default order is newest first; `?ordering=submitted_at|full_name`; `?search=` matches name, email or reference; `submitted_after/before` are inclusive dates.
+- **Detail:** built-in fields, `resume{name, url}`, `answers[]` as `{key, label, type, value}` in the job's current form order (a renamed field shows its new label, an unanswered field `null`, a file answer `{name, url}`), and `status_history[]` with who, when and the note. IP address and user agent are never exposed.
+- **Status change:** any status to any other different status (Phase 1, by hand); the change and its history row are written in one transaction; viewers get 403; candidates are not emailed in Phase 1.
+- **CSV export:** UTF-8 with BOM, built-in columns plus one column per custom field, newest first; cells that could run as spreadsheet formulas are prefixed with an apostrophe.
+- **Module 3 link.** `applications_count` on jobs is now real (and can be ordered by), and after the first application the custom-field locks of Module 3 are enforced.
+
+**Decisions:** D-061 to D-070.
 
 ## Known frontend differences to resolve before Phase 5
 

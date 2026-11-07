@@ -17,7 +17,7 @@ Rules worth knowing
 - A job is `draft` → `open` (publish gives a permanent slug) → `closed` (manual or deadline); reopen keeps the slug. Only drafts are deleted.
 - `is_accepting_applications` (open, deadline in the future, company approved) is what every public check must use; a job is effectively closed the moment its deadline passes, before the command runs.
 - Company, status, slug and creator are never taken from a request body.
-- Applications arrive in Module 4. Until then `applications_count` is 0 and nothing locks the custom fields; `services/applications_link.py` switches both on when the `applications` app exists.
+- Applications come from Module 4. `services/applications_link.py` is the only place that reads them: `applications_count` is the real count and, once a job has an application, the custom-field locks apply.
 
 ## Closing expired jobs (every 5 minutes)
 

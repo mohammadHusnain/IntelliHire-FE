@@ -18,7 +18,9 @@ backend/
                              (services/, serializers/, views/ packages; urls.py, public_urls.py, platform_urls.py, auth_urls.py)
     Module3_JobPosting/      (label jobs) JobPosting, ApplicationField; job lifecycle, custom fields, form schema,
                              public job endpoint, close_expired_jobs command (services/, serializers/, views/)
-    Module4_…                created when Module 4 starts (same layout: models, services, serializers, views, urls, tests, README)
+    Module4_ApplicationManagement/ (label applications) Application, ApplicationFile, ApplicationStatusChange; public
+                             apply, validation against the job's form, private file storage, HR lists/detail/status/
+                             downloads/export (services/, serializers/, views/)
   documentation/  requirements/  scripts/  .env.example
 ```
 

@@ -22,6 +22,7 @@ Statuses: **Resolved** (decision recorded), **Open**, **Deferred**. "Needed befo
 | Q21 | Where a suspension reason is stored | **Resolved:** `suspension_reason` column (D-039) |
 | Q5 | Salary currency | **Resolved:** free-text currency code, whole-number amounts (D-055) |
 | Q16 | Job fields vs frontend | **Resolved:** Doc schema wins; frontend adapts in Phase 5 (D-055) |
+| Q17 | Frontend stages vs Doc statuses | **Resolved:** the Doc's seven statuses; frontend maps in Phase 5 (D-067) |
 | T-1 | Tally/ERP integration | **Deferred** by the owner (D-001) |
 
 ## Open
@@ -31,7 +32,6 @@ Statuses: **Resolved** (decision recorded), **Open**, **Deferred**. "Needed befo
 | Q3 | Module 3 / deployment | Deployment target for Django and for the 5-minute `close_expired_jobs` schedule (cron, Azure, other); production email provider (SMTP/Gmail or SendGrid); how admin static files and Swagger assets are served. | Decide with the hosting choice. |
 | Q11 | Phase 5 | Frontend roles `candidate/company/admin` vs backend `candidate/company_admin/hr/platform_admin`. | Backend names; frontend maps. |
 | Q12 | Phase 5 | Frontend lacks `pending_verification` / `pending_approval` and any verification flow. | Frontend adopts the Doc statuses. |
-| Q17 | Module 4 | Frontend stages (Applied, Screened, Shortlisted, Interviewed, Offer, Rejected) vs Doc statuses (`submitted`, `under_review`, `shortlisted`, `interview`, `selected`, `rejected`, `on_hold`): mapping not inferable (e.g. Offer vs selected). | Owner defines the mapping. |
 | Q20 | Phase 5 | Confirm frontend admin settings, audit log, analytics, communities, notifications and interview pages stay mock-only. | Yes. |
 | Q22 | Before local setup | Python version on the owner's machine (code is run on 3.13). | Use 3.12 or newer. |
 | Q23 | Deployment | Scheduling: `python manage.py flushexpiredtokens` (token tables) alongside `close_expired_jobs` (Module 3); set `NUM_PROXIES` for the hosting proxy chain. | Decide with Q3. |

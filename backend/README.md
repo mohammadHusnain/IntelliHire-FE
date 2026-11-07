@@ -36,4 +36,4 @@ Swagger UI: http://localhost:8000/api/docs/ (local settings only; controlled by 
 
 ## Layout
 
-`config/` project settings and URLs · `apps/common` shared infrastructure · `apps/Module1_Authentication`, `apps/Module2_CompanyManagement`, `apps/Module3_JobPosting` (one folder per module, `Module<N>_<Name>`; Django labels `accounts`, `companies` and `jobs`; each has its own `README.md`) · `documentation/` project memory · `requirements/` dependencies · `scripts/` helper scripts.
+`config/` project settings and URLs · `apps/common` shared infrastructure · `apps/Module1_Authentication`, `apps/Module2_CompanyManagement`, `apps/Module3_JobPosting`, `apps/Module4_ApplicationManagement` (one folder per module, `Module<N>_<Name>`; Django labels `accounts`, `companies`, `jobs` and `applications`; each has its own `README.md`) · `documentation/` project memory · `requirements/` dependencies · `scripts/` helper scripts.

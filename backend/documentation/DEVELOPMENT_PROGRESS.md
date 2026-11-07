@@ -10,8 +10,8 @@ A step is "complete" only when implementation, executed tests, documentation and
 | 2 — Backend foundation | **Complete.** Approved by the owner and merged into `IntelliHire-backend` (`a1c6cec`) |
 | 3 — Module 1: Authentication and accounts | **Complete.** Approved by the owner and merged into `IntelliHire-backend` (`7fdb54b`); `main` untouched |
 | 3 — Module 2: Company management | **Complete.** Approved by the owner and merged into `IntelliHire-backend` (`53826a8`) |
-| 3 — Module 3: Job posting and form | **Built and verified on `backend/module-03`; awaiting owner approval** (not merged) |
-| 3 — Module 4 | Not started |
+| 3 — Module 3: Job posting and form | **Complete.** Approved by the owner and merged into `IntelliHire-backend` (`941f3f4`) |
+| 3 — Module 4: Applications | **Built and verified on `IntelliHire-backend`; awaiting owner approval** |
 | Dashboard, Integration (Phase 4) | Not started |
 | Phase 5 — Frontend integration | Not started; requires explicit owner authorisation |
 
@@ -56,7 +56,7 @@ A step is "complete" only when implementation, executed tests, documentation and
 - Jobs/applications metrics (Modules 3–4); SMTP delivery and Azure storage not exercised (Q3).
 - The last-admin guard is unreachable through the API (the caller is always an active admin who cannot touch themselves), so it is tested at service level and acts as a safety net for races.
 
-## Module 3 (built on `backend/module-03`; not merged)
+## Module 3 (merged into `IntelliHire-backend`)
 
 **Delivered**
 - All 14 endpoint rows of Doc §3.4: job list/create/detail/edit/delete-draft, publish (permanent slug and share URL), close, reopen, duplicate, form preview, custom fields (list, add, edit, delete, reorder with the post-application locking rules) and the public job endpoint.
@@ -77,6 +77,24 @@ A step is "complete" only when implementation, executed tests, documentation and
 - Live HTTP self-test on `runserver` + PostgreSQL: 72 of 72 steps behaved as specified (company approval, staff roles, TC-14 publish, drafts, filters, custom fields and reorder, preview = public form, locked edits, duplicate, close/reopen, TC-16 expired job and the real command, Company B isolation). No 500s; no passwords or JWTs in the server log. Test data removed afterwards.
 - Real bug found by the new tests and fixed: the second custom field got order 0 again (a falsy-zero error in the next-order calculation).
 
+## Module 4 (built directly on `IntelliHire-backend`)
+
+**Delivered**
+- All 8 Doc §4.5 endpoint rows: public apply, job-scoped and company-wide application lists, detail, status change with history, protected CV and custom-file downloads, CSV export.
+- Dynamic validation against each job's form (all errors at once), private storage under random names with cleanup on failure, retry-once-then-503, honeypot, throttle, request-size cap, confirmation email.
+- Migration `applications.0001_initial`; decisions D-061 to D-070; Q17 resolved by default.
+- Module 3's `applications_count` and custom-field locks now run on real data.
+
+**Honest scope notes**
+- Storage is the local private folder. The Doc's Azure Blob / SAS option is not built because the deployment target is undecided (Q3).
+- Candidates are not emailed on status change (Doc: Module 10 does that).
+- The company dashboard's jobs/applications blocks are still zeros; wiring them is the next step in the Doc build order.
+
+**Verified (executed here: Python 3.13, PostgreSQL 16)**
+- `python -m pytest`: **1010 passed** = 827 earlier tests (unchanged) + 183 new Module 4 tests, including real-thread concurrency tests (5 runs in a row, stable).
+- `makemigrations --check`: no changes. `spectacular --validate --fail-on-warn`: passes. `check`: no issues. `check --deploy` (production settings): only the two deliberate HSTS notes.
+- Live HTTP self-test on `runserver` + PostgreSQL with real multipart uploads: 51 of 51 steps behaved as specified (TC-16 to TC-22 flows, duplicates, honeypot, HR review, status history, downloads, CSV, locked fields, Company B isolation). No 500s; no passwords, JWTs or resume text in the log; files on disk have random names. Test data and files were removed afterwards.
+
 ## Next step
 
-Owner reviews and approves Module 3. After approval: merge `backend/module-03` into `IntelliHire-backend` (never `main`), then start Module 4 (applications) on `backend/module-04`. The owner will check the live database after Module 3 (PostgreSQL setup instructions can be repeated on request).
+Owner reviews and approves Module 4. After approval: the company dashboard step (real job and applicant counts, Doc build order step 7), then the integration pass (Phase 4). Phase 5 (frontend connection) only on explicit authorisation.

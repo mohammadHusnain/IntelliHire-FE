@@ -88,6 +88,32 @@ State CHECKs: `job_draft_has_no_slug`; `job_open_is_published` (slug, published_
 ### `jobs_applicationfield` (`jobs.0001_initial`)
 `id` bigint identity · `job_id` FK **CASCADE** (`related_name custom_fields`) · `label` 150 · `key` slug 150 (unique per job, generated from the label, never changes) · `field_type` (`short_text` `long_text` `number` `email` `url` `date` `single_choice` `multiple_choice` `file`, CHECK) · `required` · `options` jsonb list (2–20 unique items for choice types, empty otherwise: validated in code) · `help_text` 500 · `max_length` int null (CHECK ≥ 1; text types only) · `order` smallint. Unique `(job, key)`; index `(job, order)`; ordered by `(order, id)`.
 
+### `applications_application` (migration `applications.0001_initial`)
+| Column | Type | Rules |
+|---|---|---|
+| id | uuid PK | |
+| reference | varchar(20) **unique** | `IH-` + 6 characters (no 0/O/1/I) |
+| job_id | FK→jobposting **PROTECT** | `related_name applications` |
+| candidate_user_id | FK→user **SET NULL**, null | only when a candidate was logged in |
+| full_name 150, phone 20, institution 200 | varchar | |
+| email | varchar(254) | CHECK lowercase |
+| education_level | varchar(20) | same values as the job's education level, CHECK |
+| graduation_year | smallint | CHECK 1970–2100 (the 1970–current+6 rule is in code) |
+| resume | varchar(255) | private storage, `applications/<job_id>/<random>.<ext>` |
+| resume_original_name | varchar(255) | used for downloads |
+| answers | jsonb object | custom answers keyed by field key (files are in `applicationfile`) |
+| status | varchar(20) | `submitted` (default) `under_review` `shortlisted` `interview` `selected` `rejected` `on_hold`, CHECK |
+| ip_address | inet null, user_agent varchar(500) | abuse checks; never exposed by the API |
+| submitted_at, updated_at | timestamptz | |
+
+Constraints and indexes: **unique `(job, email)`** (`application_one_per_job_email`); `application_job_status_idx (job, status)`; `application_job_submitted_idx (job, submitted_at)`.
+
+### `applications_applicationfile` (`applications.0001_initial`)
+`id` bigint identity · `application_id` FK **CASCADE** (`related_name files`) · `field_key` slug · `file` (private storage) · `original_name` · `size`. Unique `(application, field_key)`.
+
+### `applications_applicationstatuschange` (`applications.0001_initial`)
+`id` bigint identity · `application_id` FK **CASCADE** (`related_name status_history`) · `from_status` (blank for the first row, CHECK) · `to_status` (CHECK) · `changed_by_id` FK→user **SET NULL**, null for the first row · `note` text · `changed_at`. Index `(application, changed_at)`; ordered by time.
+
 ### Other tables
 - `token_blacklist_*` (SimpleJWT): outstanding and blacklisted refresh tokens.
 - `django_cache` — production only, created by `manage.py createcachetable`; holds throttle counters.
@@ -95,5 +121,3 @@ State CHECKs: `job_draft_has_no_slug`; `job_open_is_published` (slug, published_
 
 ## Planned (Doc, not yet migrated)
 
-- **`applications_application`** (§4.1): UUID PK; unique `reference`; `job` FK PROTECT; nullable `candidate_user`; built-in answer columns; `resume` (private, random name) and `resume_original_name`; `answers` JSON; `status` (`submitted` `under_review` `shortlisted` `interview` `selected` `rejected` `on_hold`); `ip_address`, `user_agent`; timestamps. **Unique `(job, email)`**; indexes `(job, status)`, `(job, submitted_at)`.
-- **`applications_applicationfile`** and **`applications_applicationstatuschange`** (§4.1): custom file answers; audit history of status changes (`changed_by` nullable for system changes).

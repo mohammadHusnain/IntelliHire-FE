@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     "apps.Module1_Authentication",
     "apps.Module2_CompanyManagement",
     "apps.Module3_JobPosting",
+    "apps.Module4_ApplicationManagement",
 ]
 
 MIDDLEWARE = [
@@ -169,6 +170,7 @@ SPECTACULAR_SETTINGS = {
         "EducationLevelEnum": "apps.Module3_JobPosting.models.EducationLevel.choices",
         "CloseReasonEnum": "apps.Module3_JobPosting.models.CloseReason.choices",
         "FieldTypeEnum": "apps.Module3_JobPosting.models.FieldType.choices",
+        "ApplicationStatusEnum": "apps.Module4_ApplicationManagement.models.ApplicationStatus.choices",
     },
 }
 

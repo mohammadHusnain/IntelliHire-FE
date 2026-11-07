@@ -110,3 +110,20 @@ TC-01–07, 12, 14–22 are specified one by one; each module's tests carry the 
 | Concurrent publish, field-key allocation, close/delete races | `test_job_concurrency.py` (real threads) |
 
 Not verifiable until Module 4 exists: TC-16's "submit returns 410", and the lock rules against real applications (they are tested now with the application check patched to true).
+
+## Module 4 traceability (implemented on `IntelliHire-backend`)
+
+| Requirement / test case | Where it is verified (`Module4_ApplicationManagement/tests/`) |
+|---|---|
+| FR-27, TC-17 public submit, row linked to the job, first history row | `test_apply.py` (`test_tc17_…`) |
+| FR-28, TC-18 private random-name storage, protected download with the original name | `test_apply.py` (`test_tc18_…`) |
+| TC-19 wrong or oversized CV | `test_apply.py` (`test_tc19_…`) |
+| FR-30, TC-20 missing fields reported together by name; custom field rules per type | `test_apply.py` (`test_tc20_…`, `TestCustomFields`) |
+| FR-32, TC-21 confirmation email | `test_apply.py` (`test_tc21_…`) |
+| TC-16 submit returns 410 (closed, past deadline, company not approved) | `test_apply.py` (`test_tc16_…`) |
+| Duplicates, honeypot, throttle, request size, candidate link | `test_apply.py` |
+| Rollback, retry-once then 503, no orphan files | `test_apply.py` (`TestAtomicity`) |
+| FR-33 lists, filters, search, ordering, status counts, detail, status change and history, downloads, CSV | `test_review.py` |
+| TC-22 and company isolation on every endpoint | `test_isolation.py` |
+| Real `applications_count` and the post-application field locks | `test_module3_link.py` |
+| Duplicate-submission race, unique references, status-change chain, close-versus-submit race | `test_concurrency.py` (real threads) |
