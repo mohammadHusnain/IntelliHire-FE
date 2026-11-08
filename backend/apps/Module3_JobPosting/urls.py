@@ -4,6 +4,7 @@ from .views import fields, jobs
 
 urlpatterns = [
     path("", jobs.JobListCreateView.as_view(), name="job-list"),
+    path("departments/", jobs.JobDepartmentsView.as_view(), name="job-departments"),
     path("<uuid:job_id>/", jobs.JobDetailView.as_view(), name="job-detail"),
     path("<uuid:job_id>/publish/", jobs.JobPublishView.as_view(), name="job-publish"),
     path("<uuid:job_id>/close/", jobs.JobCloseView.as_view(), name="job-close"),

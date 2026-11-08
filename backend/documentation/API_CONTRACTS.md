@@ -148,6 +148,7 @@ Source: Doc §3.4. Implemented and tested on `backend/module-03`; behaviour note
 |---|---|---|---|---|---|---|
 | GET | /api/jobs/ | Company user | ?status, ?department, ?employment_type, ?search, ?ordering, ?page, ?page_size | 200 paginated list | 400 bad filter; 403 | implemented |
 | POST | /api/jobs/ | Admin, HR manager, recruiter | job fields, optional `publish` flag | 201 job | 400 field errors; 403 | implemented |
+| GET | /api/jobs/departments/ | Company user | none | 200 list of strings: the departments the company has used, once each (case-insensitive), sorted A-Z (D-078) | 403 | implemented |
 | GET | /api/jobs/<id>/ | Company user | none | 200 job with custom fields | 404 other company | implemented |
 | PATCH | /api/jobs/<id>/ | Admin, HR manager, recruiter | changed fields | 200 job | 400; 409 `job_closed`, `deadline_passed`, `field_locked` | implemented |
 | DELETE | /api/jobs/<id>/ | Admin, HR manager | none | 204 | 409 `invalid_state` (not a draft) | implemented |

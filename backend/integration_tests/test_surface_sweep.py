@@ -74,7 +74,7 @@ def call(client, operation, values=None, body=None):
 
 
 def test_every_operation_is_classified():
-    assert len(OPERATIONS) == 69
+    assert len(OPERATIONS) == 70
     assert [op for op in OPERATIONS if kind(op) == "unclassified"] == []
     assert PUBLIC <= set(OPERATIONS) and ANY_LOGGED_IN <= set(OPERATIONS)
 

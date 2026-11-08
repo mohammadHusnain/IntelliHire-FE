@@ -16,7 +16,7 @@ from ..serializers.jobs import (
     ReopenSerializer,
 )
 from ..services import form, lifecycle
-from ..services.queries import get_job, jobs_of
+from ..services.queries import departments_of, get_job, jobs_of
 from .common import company_of, job_response_data
 
 
@@ -151,3 +151,17 @@ class JobFormPreviewView(GenericAPIView):
     def get(self, request, job_id):
         job = get_job(company_of(request), job_id)
         return Response(form.build_form_schema(job, request.build_absolute_uri))
+
+
+class JobDepartmentsView(GenericAPIView):
+    permission_classes = [IsCompanyUser]
+    pagination_class = None
+    filter_backends = []
+    serializer_class = None
+
+    @extend_schema(
+        description="The departments the company's jobs use, once each (case-insensitive), sorted A-Z. For filters and suggestions.",
+        responses={200: {"type": "array", "items": {"type": "string"}}},
+    )
+    def get(self, request):
+        return Response(departments_of(company_of(request)))
