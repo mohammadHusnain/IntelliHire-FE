@@ -27,12 +27,18 @@ describe("CompanyDashboardLive", () => {
     expect(screen.getByText("1 pending invitation")).toBeInTheDocument();
   });
 
-  it("renders no demo numbers; closing-soon rows open the real role preview, applicant rows are plain text", async () => {
+  it("renders no demo numbers; closing-soon rows open the real role preview and recent applications open the candidate", async () => {
     mount(route.get("/company/dashboard/", () => json(apiDashboard())));
     await screen.findByText("Sara Malik");
     expect(screen.queryByText(/average cv match/i)).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /backend engineer/i })).toHaveAttribute("href", "/company/jobs/j1/preview");
-    expect(screen.queryByRole("link", { name: /sara malik/i })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /backend engineer/i }).map((l) => l.getAttribute("href"))).toEqual(expect.arrayContaining(["/company/jobs/j1/preview", "/company/candidates/app-1"]));
+    expect(screen.getByRole("link", { name: /sara malik/i })).toHaveAttribute("href", "/company/candidates/app-1");
+  });
+
+  it("a recent application without an id (an older server) stays plain text", async () => {
+    mount(route.get("/company/dashboard/", () => json(apiDashboard({ recent_applications: [{ candidate_name: "Old Row", job_title: "T", submitted_at: "2026-02-28T00:00:00Z", status: "submitted" }] }))));
+    expect(await screen.findByText("Old Row")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /old row/i })).not.toBeInTheDocument();
   });
 
   it("a brand-new company gets friendly empty states, all zeros", async () => {

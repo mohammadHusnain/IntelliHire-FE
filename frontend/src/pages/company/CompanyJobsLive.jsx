@@ -185,7 +185,7 @@ export default function CompanyJobsLive() {
                     </div>
 
                     <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1 text-[12.5px] text-stone-500">
-                      <span className="inline-flex items-center gap-1.5"><Users size={13} /> {j.applicationsCount} {j.applicationsCount === 1 ? "application" : "applications"}</span>
+                      <Link to={`/company/jobs/${j.id}/candidates`} className="inline-flex items-center gap-1.5 hover:text-brand"><Users size={13} /> {j.applicationsCount} {j.applicationsCount === 1 ? "application" : "applications"}</Link>
                       {j.status !== "draft" && j.deadline && (
                         <span className="inline-flex items-center gap-1.5"><CalendarClock size={13} /> {j.status === "open" && !j.expired ? `${j.daysLeft} ${j.daysLeft === 1 ? "day" : "days"} left · ` : ""}{formatDeadline(j.deadline)}</span>
                       )}

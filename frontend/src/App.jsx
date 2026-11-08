@@ -43,10 +43,10 @@ const CompanyTeam = lazy(() => (DEMO ? import("@/pages/company/CompanyTeam") : i
 const CompanyJobs = lazy(() => (DEMO ? import("@/pages/company/CompanyJobs") : import("@/pages/company/CompanyJobsLive")));
 const CompanyJobCreate = lazy(() => (DEMO ? import("@/pages/company/CompanyJobCreate") : import("@/pages/company/CompanyJobFormLive")));
 const CompanyJobPreview = lazy(() => (DEMO ? import("@/pages/company/CompanyJobPreview") : import("@/pages/company/CompanyJobPreviewLive")));
-const CompanyCandidates = lazy(() => import("@/pages/company/CompanyCandidates"));
-const CompanyAllCandidates = lazy(() => import("@/pages/company/CompanyAllCandidates"));
-const CompanyCandidateProfile = lazy(() => import("@/pages/company/CompanyCandidateProfile"));
-const CompanyAnalytics = lazy(() => import("@/pages/company/CompanyAnalytics"));
+const CompanyCandidates = lazy(() => (DEMO ? import("@/pages/company/CompanyCandidates") : import("@/pages/company/CompanyApplicantsLive")));
+const CompanyAllCandidates = lazy(() => (DEMO ? import("@/pages/company/CompanyAllCandidates") : import("@/pages/company/CompanyApplicantsLive")));
+const CompanyCandidateProfile = lazy(() => (DEMO ? import("@/pages/company/CompanyCandidateProfile") : import("@/pages/company/CompanyApplicantLive")));
+const CompanyAnalytics = lazy(() => (DEMO ? import("@/pages/company/CompanyAnalytics") : import("@/pages/company/CompanyAnalyticsLive")));
 const CompanyCommunity = lazy(() => import("@/pages/company/CompanyCommunity"));
 const CompanySettings = lazy(() => import("@/pages/company/CompanySettings"));
 

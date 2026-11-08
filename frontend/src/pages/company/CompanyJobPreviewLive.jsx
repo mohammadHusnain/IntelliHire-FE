@@ -103,7 +103,7 @@ export default function CompanyJobPreviewLive() {
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[13.5px] text-stone-600">
             <Badge tone={status.tone}>{status.label}</Badge>
             {j.expired && <Badge tone="warning">Deadline passed</Badge>}
-            <span className="inline-flex items-center gap-1.5"><Users size={14} /> {j.applicationsCount} {j.applicationsCount === 1 ? "application" : "applications"}</span>
+            <Link to={`/company/jobs/${j.id}/candidates`} className="inline-flex items-center gap-1.5 hover:text-brand"><Users size={14} /> {j.applicationsCount} {j.applicationsCount === 1 ? "application" : "applications"}</Link>
             {j.deadline && <span className="inline-flex items-center gap-1.5"><Clock size={14} /> {j.status === "open" && !j.expired ? `${j.daysLeft} ${j.daysLeft === 1 ? "day" : "days"} left · ` : ""}{formatDeadline(j.deadline)}</span>}
             {j.status === "closed" && <span>{j.closeReason === "deadline" ? "Closed: the deadline passed" : "Closed by your team"}</span>}
           </div>

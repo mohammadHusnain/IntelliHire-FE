@@ -140,19 +140,26 @@ export default function CompanyDashboardLive() {
           />
           {recent.length ? (
             <ul className="mt-5 divide-y divide-[var(--line)]">
-              {recent.map((a, i) => (
-                <li key={`${a.candidateName}-${a.submittedAt}-${i}`} className="flex items-center gap-4 py-3.5">
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[14.5px] font-semibold text-ink">{a.candidateName}</span>
-                    <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12.5px] text-stone-500">
-                      <span className="truncate">{a.jobTitle}</span>
-                      <span className="text-stone-300">•</span>
-                      <span className="inline-flex items-center gap-1"><Clock size={11} /> {relativeTime(a.submittedAt)}</span>
+              {recent.map((a, i) => {
+                const body = (
+                  <>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[14.5px] font-semibold text-ink">{a.candidateName}</span>
+                      <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12.5px] text-stone-500">
+                        <span className="truncate">{a.jobTitle}</span>
+                        <span className="text-stone-300">•</span>
+                        <span className="inline-flex items-center gap-1"><Clock size={11} /> {relativeTime(a.submittedAt)}</span>
+                      </span>
                     </span>
-                  </span>
-                  <Badge tone={STATUS_TONE[a.status] || "neutral"}>{STATUS_LABEL[a.status] || a.status}</Badge>
-                </li>
-              ))}
+                    <Badge tone={STATUS_TONE[a.status] || "neutral"}>{STATUS_LABEL[a.status] || a.status}</Badge>
+                  </>
+                );
+                return (
+                  <li key={a.id || `${a.candidateName}-${a.submittedAt}-${i}`}>
+                    {a.id ? <Link to={`/company/candidates/${a.id}`} className="group flex items-center gap-4 py-3.5 transition-colors hover:bg-stone-50">{body}<ChevronRight size={16} className="shrink-0 text-stone-300 transition-transform group-hover:translate-x-0.5" /></Link> : <div className="flex items-center gap-4 py-3.5">{body}</div>}
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <EmptyState className="mt-5" icon={Users} title="No applications yet" message="Share your role's application link and candidates will appear here." />

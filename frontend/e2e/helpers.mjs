@@ -85,3 +85,34 @@ export async function addMember(adminToken, email, role, password = PASSWORD) {
   if (accepted.status !== 201) throw new Error(`accept ${accepted.status}`);
   return email;
 }
+
+/** Create and publish a job through the API (deadline `days` ahead), with custom fields; returns { id, slug }. */
+export async function createPublishedJob(token, { title, department = "Engineering", fields = [], days = 30 }) {
+  const created = await api("/jobs/", {
+    method: "POST",
+    token,
+    body: { title, department, description: "Build things.", required_skills: ["Python"], employment_type: "full_time", work_mode: "remote", deadline: new Date(Date.now() + days * 86400000).toISOString() },
+  });
+  if (created.status !== 201) throw new Error(`job ${created.status} ${JSON.stringify(created.data)}`);
+  for (const field of fields) {
+    const r = await api(`/jobs/${created.data.id}/fields/`, { method: "POST", token, body: field });
+    if (r.status !== 201) throw new Error(`field ${r.status} ${JSON.stringify(r.data)}`);
+  }
+  const published = await api(`/jobs/${created.data.id}/publish/`, { method: "POST", token });
+  if (published.status !== 200) throw new Error(`publish ${published.status} ${JSON.stringify(published.data)}`);
+  return { id: created.data.id, slug: published.data.form_slug };
+}
+
+/** Submit an application through the real public API (multipart). `files` maps a field key to { name, type, bytes }. */
+export async function applyPublic(slug, fields, files = {}) {
+  const form = new FormData();
+  for (const [key, value] of Object.entries(fields)) {
+    if (Array.isArray(value)) for (const v of value) form.append(key, v);
+    else form.append(key, value);
+  }
+  for (const [key, file] of Object.entries(files)) form.append(key, new Blob([file.bytes], { type: file.type }), file.name);
+  const response = await fetch(`${BASE}/api/public/jobs/${slug}/apply/`, { method: "POST", body: form });
+  const data = await response.json().catch(() => null);
+  if (response.status !== 201) throw new Error(`apply ${response.status} ${JSON.stringify(data)}`);
+  return data.reference;
+}

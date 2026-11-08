@@ -52,11 +52,11 @@ describe("CompanyJobsLive: the list", () => {
     expect(screen.getByRole("tab", { name: /drafts/i })).toHaveTextContent("2");
   });
 
-  it("shows the plain applications count and the server's days left, and no link into candidate pages", async () => {
+  it("shows the applications count (a link to the role's candidates) and the server's days left", async () => {
     mount({ rows: { open: [apiJobRow({ applications_count: 4, days_left: 7 })] } });
     expect(await screen.findByText("4 applications")).toBeInTheDocument();
     expect(screen.getByText(/7 days left/)).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /applications|candidates/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /4 applications/ })).toHaveAttribute("href", "/company/jobs/job-1/candidates");
   });
 
   it("switches tab, search, department, type and ordering on the server and goes back to page 1", async () => {

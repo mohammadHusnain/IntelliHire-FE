@@ -125,7 +125,7 @@ export const apiDashboard = (overrides = {}) => ({
   applicants: { total: 10, new_last_7_days: 4 },
   pipeline: { submitted: 3, under_review: 2, shortlisted: 2, interview: 1, selected: 1, rejected: 1, on_hold: 0 },
   closing_soon: [{ id: "j1", title: "Backend Engineer", deadline: "2026-03-01T00:00:00Z", application_count: 5 }],
-  recent_applications: [{ candidate_name: "Sara Malik", job_title: "Backend Engineer", submitted_at: "2026-02-28T00:00:00Z", status: "submitted" }],
+  recent_applications: [{ id: "app-1", candidate_name: "Sara Malik", job_title: "Backend Engineer", submitted_at: "2026-02-28T00:00:00Z", status: "submitted" }],
   team: { active_members: 3, pending_invitations: 1 },
   ...overrides,
 });
@@ -227,3 +227,42 @@ export const apiSchema = (overrides = {}) => ({
   ],
   ...overrides,
 });
+
+// ── Module 4 ──────────────────────────────────────────────────────────────────
+export const apiApplicationRow = (overrides = {}) => ({
+  id: "app-1",
+  reference: "IH-AAA111",
+  full_name: "Sara Malik",
+  email: "sara@example.com",
+  phone: "+92 300 1234567",
+  education_level: "bachelor",
+  institution: "NUST",
+  status: "submitted",
+  submitted_at: "2026-03-01T10:00:00Z",
+  has_cv: true,
+  ...overrides,
+});
+
+export const apiApplication = (overrides = {}) => ({
+  id: "app-1",
+  reference: "IH-AAA111",
+  status: "submitted",
+  submitted_at: "2026-03-01T10:00:00Z",
+  updated_at: "2026-03-01T10:00:00Z",
+  job: { id: "job-1", title: "Senior Django Engineer" },
+  full_name: "Sara Malik",
+  email: "sara@example.com",
+  phone: "+92 300 1234567",
+  education_level: "bachelor",
+  institution: "NUST",
+  graduation_year: 2020,
+  resume: { name: "cv.pdf", url: "/api/applications/app-1/resume/" },
+  answers: [],
+  status_history: [{ from_status: null, to_status: "submitted", changed_by: null, note: "", changed_at: "2026-03-01T10:00:00Z" }],
+  notes: [],
+  ...overrides,
+});
+
+export const apiNote = (overrides = {}) => ({ id: 1, text: "Spoke on the phone", author: { id: "u1", full_name: "Ali Khan" }, created_at: "2026-03-02T10:00:00Z", ...overrides });
+
+export const statusCounts = (overrides = {}) => ({ submitted: 0, under_review: 0, shortlisted: 0, interview: 0, selected: 0, rejected: 0, on_hold: 0, total: 0, ...overrides });

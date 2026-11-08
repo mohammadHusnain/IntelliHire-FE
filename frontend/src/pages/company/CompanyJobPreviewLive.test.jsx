@@ -119,10 +119,9 @@ describe("CompanyJobPreviewLive", () => {
     await waitFor(() => expect(closed).toBe(true));
   });
 
-  it("shows the application count as plain text (no link into the candidate pages)", async () => {
+  it("the application count opens the role's candidates", async () => {
     mount({ job: apiJob({ applications_count: 5 }) });
-    expect(await screen.findByText("5 applications")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /applications|candidates/i })).not.toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /5 applications/ })).toHaveAttribute("href", "/company/jobs/job-1/candidates");
   });
 
   it("a viewer can look but not change anything", async () => {

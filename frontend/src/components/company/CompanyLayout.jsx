@@ -12,6 +12,7 @@ import { USE_MOCK_API } from "@/config/env";
 import { useAuthStore } from "@/store/authStore";
 import CompanyBlocked from "./CompanyBlocked";
 import { useOpenJobs } from "@/hooks/useOpenJobs";
+import { useReviewCount } from "@/hooks/useReviewCount";
 import { canEditJobs } from "@/lib/jobMap";
 import { companyStats, useCompanyActions, useCompanyRecord } from "@/store/companyStore";
 import { ROUTES } from "@/config/routes";
@@ -87,13 +88,15 @@ export default function CompanyLayout() {
   const stats = useMemo(() => companyStats(record), [record]);
   const account = useAuthStore((s) => s.user);
   const { jobs: openJobs } = useOpenJobs();
+  const realReviewCount = useReviewCount();
+  const reviewCount = USE_MOCK_API ? stats.needsReview : realReviewCount;
   // Only people who may create roles are offered the shortcut (the server refuses everyone else).
   const canPost = USE_MOCK_API || canEditJobs(account);
   const p = record?.profile;
 
   const nav = useMemo(
-    () => COMPANY_NAV.map((g) => ({ ...g, items: g.items.map((i) => ({ ...i, count: i.badge === "review" ? stats.needsReview : 0, alert: true })) })),
-    [stats.needsReview],
+    () => COMPANY_NAV.map((g) => ({ ...g, items: g.items.map((i) => ({ ...i, count: i.badge === "review" ? reviewCount : 0, alert: true })) })),
+    [reviewCount],
   );
 
   const paletteItems = useMemo(

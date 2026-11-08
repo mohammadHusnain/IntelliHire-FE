@@ -125,7 +125,7 @@ export function mapDashboard(d) {
       onHold: d.pipeline?.on_hold ?? 0,
     },
     closingSoon: (d.closing_soon || []).map((j) => ({ id: j.id, title: j.title, deadline: time(j.deadline), applicationCount: j.application_count ?? 0 })),
-    recent: (d.recent_applications || []).map((a) => ({ candidateName: a.candidate_name, jobTitle: a.job_title, submittedAt: time(a.submitted_at), status: a.status })),
+    recent: (d.recent_applications || []).map((a) => ({ id: a.id || null, candidateName: a.candidate_name, jobTitle: a.job_title, submittedAt: time(a.submitted_at), status: a.status })),
     team: { activeMembers: d.team?.active_members ?? 0, pendingInvitations: d.team?.pending_invitations ?? 0 },
   };
 }
