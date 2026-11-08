@@ -48,3 +48,40 @@ export async function logOut(page) {
 
 /** A tiny but valid PNG. */
 export const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+
+/** A tiny but real PDF (the backend reads its text). */
+export const PDF = Buffer.from(
+  "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n4 0 obj<</Length 44>>stream\nBT /F1 12 Tf 20 100 Td (Python Django) Tj ET\nendstream\nendobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n",
+);
+
+const pad = (n) => String(n).padStart(2, "0");
+/** A value for <input type="datetime-local"> `days` from now, in the browser's (here: this machine's) time zone. */
+export function localInput(days) {
+  const d = new Date(Date.now() + days * 86400000);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+const tokenOf = (link) => new URL(link).searchParams.get("token");
+
+/** Register a company through the API, verify it, have the platform admin approve it; returns { owner, token }. */
+export async function createApprovedCompany(tag, run, password = PASSWORD) {
+  const owner = `e2e3-${tag}-${run}@example.test`;
+  const name = `Jobs ${tag} ${run}`;
+  const reg = await api("/auth/register/company/", { method: "POST", body: { company_name: name, industry: "Technology", official_email: owner, admin_full_name: `Owner ${tag}`, admin_phone: "+92 300 5550000", password, confirm_password: password } });
+  if (reg.status !== 201) throw new Error(`register ${reg.status}`);
+  await api("/auth/verify-email/", { method: "POST", body: { token: tokenOf(await mailedLink("verify-email", owner)) } });
+  const platform = (await api("/auth/login/", { method: "POST", body: { email: ADMIN.email, password: ADMIN.password } })).data;
+  const found = await api(`/platform-admin/companies/?search=${encodeURIComponent(name)}`, { token: platform.access });
+  await api(`/platform-admin/companies/${found.data.results[0].id}/approve/`, { method: "POST", token: platform.access });
+  const session = (await api("/auth/login/", { method: "POST", body: { email: owner, password } })).data;
+  return { owner, name, token: session.access, companyId: found.data.results[0].id, platform: platform.access };
+}
+
+/** Invite a member with `role`, accept the invitation through the API, return their e-mail. */
+export async function addMember(adminToken, email, role, password = PASSWORD) {
+  const invite = await api("/company/invitations/", { method: "POST", token: adminToken, body: { email, full_name: `Member ${role}`, role } });
+  if (invite.status !== 201) throw new Error(`invite ${invite.status}`);
+  const accepted = await api(`/public/invitations/${tokenOf(await mailedLink("accept-invite", email))}/accept/`, { method: "POST", body: { full_name: `Member ${role}`, password, confirm_password: password } });
+  if (accepted.status !== 201) throw new Error(`accept ${accepted.status}`);
+  return email;
+}

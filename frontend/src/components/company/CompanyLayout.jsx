@@ -11,6 +11,8 @@ import { companyApi, isBlocked } from "@/api/companyApi";
 import { USE_MOCK_API } from "@/config/env";
 import { useAuthStore } from "@/store/authStore";
 import CompanyBlocked from "./CompanyBlocked";
+import { useOpenJobs } from "@/hooks/useOpenJobs";
+import { canEditJobs } from "@/lib/jobMap";
 import { companyStats, useCompanyActions, useCompanyRecord } from "@/store/companyStore";
 import { ROUTES } from "@/config/routes";
 
@@ -84,6 +86,9 @@ export default function CompanyLayout() {
   const record = useCompanyRecord();
   const stats = useMemo(() => companyStats(record), [record]);
   const account = useAuthStore((s) => s.user);
+  const { jobs: openJobs } = useOpenJobs();
+  // Only people who may create roles are offered the shortcut (the server refuses everyone else).
+  const canPost = USE_MOCK_API || canEditJobs(account);
   const p = record?.profile;
 
   const nav = useMemo(
@@ -94,14 +99,15 @@ export default function CompanyLayout() {
   const paletteItems = useMemo(
     () => [
       ...COMPANY_NAV.flatMap((g) => g.items.map((i) => ({ id: i.to, group: "Go to", label: i.label, icon: i.icon, run: () => navigate(i.to) }))),
-      { id: "new-role", group: "Actions", label: "Post a new role", icon: Plus, run: () => navigate(ROUTES.COMPANY.JOB_CREATE) },
-      ...(record?.jobs || []).slice(0, 6).map((j) => ({
+      ...(canPost ? [{ id: "new-role", group: "Actions", label: "Post a new role", icon: Plus, run: () => navigate(ROUTES.COMPANY.JOB_CREATE) }] : []),
+      // Roles come from the server in a real build (and open on their preview); the demo keeps its local roles.
+      ...openJobs.slice(0, 6).map((j) => ({
         id: j.id,
         group: "Roles",
         label: j.title,
-        hint: j.status,
+        hint: "Open",
         icon: Briefcase,
-        run: () => navigate(`/company/jobs/${j.id}/candidates`),
+        run: () => navigate(USE_MOCK_API ? `/company/jobs/${j.id}/candidates` : `/company/jobs/${j.id}/preview`),
       })),
       ...(record?.applicants || []).slice(0, 6).map((a) => ({
         id: a.id,
@@ -112,7 +118,7 @@ export default function CompanyLayout() {
         run: () => navigate(`/company/candidates/${a.id}`),
       })),
     ],
-    [navigate, record],
+    [navigate, record, openJobs, canPost],
   );
 
   return (
@@ -122,11 +128,13 @@ export default function CompanyLayout() {
       navLabel="Company"
       pageMeta={COMPANY_PAGE_META}
       banner={<AnnouncementBanner audience="company" />}
-      renderSidebarTop={(onNavigate) => (
-        <Link to={ROUTES.COMPANY.JOB_CREATE} onClick={onNavigate} className="btn-primary w-full">
-          <Plus size={16} /> Post a role
-        </Link>
-      )}
+      renderSidebarTop={(onNavigate) =>
+        canPost ? (
+          <Link to={ROUTES.COMPANY.JOB_CREATE} onClick={onNavigate} className="btn-primary w-full">
+            <Plus size={16} /> Post a role
+          </Link>
+        ) : null
+      }
       renderSidebarBottom={() =>
         p && <SidebarUserCard avatar={<Avatar name={p.companyName} size={36} tone="dark" />} name={p.companyName} subtitle={p.ownerName} />
       }

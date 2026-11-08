@@ -6,6 +6,7 @@ import { SearchField, SelectField } from "@/components/admin/primitives";
 import Reveal from "@/components/shared/Reveal";
 import { useVisibleCommunities } from "@/store/communityStore";
 import { useCompanyRecord } from "@/store/companyStore";
+import { useOpenJobs } from "@/hooks/useOpenJobs";
 import { COMMUNITY_CATEGORIES } from "@/data/communitiesData";
 import { trackSpotlight } from "@/lib/spotlight";
 import { toast } from "@/store/toastStore";
@@ -16,10 +17,12 @@ export default function CompanyCommunity() {
   const record = useCompanyRecord();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
-  const [shareJob, setShareJob] = useState(record.jobs.find((j) => j.status === "Open")?.id || "");
+  const [picked, setShareJob] = useState("");
   const [shared, setShared] = useState([]);
 
-  const openJobs = useMemo(() => record.jobs.filter((j) => j.status === "Open"), [record.jobs]);
+  const { jobs: openJobs } = useOpenJobs();
+  // The first open role until the person picks one (and again if the picked role is no longer open).
+  const shareJob = openJobs.some((j) => j.id === picked) ? picked : openJobs[0]?.id || "";
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -30,12 +33,12 @@ export default function CompanyCommunity() {
   }, [communities, query, category]);
 
   const share = async (c) => {
-    const job = record.jobs.find((j) => j.id === shareJob);
+    const job = openJobs.find((j) => j.id === shareJob);
     if (!job) {
       toast({ type: "warning", title: "Pick a role first", message: "Choose which open role you want to share." });
       return;
     }
-    const link = `${window.location.origin}/apply/${job.id}`;
+    const link = job.shareUrl;
     try {
       await navigator.clipboard.writeText(`${job.title} at ${record.profile.companyName} — ${link}`);
       setShared((s) => [...s, c.id]);
@@ -71,7 +74,7 @@ export default function CompanyCommunity() {
               aria-label="Role to share"
               className="field !h-10 min-w-0 flex-1 cursor-pointer !text-[13.5px]"
             >
-              {openJobs.map((j) => <option key={j.id} value={j.id}>{j.title} · {j.location}</option>)}
+              {openJobs.map((j) => <option key={j.id} value={j.id}>{j.title}{j.location ? ` · ${j.location}` : ""}</option>)}
             </select>
             <p className="shrink-0 text-[12.5px] text-stone-500">Copy a ready-made post for any community below.</p>
           </Card>

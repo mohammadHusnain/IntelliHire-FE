@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
@@ -33,8 +33,9 @@ describe("VerifyEmailPage", () => {
     expect(await screen.findByText("Email verified")).toBeInTheDocument();
     expect(screen.getByText(/you can log in now/i)).toBeInTheDocument();
     expect(seen).toEqual([{ token: "abc:1xPhuD:dEf" }]); // %3A is decoded to ":"
+    // the address bar is cleaned right after the result is shown (a separate navigation), so wait for it
+    await waitFor(() => expect(screen.getByTestId("url").textContent).not.toContain("token"));
     expect(screen.getByTestId("url")).toHaveTextContent("/verify-email");
-    expect(screen.getByTestId("url").textContent).not.toContain("token");
   });
 
   it("calls the API exactly once even under React StrictMode (effects run twice)", async () => {

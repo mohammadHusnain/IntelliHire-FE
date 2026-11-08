@@ -21,6 +21,7 @@ const VerifyEmailPage = lazy(() => import("@/pages/public/VerifyEmailPage"));
 const ResetPasswordPage = lazy(() => import("@/pages/public/ResetPasswordPage"));
 const AcceptInvitePage = lazy(() => import("@/pages/public/AcceptInvitePage"));
 const ResubmitCompanyPage = lazy(() => import("@/pages/public/ResubmitCompanyPage"));
+const ApplyPage = lazy(() => import("@/pages/public/ApplyPage"));
 const NotFoundPage = lazy(() => import("@/pages/public/NotFoundPage"));
 const UnauthorizedPage = lazy(() => import("@/pages/public/UnauthorizedPage"));
 
@@ -39,9 +40,9 @@ const CompanyPending = lazy(() => import("@/pages/company/CompanyPending"));
 const CompanyOnboarding = lazy(() => import("@/pages/company/CompanyOnboarding"));
 const CompanyDashboard = lazy(() => (DEMO ? import("@/pages/company/CompanyDashboard") : import("@/pages/company/CompanyDashboardLive")));
 const CompanyTeam = lazy(() => (DEMO ? import("@/pages/company/CompanyTeam") : import("@/pages/company/CompanyTeamLive")));
-const CompanyJobs = lazy(() => import("@/pages/company/CompanyJobs"));
-const CompanyJobCreate = lazy(() => import("@/pages/company/CompanyJobCreate"));
-const CompanyJobPreview = lazy(() => import("@/pages/company/CompanyJobPreview"));
+const CompanyJobs = lazy(() => (DEMO ? import("@/pages/company/CompanyJobs") : import("@/pages/company/CompanyJobsLive")));
+const CompanyJobCreate = lazy(() => (DEMO ? import("@/pages/company/CompanyJobCreate") : import("@/pages/company/CompanyJobFormLive")));
+const CompanyJobPreview = lazy(() => (DEMO ? import("@/pages/company/CompanyJobPreview") : import("@/pages/company/CompanyJobPreviewLive")));
 const CompanyCandidates = lazy(() => import("@/pages/company/CompanyCandidates"));
 const CompanyAllCandidates = lazy(() => import("@/pages/company/CompanyAllCandidates"));
 const CompanyCandidateProfile = lazy(() => import("@/pages/company/CompanyCandidateProfile"));
@@ -81,6 +82,7 @@ function App() {
             <Route path="/verify-email" element={<VerifyEmailPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/accept-invite" element={<AcceptInvitePage />} />
+            <Route path="/apply/:slug" element={<ApplyPage />} />
             <Route path="/resubmit-company" element={<GuestRoute><ResubmitCompanyPage /></GuestRoute>} />
             <Route path="/unauthorized" element={<UnauthorizedPage />} />
 

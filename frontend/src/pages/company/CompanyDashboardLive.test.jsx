@@ -27,11 +27,11 @@ describe("CompanyDashboardLive", () => {
     expect(screen.getByText("1 pending invitation")).toBeInTheDocument();
   });
 
-  it("renders no demo numbers and no link into the mock role or candidate pages", async () => {
+  it("renders no demo numbers; closing-soon rows open the real role preview, applicant rows are plain text", async () => {
     mount(route.get("/company/dashboard/", () => json(apiDashboard())));
     await screen.findByText("Sara Malik");
     expect(screen.queryByText(/average cv match/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /backend engineer/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /backend engineer/i })).toHaveAttribute("href", "/company/jobs/j1/preview");
     expect(screen.queryByRole("link", { name: /sara malik/i })).not.toBeInTheDocument();
   });
 

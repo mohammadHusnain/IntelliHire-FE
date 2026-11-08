@@ -1,11 +1,12 @@
 import { Link } from "react-router-dom";
-import { Briefcase, Clock, Loader2, Plus, Sparkles, TrendingUp, UsersRound, Users, WifiOff } from "lucide-react";
+import { Briefcase, ChevronRight, Clock, Loader2, Plus, Sparkles, TrendingUp, UsersRound, Users, WifiOff } from "lucide-react";
 import { Badge, Card, CardHeader, EmptyState, PageHeader, ProgressBar, StatTile } from "@/components/app/primitives";
 import Reveal from "@/components/shared/Reveal";
 import CompanyBlocked from "@/components/company/CompanyBlocked";
 import { companyApi, isBlocked } from "@/api/companyApi";
 import { useRemote } from "@/hooks/useRemote";
 import { formatDate, relativeTime } from "@/lib/candidateStats";
+import { canEditJobs } from "@/lib/jobMap";
 import { useAuthStore } from "@/store/authStore";
 import { ROUTES } from "@/config/routes";
 
@@ -57,7 +58,7 @@ export default function CompanyDashboardLive() {
         eyebrow={company.name}
         title={pipeline.submitted ? <>{pipeline.submitted} new {pipeline.submitted === 1 ? "applicant" : "applicants"} to <em>review</em></> : empty ? <>Welcome{first ? `, ${first}` : ""}</> : <>Your hiring at <em>a glance</em></>}
         subtitle={empty ? "Post your first role to start receiving applicants." : `${jobs.open} open ${jobs.open === 1 ? "role" : "roles"} · ${inPlay} candidates in play`}
-        actions={<Link to={ROUTES.COMPANY.JOB_CREATE} className="btn-primary"><Plus size={16} /> Post a role</Link>}
+        actions={canEditJobs(user) && <Link to={ROUTES.COMPANY.JOB_CREATE} className="btn-primary"><Plus size={16} /> Post a role</Link>}
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -111,12 +112,15 @@ export default function CompanyDashboardLive() {
             {closingSoon.length ? (
               <ul className="mt-5 space-y-2">
                 {closingSoon.map((j) => (
-                  <li key={j.id} className="flex items-center gap-3 rounded-xl border border-[var(--line)] p-3">
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[14px] font-semibold text-ink">{j.title}</span>
-                      <span className="block text-[12.5px] text-stone-500">Closes {formatDate(j.deadline)}</span>
-                    </span>
-                    <span className="shrink-0 rounded-full bg-stone-100 px-2.5 py-1 text-[12px] font-semibold tabular-nums text-stone-600">{j.applicationCount}</span>
+                  <li key={j.id}>
+                    <Link to={`/company/jobs/${j.id}/preview`} className="group flex items-center gap-3 rounded-xl border border-[var(--line)] p-3 transition-colors hover:bg-stone-50">
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[14px] font-semibold text-ink">{j.title}</span>
+                        <span className="block text-[12.5px] text-stone-500">Closes {formatDate(j.deadline)}</span>
+                      </span>
+                      <span className="shrink-0 rounded-full bg-stone-100 px-2.5 py-1 text-[12px] font-semibold tabular-nums text-stone-600" title="Applications">{j.applicationCount}</span>
+                      <ChevronRight size={16} className="shrink-0 text-stone-300 transition-transform group-hover:translate-x-0.5" />
+                    </Link>
                   </li>
                 ))}
               </ul>

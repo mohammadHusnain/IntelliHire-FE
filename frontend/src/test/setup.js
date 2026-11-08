@@ -7,6 +7,9 @@ import { useCandidateStore } from "@/store/candidateStore";
 import { useToastStore } from "@/store/toastStore";
 import { setSessionEndedHandler } from "@/api/client";
 
+// jsdom has no layout engine
+if (!Element.prototype.scrollIntoView) Element.prototype.scrollIntoView = () => {};
+
 const initial = {
   auth: useAuthStore.getState(),
   candidate: useCandidateStore.getState(),

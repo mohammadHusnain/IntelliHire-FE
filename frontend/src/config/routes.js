@@ -15,6 +15,7 @@ export const ROUTES = {
   RESET_PASSWORD: "/reset-password",
   ACCEPT_INVITE: "/accept-invite",
   RESUBMIT_COMPANY: "/resubmit-company",
+  APPLY: "/apply/:slug",
   UNAUTHORIZED: "/unauthorized",
 
   // Candidate

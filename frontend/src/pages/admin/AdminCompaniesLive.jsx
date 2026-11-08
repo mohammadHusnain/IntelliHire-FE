@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Building2, CheckCircle2, ChevronLeft, ChevronRight, Download, ExternalLink, Globe, Loader2, Mail, PauseCircle, SearchX, ShieldX, WifiOff } from "lucide-react";
 import { Badge, Card, EmptyState, PageHeader, StatTile } from "@/components/app/primitives";
 import { ActionDialog, DataTable, Drawer, Field, SearchField, Tabs } from "@/components/admin/primitives";
 import { CompanyActions, CompanyLogo, StatusBadge } from "@/components/admin/companyParts";
 import Reveal from "@/components/shared/Reveal";
 import { platformCompaniesApi } from "@/api/platformCompaniesApi";
+import { useDebounced } from "@/hooks/useDebounced";
 import { useRemote } from "@/hooks/useRemote";
 import { ACCOUNT_STATUS } from "@/lib/accountStatus";
 import { formatDate, relativeTime } from "@/lib/candidateStats";
@@ -32,15 +33,6 @@ const CONFLICT = {
   already_reviewed: "Another admin has already reviewed this company. The list was refreshed.",
   invalid_state: "This company is no longer in a state where that action applies. The list was refreshed.",
 };
-
-function useDebounced(value, ms = 350) {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), ms);
-    return () => clearTimeout(t);
-  }, [value, ms]);
-  return debounced;
-}
 
 function Detail({ company }) {
   const detail = useRemote((o) => platformCompaniesApi.detail(company.id, o), [company.id]);
