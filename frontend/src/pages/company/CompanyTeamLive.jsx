@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Loader2, Mail, MailPlus, RefreshCw, Send, UserRound, UsersRound, WifiOff, XCircle } from "lucide-react";
+import { Check, Loader2, Mail, MailPlus, Pencil, RefreshCw, Send, UserRound, UsersRound, WifiOff, X, XCircle } from "lucide-react";
 import { Badge, Card, CardHeader, EmptyState, PageHeader, StatTile } from "@/components/app/primitives";
 import { ActionDialog } from "@/components/admin/primitives";
 import { Avatar } from "@/components/app/HeaderMenus";
@@ -42,6 +42,7 @@ export default function CompanyTeamLive() {
   const [inviting, setInviting] = useState(false);
   const [busy, setBusy] = useState(() => new Set());
   const [confirm, setConfirm] = useState(null);
+  const [titleEdit, setTitleEdit] = useState(null); // { id, value, error } while a job title is being edited
 
   const members = useRemote((o) => companyApi.members(o), []);
   // Invitations are admin-only on the server: asking as anyone else would be refused, so do not ask.
@@ -81,6 +82,22 @@ export default function CompanyTeamLive() {
     });
     setConfirm(null);
     members.reload();
+  };
+
+  const saveTitle = async (e) => {
+    e.preventDefault();
+    const { id, value } = titleEdit;
+    const member = list.find((m) => m.id === id);
+    const next = value.trim();
+    if (!member || next === member.jobTitle) return setTitleEdit(null);
+    const result = await run(`m${id}`, () => companyApi.updateMember(id, { job_title: next }), {
+      done: (r) => ({ title: "Job title updated", message: r.jobTitle ? `${r.name} is now ${r.jobTitle}.` : `${r.name} has no job title.` }),
+      onFail: (error) => setTitleEdit((t) => (t ? { ...t, error: error.fieldErrors?.job_title?.[0] || error.message } : t)),
+    });
+    if (result) {
+      setTitleEdit(null);
+      members.reload();
+    }
   };
 
   const submitInvite = async (e) => {
@@ -148,7 +165,32 @@ export default function CompanyTeamLive() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[15px] font-semibold text-ink">{m.name}{isSelf && <span className="ml-2 text-[12px] font-medium text-stone-400">You</span>}</p>
                       <a href={`mailto:${m.email}`} className="inline-flex items-center gap-1.5 truncate text-[12.5px] text-stone-500 hover:text-brand"><Mail size={12} /> {m.email}</a>
-                      {m.jobTitle && <p className="truncate text-[12.5px] text-stone-500">{m.jobTitle}</p>}
+                      {titleEdit?.id === m.id ? (
+                        <form onSubmit={saveTitle} className="mt-1.5 flex items-center gap-2">
+                          <label className="sr-only" htmlFor={`title-${m.id}`}>Job title of {m.name}</label>
+                          <input
+                            id={`title-${m.id}`}
+                            autoFocus
+                            maxLength={100}
+                            value={titleEdit.value}
+                            onChange={(e) => setTitleEdit({ ...titleEdit, value: e.target.value, error: "" })}
+                            onKeyDown={(e) => e.key === "Escape" && setTitleEdit(null)}
+                            aria-invalid={titleEdit.error ? "true" : undefined}
+                            placeholder="Job title"
+                            className="h-9 w-56 max-w-full rounded-lg border border-[var(--line)] bg-white px-2.5 text-[13px] outline-none focus:border-brand"
+                          />
+                          <button type="submit" disabled={working} aria-label="Save job title" className="icon-btn flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--line)] text-emerald-600 disabled:opacity-50"><Check size={15} /></button>
+                          <button type="button" onClick={() => setTitleEdit(null)} aria-label="Cancel" className="icon-btn flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--line)] text-stone-500"><X size={15} /></button>
+                        </form>
+                      ) : (
+                        <p className="flex items-center gap-1.5 truncate text-[12.5px] text-stone-500">
+                          {m.jobTitle || (admin ? <span className="text-stone-400">No job title</span> : null)}
+                          {admin && (
+                            <button type="button" onClick={() => setTitleEdit({ id: m.id, value: m.jobTitle, error: "" })} aria-label={`Edit job title of ${m.name}`} className="text-stone-400 hover:text-brand"><Pencil size={12} /></button>
+                          )}
+                        </p>
+                      )}
+                      {titleEdit?.id === m.id && titleEdit.error && <p role="alert" className="mt-1 text-[12.5px] text-red-600">{titleEdit.error}</p>}
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       {!m.active && <Badge tone="danger">Deactivated</Badge>}

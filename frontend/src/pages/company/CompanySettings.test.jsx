@@ -74,7 +74,7 @@ function mountProfile({ memberRole = "admin", profile = apiCompanyProfile({ head
   useAuthStore.setState({ isAuthenticated: true, isInitialized: true, user: account });
   useCompanyStore.getState().actions.hydrateProfile(account, {
     companyName: profile.name, industry: profile.industry, companySize: profile.company_size, website: profile.website, description: profile.description,
-    location: profile.headquarters, phone: profile.contact_phone, logo: profile.logo, ownerName: "Ali", email: profile.official_email,
+    location: profile.headquarters, phone: profile.contact_phone, logo: profile.logo, ownerName: "Ali", email: profile.official_email, createdAt: Date.parse(profile.created_at),
   });
   server.use(...handlers);
   return render(
@@ -96,6 +96,13 @@ describe("CompanySettings: company profile (real API)", () => {
     expect(screen.getByLabelText("Team size")).toHaveValue("11-50");
     expect(screen.getByRole("option", { name: "1,000+ employees" })).toBeInTheDocument();
     expect(screen.getByLabelText("Contact phone")).toHaveValue("+92 300 1234567");
+  });
+
+  it("shows when the company registered ('member since')", async () => {
+    mountProfile();
+    await userEvent.setup().click(screen.getByRole("button", { name: /security/i }));
+    expect(screen.getByText("Member since")).toBeInTheDocument();
+    expect(screen.getByText(/January.*2026|2026.*January/)).toBeInTheDocument();
   });
 
   it("hides the tabs that have no backend (notifications, your data)", () => {

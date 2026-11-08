@@ -90,6 +90,7 @@ export const apiCompanyProfile = (overrides = {}) => ({
   company_size: "",
   status: "approved",
   profile_completion: 0,
+  created_at: "2026-01-05T10:00:00Z",
   ...overrides,
 });
 

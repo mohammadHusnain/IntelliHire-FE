@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
-import { Building2, CheckCircle2, ChevronLeft, ChevronRight, ExternalLink, Globe, Loader2, Mail, PauseCircle, SearchX, ShieldX, WifiOff } from "lucide-react";
+import { Building2, CheckCircle2, ChevronLeft, ChevronRight, Download, ExternalLink, Globe, Loader2, Mail, PauseCircle, SearchX, ShieldX, WifiOff } from "lucide-react";
 import { Badge, Card, EmptyState, PageHeader, StatTile } from "@/components/app/primitives";
 import { ActionDialog, DataTable, Drawer, Field, SearchField, Tabs } from "@/components/admin/primitives";
 import { CompanyActions, CompanyLogo, StatusBadge } from "@/components/admin/companyParts";
 import Reveal from "@/components/shared/Reveal";
 import { platformCompaniesApi } from "@/api/platformCompaniesApi";
 import { useRemote } from "@/hooks/useRemote";
+import { ACCOUNT_STATUS } from "@/lib/accountStatus";
 import { formatDate, relativeTime } from "@/lib/candidateStats";
+import { downloadFile, toCsv } from "@/lib/csv";
 import { toast } from "@/store/toastStore";
 
 const PAGE_SIZE = 20;
@@ -20,7 +22,7 @@ const TABS = [
 
 // What each action sends and says. The server decides what is allowed; the reason rules mirror its (10+ characters).
 const ACTIONS = {
-  approve: { call: (id) => platformCompaniesApi.approve(id), title: (c) => `Approve ${c}?`, message: "They will be able to sign in, post roles and review candidates.", confirm: "Approve company", reason: false, done: "approved", text: "They can now sign in and post roles." },
+  approve: { call: (id) => platformCompaniesApi.approve(id), title: (c) => `Approve ${c}?`, message: (c) => (c.status === "rejected" ? "This overturns the rejection. They will be able to sign in, post roles and review candidates, and we email them the good news." : "They will be able to sign in, post roles and review candidates."), confirm: "Approve company", reason: false, done: "approved", text: "They can now sign in and post roles." },
   reject: { call: (id, r) => platformCompaniesApi.reject(id, r), title: (c) => `Reject ${c}?`, message: "They will not be able to sign in. The reason is emailed to them so they can correct and re-submit.", confirm: "Reject company", reason: true, tone: "danger", done: "rejected", text: "They were told why." },
   suspend: { call: (id, r) => platformCompaniesApi.suspend(id, r), title: (c) => `Suspend ${c}?`, message: "Their team can no longer use the workspace until you reactivate it.", confirm: "Suspend company", reason: true, tone: "danger", done: "suspended", text: "Their workspace is blocked." },
   activate: { call: (id) => platformCompaniesApi.reactivate(id), title: (c) => `Reactivate ${c}?`, message: "They regain full access to their workspace.", confirm: "Reactivate", reason: false, done: "reactivated", text: "Access restored." },
@@ -82,6 +84,7 @@ export default function AdminCompaniesLive() {
   const [openCompany, setOpenCompany] = useState(null);
   const [dialog, setDialog] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const search = useDebounced(query);
 
   const counts = useRemote((o) => platformCompaniesApi.counts(o), []);
@@ -129,7 +132,36 @@ export default function AdminCompaniesLive() {
     }
   };
 
-  const actions = (co, full) => <CompanyActions c={co} full={full} setDialog={setDialog} reactivateRejected={false} disabled={busy} />;
+  // Every company in the current tab and search (not only the page on screen), straight from the server.
+  const exportCsv = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const { results, truncated } = await platformCompaniesApi.listAll({ status: tab, search });
+      const headers = ["Company", "Administrator", "Administrator email", "Official email", "Phone", "Industry", "Status", "Registered"];
+      const data = results.map((co) => [
+        co.companyName,
+        co.name,
+        co.adminEmail,
+        co.email,
+        co.phone,
+        co.industry,
+        ACCOUNT_STATUS[co.status]?.label || co.status,
+        co.createdAt ? new Date(co.createdAt).toISOString().slice(0, 10) : "",
+      ]);
+      const name = `intellihire-companies-${tab}-${new Date().toISOString().slice(0, 10)}.csv`;
+      downloadFile(name, toCsv(headers, data));
+      toast(truncated
+        ? { type: "warning", title: "Export is partial", message: `Only the first ${data.length.toLocaleString()} companies were saved to ${name}. Narrow the search to export the rest.` }
+        : { title: "Companies exported", message: `${data.length} ${data.length === 1 ? "company" : "companies"} saved to ${name}.` });
+    } catch (error) {
+      toast({ type: "error", title: "Couldn't export", message: error.message });
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const actions = (co, full) => <CompanyActions c={co} full={full} setDialog={setDialog} rejectedAction="approve" disabled={busy} />;
 
   const columns = [
     {
@@ -179,6 +211,11 @@ export default function AdminCompaniesLive() {
         eyebrow="Companies"
         title={<>Employer <em>accounts</em></>}
         subtitle={c.pending ? `${c.pending} ${c.pending === 1 ? "company is" : "companies are"} waiting for a decision.` : "Every employer account on the platform."}
+        actions={
+          <button type="button" onClick={exportCsv} disabled={exporting} className="btn-secondary disabled:opacity-50">
+            {exporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} Export CSV
+          </button>
+        }
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -258,7 +295,7 @@ export default function AdminCompaniesLive() {
       {dialog && cfg && (
         <ActionDialog
           title={cfg.title(dialog.company.companyName)}
-          message={cfg.message}
+          message={typeof cfg.message === "function" ? cfg.message(dialog.company) : cfg.message}
           confirmLabel={cfg.confirm}
           tone={cfg.tone}
           requireReason={cfg.reason}

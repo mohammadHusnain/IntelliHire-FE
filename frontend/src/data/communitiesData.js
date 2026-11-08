@@ -1,4 +1,5 @@
-export const COMMUNITIES = [
+// Sample communities exist only in the demo build (literal env check: removed from real builds).
+export const COMMUNITIES = import.meta.env.VITE_USE_MOCK_API !== "true" ? [] : [
   {
     id: "com_1",
     name: "FAST Alumni Network",

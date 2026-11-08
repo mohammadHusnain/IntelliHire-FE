@@ -1,8 +1,10 @@
 // RFC 4180 quoting, with a BOM so Excel opens UTF-8 correctly.
 // Text starting with = + - @ is prefixed with ' so spreadsheets don't run it as a formula.
+// A phone number such as "+92 300 1234567" is left as it is (digits, spaces, brackets, dots, dashes only).
+const PHONE_LIKE = /^\+?\d[\d\s().-]*$/;
 const cell = (v) => {
   let s = v == null ? "" : String(v);
-  if (typeof v !== "number" && /^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+  if (typeof v !== "number" && /^[=+\-@\t\r]/.test(s) && !PHONE_LIKE.test(s)) s = `'${s}`;
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 

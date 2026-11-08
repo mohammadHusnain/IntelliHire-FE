@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -8,6 +8,9 @@ import { apiAdminCompany, detail, json, paged, route } from "@/test/fixtures";
 import { useAuthStore } from "@/store/authStore";
 import { useToastStore } from "@/store/toastStore";
 import AdminCompaniesLive from "./AdminCompaniesLive";
+import { downloadFile } from "@/lib/csv";
+
+vi.mock("@/lib/csv", async (original) => ({ ...(await original()), downloadFile: vi.fn() }));
 
 const toasts = () => useToastStore.getState().toasts.map((t) => t.title);
 const counts = { pending: 3, approved: 5, rejected: 1, suspended: 2 };
@@ -93,11 +96,22 @@ describe("AdminCompaniesLive", () => {
     await waitFor(() => expect(body).toEqual({ reason: "Policy breach here" }));
   });
 
-  it("a rejected company has no reactivate button (the backend only reactivates suspended ones)", async () => {
-    mount({ rows: { pending: [apiAdminCompany({ status: "rejected", rejection_reason: "Not real company" })] } });
+  it("a rejected company can be approved (the rejection is overturned) and cannot be reactivated or rejected again", async () => {
+    let approved = false;
+    mount({
+      rows: { pending: [apiAdminCompany({ status: "rejected", rejection_reason: "Not real company" })] },
+      handlers: [route.post("/platform-admin/companies/co-1/approve/", () => ((approved = true), json(apiAdminCompany({ status: "approved" }))))],
+    });
     await screen.findAllByText("Acme");
     expect(screen.queryByRole("button", { name: /reactivate/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^approve$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^reject$/i })).not.toBeInTheDocument();
+    const user = userEvent.setup();
+    await user.click(screen.getAllByRole("button", { name: /^approve$/i })[0]);
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent(/overturns the rejection/i);
+    await user.click(within(dialog).getByRole("button", { name: "Approve company" }));
+    await waitFor(() => expect(approved).toBe(true));
+    await waitFor(() => expect(toasts()).toContain("Acme approved"));
   });
 
   it("reactivates a suspended company", async () => {
@@ -191,5 +205,54 @@ describe("AdminCompaniesLive", () => {
     fail = false;
     await userEvent.setup().click(screen.getByRole("button", { name: /try again/i }));
     expect((await screen.findAllByText("Acme")).length).toBeGreaterThan(0);
+  });
+
+  it("exports every company of the tab and search (all pages, not only the one on screen) as CSV", async () => {
+    const asked = [];
+    mount({
+      handlers: [
+        route.get("/platform-admin/companies/", ({ request }) => {
+          const q = new URL(request.url).searchParams;
+          asked.push(Object.fromEntries(q));
+          if (q.get("page_size") === "1") return paged([], { count: 3 });
+          if (q.get("page_size") === "100") {
+            const page = Number(q.get("page"));
+            return json({ count: 2, next: page === 1 ? "x" : null, previous: null, results: [apiAdminCompany({ id: `c${page}`, name: `Company ${page}`, contact_phone: "+92 300 1234567" })] });
+          }
+          return paged([apiAdminCompany()]);
+        }),
+      ],
+    });
+    await screen.findAllByText("Acme");
+    await userEvent.setup().click(screen.getByRole("button", { name: /export csv/i }));
+    await waitFor(() => expect(downloadFile).toHaveBeenCalled());
+    const [name, content] = downloadFile.mock.calls.at(-1);
+    expect(name).toMatch(/^intellihire-companies-pending-\d{4}-\d{2}-\d{2}\.csv$/);
+    const lines = content.split("\r\n");
+    expect(lines[0]).toBe("Company,Administrator,Administrator email,Official email,Phone,Industry,Status,Registered");
+    expect(lines).toHaveLength(3);
+    expect(lines[1]).toContain("Company 1");
+    expect(lines[2]).toContain("Company 2");
+    expect(lines[1]).toContain(",+92 300 1234567,");
+    expect(asked.filter((q) => q.page_size === "100").map((q) => q.status)).toEqual(["pending", "pending"]);
+    await waitFor(() => expect(toasts()).toContain("Companies exported"));
+  });
+
+  it("an export failure is reported and nothing is downloaded", async () => {
+    downloadFile.mockClear();
+    mount({
+      handlers: [
+        route.get("/platform-admin/companies/", ({ request }) => {
+          const q = new URL(request.url).searchParams;
+          if (q.get("page_size") === "1") return paged([], { count: 1 });
+          if (q.get("page_size") === "100") return detail(500, "Something went wrong.", "server_error");
+          return paged([apiAdminCompany()]);
+        }),
+      ],
+    });
+    await screen.findAllByText("Acme");
+    await userEvent.setup().click(screen.getByRole("button", { name: /export csv/i }));
+    await waitFor(() => expect(toasts()).toContain("Couldn't export"));
+    expect(downloadFile).not.toHaveBeenCalled();
   });
 });

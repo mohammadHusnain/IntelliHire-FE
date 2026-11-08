@@ -21,6 +21,19 @@ export const platformCompaniesApi = {
     return { count: data.count, hasNext: Boolean(data.next), results: data.results.map(mapAdminCompany) };
   },
 
+  /**
+   * Every company matching `status` and `search`, page by page (for the CSV export). Stops at `cap` rows and says so.
+   */
+  async listAll({ status = "all", search = "" } = {}, { signal, cap = 5000 } = {}) {
+    const results = [];
+    for (let page = 1; ; page += 1) {
+      const data = await platformCompaniesApi.list({ status, search, page, pageSize: 100 }, { signal });
+      results.push(...data.results);
+      if (!data.hasNext) return { results, truncated: false };
+      if (results.length >= cap) return { results: results.slice(0, cap), truncated: true };
+    }
+  },
+
   /** Companies per status. The list has no counts, so this asks for one row per status. */
   async counts({ signal } = {}) {
     const entries = await Promise.all(

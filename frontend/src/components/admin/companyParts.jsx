@@ -13,8 +13,8 @@ export const CompanyLogo = ({ company, size = 40 }) => (
 
 export const StatusBadge = ({ status }) => <Badge tone={ACCOUNT_STATUS[status]?.tone || "neutral"}>{ACCOUNT_STATUS[status]?.label || status}</Badge>;
 
-/** `reactivateRejected`: the demo lets a rejected company be reactivated; the real backend does not (it must resubmit). */
-export function CompanyActions({ c, full = false, setDialog, reactivateRejected = true, disabled = false }) {
+/** `rejectedAction`: what an admin can do with a rejected company. Demo: reactivate it. Real backend: approve it (overturn the rejection). */
+export function CompanyActions({ c, full = false, setDialog, rejectedAction = "reactivate", disabled = false }) {
   return (
     <div className={`flex flex-wrap items-center gap-2 ${full ? "" : "justify-end"}`} onClick={(e) => e.stopPropagation()}>
       {c.status === "pending" && (
@@ -32,7 +32,12 @@ export function CompanyActions({ c, full = false, setDialog, reactivateRejected 
           <PauseCircle size={15} /> Suspend
         </button>
       )}
-      {(c.status === "suspended" || (reactivateRejected && c.status === "rejected")) && (
+      {c.status === "rejected" && rejectedAction === "approve" && (
+        <button type="button" disabled={disabled} onClick={() => setDialog({ kind: "approve", company: c })} className="disabled:opacity-50 btn-secondary !h-9 !px-3.5 text-[12.5px]">
+          <CheckCircle2 size={15} /> Approve
+        </button>
+      )}
+      {(c.status === "suspended" || (c.status === "rejected" && rejectedAction === "reactivate")) && (
         <button type="button" disabled={disabled} onClick={() => setDialog({ kind: "activate", company: c })} className="disabled:opacity-50 btn-secondary !h-9 !px-3.5 text-[12.5px]">
           <PlayCircle size={15} /> Reactivate
         </button>

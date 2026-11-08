@@ -23,6 +23,7 @@ const ROLE_META = {
 const NOTICES = {
   expired: "Your session expired. Please log in again.",
   suspended: "Your account has been suspended.",
+  deactivated: "Your access to this company has been turned off. Contact your company admin.",
   "password-changed": "Password updated. Log in with your new password.",
   "password-reset": "Password updated. Log in with your new password.",
 };

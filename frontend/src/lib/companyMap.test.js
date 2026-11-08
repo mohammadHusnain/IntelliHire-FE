@@ -28,6 +28,10 @@ describe("company profile", () => {
     const p = mapCompanyProfile(apiCompanyProfile({ headquarters: "Lahore", company_size: "11-50", profile_completion: 60, logo: "http://x/l.png" }), { name: "Ali" });
     expect(p).toMatchObject({ companyName: "Acme", location: "Lahore", companySize: "11-50", phone: "+92 300 1234567", email: "hr@acme.example", ownerName: "Ali", status: "active", completion: 60, logo: "http://x/l.png" });
   });
+  it("maps the registration date for 'member since'", () => {
+    expect(mapCompanyProfile(apiCompanyProfile({ created_at: "2026-01-05T10:00:00Z" }), {}).createdAt).toBe(Date.parse("2026-01-05T10:00:00Z"));
+    expect(mapCompanyProfile(apiCompanyProfile({ created_at: null }), {}).createdAt).toBeNull();
+  });
   it("sends only what changed, under backend names, trimmed", () => {
     const base = mapCompanyProfile(apiCompanyProfile(), { name: "Ali" });
     expect(changedCompanyFields({ ...base }, base)).toEqual({});

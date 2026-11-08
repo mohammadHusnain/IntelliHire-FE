@@ -43,7 +43,7 @@ export const useAuthStore = create((set, get) => {
     isInitialized: false,
     isLoading: false,
     error: null,
-    // Why the user is on the login page without having clicked "log out": "expired" | "suspended" | "password-changed" | "password-reset"
+    // Why the user is on the login page without having clicked "log out": "expired" | "suspended" | "deactivated" | "password-changed" | "password-reset"
     notice: null,
     // Set when the stored session could not be checked because the server was unreachable
     bootError: null,

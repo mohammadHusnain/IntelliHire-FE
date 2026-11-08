@@ -191,7 +191,8 @@ async function request(endpoint, options = {}) {
       } catch (error) {
         if (error instanceof ApiError && error.isNetwork) throw error; // keep the session, let the caller retry
         if (error instanceof ApiError && error.status >= 500) throw error;
-        endSession("expired");
+        // A member whose admin turned their access off cannot get a new token: say so instead of "expired".
+        endSession(error instanceof ApiError && error.code === "member_deactivated" ? "deactivated" : "expired");
         throw failure;
       }
     }

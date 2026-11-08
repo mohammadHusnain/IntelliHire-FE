@@ -49,6 +49,7 @@ export function mapCompanyProfile(data, user) {
     email: data.official_email || "",
     status: mapCompanyStatus(data.status),
     completion: Number.isFinite(data.profile_completion) ? data.profile_completion : 0,
+    createdAt: time(data.created_at),
   };
 }
 

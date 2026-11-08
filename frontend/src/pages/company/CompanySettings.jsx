@@ -274,9 +274,9 @@ export default function CompanySettings() {
           </form>
         </Card>
         <Card className="p-6">
-          <CardHeader icon={ShieldCheck} title="Account" subtitle={USE_MOCK_API ? "Signed in as the company owner" : "Your sign-in"} />
+          <CardHeader icon={ShieldCheck} title="Account" subtitle={USE_MOCK_API ? "Signed in as the company owner" : "Your sign-in and your company"} />
           <dl className="mt-5 divide-y divide-[var(--line)] rounded-2xl border border-[var(--line)]">
-            {[["Email", USE_MOCK_API ? record.profile.email : account?.email], ["Account type", <Badge key="t" tone="dark">Company</Badge>], ...(USE_MOCK_API ? [["Member since", formatDate(record.profile.createdAt, { day: "numeric", month: "long", year: "numeric" })]] : [["Your role", memberRoleLabel(account?.memberRole) || "—"]])].map(([k, v]) => (
+            {[["Email", USE_MOCK_API ? record.profile.email : account?.email], ["Account type", <Badge key="t" tone="dark">Company</Badge>], ["Member since", record.profile.createdAt ? formatDate(record.profile.createdAt, { day: "numeric", month: "long", year: "numeric" }) : "—"], ...(USE_MOCK_API ? [] : [["Your role", memberRoleLabel(account?.memberRole) || "—"]])].map(([k, v]) => (
               <div key={k} className="flex items-center justify-between gap-4 px-4 py-3.5 sm:px-5">
                 <dt className="text-[13px] text-stone-500">{k}</dt>
                 <dd className="truncate text-[14px] font-medium text-ink">{v}</dd>

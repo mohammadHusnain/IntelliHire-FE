@@ -3,7 +3,7 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
 import { server } from "@/test/server";
-import { apiUser, companyUser, errors, json, route } from "@/test/fixtures";
+import { apiUser, companyUser, detail, errors, json, route } from "@/test/fixtures";
 import { renderRoutes } from "@/test/utils";
 import { useAuthStore } from "@/store/authStore";
 import { getTokens } from "@/api/tokenStorage";
@@ -195,5 +195,19 @@ describe("LoginPage: company states (Module 2)", () => {
   it("shows a confirmation after a company was sent for review again", async () => {
     renderRoutes(routes, { pathname: "/login", state: { resubmitted: true, email: "o@acme.example" } });
     expect(await screen.findByText(/sent for review again/i)).toBeInTheDocument();
+  });
+
+  it("a deactivated member sees the server's message and no resubmit link", async () => {
+    server.use(route.post("/auth/login/", () => detail(403, "Your access to this company has been turned off. Contact your company admin.", "member_deactivated")));
+    renderRoutes(routes, "/login");
+    await logIn();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Your access to this company has been turned off.");
+    expect(screen.queryByRole("link", { name: /submit again/i })).not.toBeInTheDocument();
+  });
+
+  it("explains a session that ended because the member was deactivated", async () => {
+    useAuthStore.setState({ notice: "deactivated" });
+    renderRoutes(routes, "/login");
+    expect(await screen.findByRole("status")).toHaveTextContent("Your access to this company has been turned off.");
   });
 });

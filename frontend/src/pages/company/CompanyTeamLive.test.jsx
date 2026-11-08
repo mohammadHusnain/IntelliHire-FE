@@ -172,4 +172,59 @@ describe("CompanyTeamLive", () => {
     await userEvent.setup().click(screen.getAllByRole("button", { name: /try again/i })[0]);
     expect(await screen.findByText("Ali Khan")).toBeInTheDocument();
   });
+
+  it("an admin edits a member's job title (and their own)", async () => {
+    const bodies = [];
+    mount({
+      handlers: [
+        route.patch("/company/members/2/", async ({ request }) => (bodies.push(["2", await request.json()]), json({ ...bob, job_title: "Lead recruiter" }))),
+        route.patch("/company/members/1/", async ({ request }) => (bodies.push(["1", await request.json()]), json({ ...me, job_title: "Founder" }))),
+      ],
+    });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Edit job title of Bob Rao" }));
+    await user.type(screen.getByLabelText("Job title of Bob Rao"), "Lead recruiter");
+    await user.click(screen.getByRole("button", { name: "Save job title" }));
+    await waitFor(() => expect(toasts()).toContain("Job title updated"));
+    await user.click(screen.getByRole("button", { name: "Edit job title of Ali Khan" }));
+    await user.type(screen.getByLabelText("Job title of Ali Khan"), "Founder");
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(bodies).toEqual([["2", { job_title: "Lead recruiter" }], ["1", { job_title: "Founder" }]]));
+  });
+
+  it("clearing a job title sends an empty title; saving the same title sends nothing; Escape cancels", async () => {
+    const bodies = [];
+    mount({
+      members: [me, { ...bob, job_title: "Recruiter" }],
+      handlers: [route.patch("/company/members/2/", async ({ request }) => (bodies.push(await request.json()), json({ ...bob, job_title: "" })))],
+    });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Edit job title of Bob Rao" }));
+    await user.click(screen.getByRole("button", { name: "Save job title" }));
+    expect(bodies).toEqual([]);
+    await user.click(screen.getByRole("button", { name: "Edit job title of Bob Rao" }));
+    await user.keyboard("{Escape}");
+    expect(screen.queryByLabelText("Job title of Bob Rao")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Edit job title of Bob Rao" }));
+    await user.clear(screen.getByLabelText("Job title of Bob Rao"));
+    await user.click(screen.getByRole("button", { name: "Save job title" }));
+    await waitFor(() => expect(bodies).toEqual([{ job_title: "" }]));
+  });
+
+  it("a server error on the job title shows beside the field and keeps the edit open", async () => {
+    mount({ handlers: [route.patch("/company/members/2/", () => json({ job_title: ["Ensure this field has no more than 100 characters."] }, 400))] });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Edit job title of Bob Rao" }));
+    await user.type(screen.getByLabelText("Job title of Bob Rao"), "x");
+    await user.click(screen.getByRole("button", { name: "Save job title" }));
+    expect(await screen.findByText("Ensure this field has no more than 100 characters.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Job title of Bob Rao")).toHaveValue("x");
+  });
+
+  it("a non-admin cannot edit job titles", async () => {
+    mount({ memberRole: "recruiter", members: [me, { ...bob, job_title: "Recruiter" }] });
+    await screen.findByText("Bob Rao");
+    expect(screen.queryByRole("button", { name: /edit job title/i })).not.toBeInTheDocument();
+    expect(screen.getByText("Recruiter", { selector: "p" })).toBeInTheDocument();
+  });
 });

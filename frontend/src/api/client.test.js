@@ -157,6 +157,14 @@ describe("silent refresh", () => {
     expect(ended).toHaveBeenCalledWith("expired");
   });
 
+  it("tells a deactivated member why the session ended (not 'expired')", async () => {
+    setTokens(tokens(1));
+    server.use(protectedRoute("never"), route.post("/auth/token/refresh/", () => detail(401, "Your access to this company has been turned off. Contact your company admin.", "member_deactivated")));
+    await api.get("/thing/").catch(() => {});
+    expect(getTokens()).toBeNull();
+    expect(ended).toHaveBeenCalledWith("deactivated");
+  });
+
   it("KEEPS the session when the network fails during the refresh", async () => {
     setTokens(tokens(1));
     server.use(protectedRoute("never"), route.post("/auth/token/refresh/", () => HttpResponse.error()));

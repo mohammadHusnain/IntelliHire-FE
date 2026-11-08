@@ -196,10 +196,38 @@ async function main() {
     await hana.getByText("Deactivated").waitFor();
     await ctx.hr.goto(`${BASE}/company/dashboard`);
     await ctx.hr.getByText("You no longer have access").waitFor();
+    // a fresh log-in is refused with the server's message (and gets no tokens)
+    const fresh = await (await browser.newContext()).newPage();
+    await logIn(fresh, hr, PASSWORD);
+    await fresh.getByRole("alert").filter({ hasText: /access to this company has been turned off/i }).waitFor();
+    assert.equal(await fresh.evaluate(() => localStorage.getItem("intellihire_session")), null);
+    await fresh.close();
     await page.getByRole("button", { name: "Reactivate" }).first().click();
     await hana.getByText("Deactivated").waitFor({ state: "detached" });
     await ctx.hr.getByRole("button", { name: /check again/i }).click();
     await ctx.hr.getByText(/closing soon/i).first().waitFor();
+    const again = await (await browser.newContext()).newPage();
+    await logIn(again, hr, PASSWORD);
+    await again.waitForURL(/\/company\/dashboard/);
+    await again.close();
+  });
+
+  await step("an admin edits a member's job title and it persists", async () => {
+    await page.goto(`${BASE}/company/team`);
+    await page.getByRole("button", { name: "Edit job title of Hana HR" }).click();
+    await page.getByLabel("Job title of Hana HR").fill("Head of People");
+    await page.getByRole("button", { name: "Save job title" }).click();
+    await page.getByText("Job title updated").first().waitFor();
+    await page.reload();
+    await page.getByText("Head of People").waitFor();
+  });
+
+  await step("settings show the company's 'member since' date", async () => {
+    await page.goto(`${BASE}/company/settings`);
+    await page.getByRole("button", { name: /security/i }).first().click();
+    const row = page.locator("div").filter({ hasText: /^Member since/ }).last();
+    await row.waitFor();
+    assert.match(await row.innerText(), /20\d\d/);
   });
 
   await step("resend and revoke work; a revoked link says so", async () => {
@@ -307,6 +335,28 @@ async function main() {
     await probe.close();
   });
 
+  const overturned = email("overturn");
+  const overturnedCompany = `Overturn Co ${run}`;
+  created.push(overturned);
+
+  await step("an admin overturns a rejection from the Rejected tab; the company can then log in", async () => {
+    const other = await (await browser.newContext()).newPage();
+    watch(other);
+    await registerCompany(other, { owner: overturned, company: overturnedCompany, name: "Olga Overturned" });
+    await verify(other, overturned);
+    await adminCompaniesTab(ctx.adminPage, "Pending", overturnedCompany);
+    await decide(ctx.adminPage, /^reject$/i, "Reject company", "Rejected by mistake in test");
+    await adminCompaniesTab(ctx.adminPage, "Rejected", overturnedCompany);
+    assert.equal(await ctx.adminPage.getByRole("button", { name: /reactivate/i }).count(), 0);
+    await ctx.adminPage.getByRole("button", { name: /^approve$/i }).first().click();
+    await ctx.adminPage.getByRole("dialog").getByText(/overturns the rejection/i).waitFor();
+    await ctx.adminPage.getByRole("dialog").getByRole("button", { name: "Approve company" }).click();
+    await ctx.adminPage.getByText(`${overturnedCompany} approved`).first().waitFor();
+    await logIn(other, overturned, PASSWORD);
+    await other.waitForURL(/\/company\/dashboard/);
+    await other.close();
+  });
+
   console.log("Admin list: search and pagination");
 
   await step("search narrows the list on the server; paging works with more than one page of companies", async () => {
@@ -330,9 +380,65 @@ async function main() {
     await p.getByText(/Page \d of \d/).waitFor({ state: "detached" });
   });
 
+  await step("CSV export downloads every company of the tab and search, with a BOM and the phone number intact", async () => {
+    const p = ctx.adminPage;
+    await p.goto(`${BASE}/admin/companies`);
+    await p.getByRole("tab", { name: /^all/i }).click();
+    await p.getByPlaceholder(/search company/i).fill(run);
+    // 25 matches, 20 per page: the oldest ones (such as the first company) are on page 2, not on screen
+    await p.getByText(/Page 1 of 2/).waitFor();
+    assert.equal(await p.getByText(companyName).count(), 0, "the first company is not on the visible page");
+    const [download] = await Promise.all([p.waitForEvent("download"), p.getByRole("button", { name: /export csv/i }).click()]);
+    assert.match(download.suggestedFilename(), /^intellihire-companies-all-\d{4}-\d{2}-\d{2}\.csv$/);
+    const { readFileSync } = await import("node:fs");
+    const text = readFileSync(await download.path(), "utf8");
+    assert.equal(text.charCodeAt(0), 0xfeff, "BOM for Excel");
+    const lines = text.slice(1).split("\r\n");
+    assert.equal(lines[0], "Company,Administrator,Administrator email,Official email,Phone,Industry,Status,Registered");
+    assert(lines.some((l) => l.startsWith(companyName)), "the approved company is in the file");
+    assert(lines.some((l) => l.includes(",+92 300 7654321,")), "phone number kept as typed");
+    const rows = lines.filter(Boolean).length - 1;
+    assert(rows >= 24, `every match is exported, not just the 20 on one page (got ${rows})`);
+  });
+
   await step("a company user cannot open the admin area", async () => {
     await page.goto(`${BASE}/admin/companies`);
     await page.waitForURL(/\/company\/dashboard/);
+  });
+
+  await step("two admins removing each other at the same moment can never leave a company without an admin", async () => {
+    const owner2 = email("race-a");
+    const admin2 = email("race-b");
+    created.push(owner2, admin2);
+    const tokenOf = (link) => new URL(link).searchParams.get("token");
+    const login = async (e, pw = PASSWORD) => (await api("/auth/login/", { method: "POST", body: { email: e, password: pw } })).data;
+    assert.equal((await api("/auth/register/company/", { method: "POST", body: { company_name: `Race Co ${run}`, industry: "Retail", official_email: owner2, admin_full_name: "Race A", admin_phone: "+92 300 5550000", password: PASSWORD, confirm_password: PASSWORD } })).status, 201);
+    assert.equal((await api("/auth/verify-email/", { method: "POST", body: { token: tokenOf(await mailedLink("verify-email", owner2)) } })).status, 200);
+    const platform = await login(ADMIN.email, ADMIN.password);
+    const list = await api(`/platform-admin/companies/?status=pending&search=${encodeURIComponent(`Race Co ${run}`)}`, { token: platform.access });
+    assert.equal((await api(`/platform-admin/companies/${list.data.results[0].id}/approve/`, { method: "POST", token: platform.access })).status, 200);
+    const a = await login(owner2);
+    assert.equal((await api("/company/invitations/", { method: "POST", token: a.access, body: { email: admin2, full_name: "Race B", role: "admin" } })).status, 201);
+    assert.equal((await api(`/public/invitations/${tokenOf(await mailedLink("accept-invite", admin2))}/accept/`, { method: "POST", body: { full_name: "Race B", password: PASSWORD, confirm_password: PASSWORD } })).status, 201);
+    const b = await login(admin2);
+    const members = (await api("/company/members/", { token: a.access })).data;
+    const idA = members.find((m) => m.email === owner2).id;
+    const idB = members.find((m) => m.email === admin2).id;
+    for (let round = 0; round < 3; round += 1) {
+      const [ra, rb] = await Promise.all([
+        api(`/company/members/${idB}/`, { method: "PATCH", token: a.access, body: { is_active: false } }),
+        api(`/company/members/${idA}/`, { method: "PATCH", token: b.access, body: { is_active: false } }),
+      ]);
+      const outcomes = [ra, rb].map((r) => (r.status === 200 ? "ok" : r.data?.code || r.status));
+      assert.equal(outcomes.filter((o) => o === "ok").length, 1, `exactly one wins, got ${outcomes}`);
+      assert(outcomes.every((o) => o === "ok" || o === "last_admin" || o === "permission_denied" || o === 403), `unexpected refusal ${outcomes}`);
+      const winner = ra.status === 200 ? a : b;
+      const loserId = ra.status === 200 ? idB : idA;
+      const after = (await api("/company/members/", { token: winner.access })).data;
+      assert.equal(after.filter((m) => m.role === "admin" && m.is_active).length, 1, "one active admin remains");
+      // put the loser back for the next round
+      assert.equal((await api(`/company/members/${loserId}/`, { method: "PATCH", token: winner.access, body: { is_active: true } })).status, 200);
+    }
   });
 
   await step("no console errors during the whole run", async () => {

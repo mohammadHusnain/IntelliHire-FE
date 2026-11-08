@@ -113,6 +113,23 @@ describe("platformCompaniesApi", () => {
     expect(status).toBe("all");
   });
 
+  it("listAll walks every page and stops at the cap, saying so", async () => {
+    setTokens({ access: "A", refresh: "R" });
+    const asked = [];
+    server.use(route.get("/platform-admin/companies/", ({ request }) => {
+      const page = Number(new URL(request.url).searchParams.get("page"));
+      asked.push(page);
+      return paged([apiAdminCompany({ id: `c${page}` })], { count: 3, next: page < 3 ? "x" : null });
+    }));
+    expect(await platformCompaniesApi.listAll({ status: "all" })).toMatchObject({ truncated: false, results: [{ id: "c1" }, { id: "c2" }, { id: "c3" }] });
+    expect(asked).toEqual([1, 2, 3]);
+    asked.length = 0;
+    const cut = await platformCompaniesApi.listAll({ status: "all" }, { cap: 2 });
+    expect(cut.truncated).toBe(true);
+    expect(cut.results).toHaveLength(2);
+    expect(asked).toEqual([1, 2]);
+  });
+
   it("builds the per-status counts from one-row requests", async () => {
     setTokens({ access: "A", refresh: "R" });
     const n = { pending: 4, approved: 10, rejected: 2, suspended: 1 };
