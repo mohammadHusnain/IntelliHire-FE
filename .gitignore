@@ -24,3 +24,9 @@ pnpm-debug.log*
 .DS_Store
 *.suo
 *.sw?
+
+# Backend runtime artefacts (the backend lives on its own branch)
+backend/__pycache__/
+backend/private_media/
+**/__pycache__/
+*.pyc
