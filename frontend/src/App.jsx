@@ -9,6 +9,9 @@ import CandidateLayout from "@/components/candidate/CandidateLayout";
 import AdminLayout from "@/components/admin/AdminLayout";
 import CompanyLayout, { CompanyGate } from "@/components/company/CompanyLayout";
 
+// Module 2 screens have a demo version and a real-backend version. The literal check lets the build drop the other one.
+const DEMO = import.meta.env.VITE_USE_MOCK_API === "true";
+
 // ─── Lazy-loaded Pages ──────────────────────────────────────────────────────
 // Public
 const LandingPage = lazy(() => import("@/pages/public/LandingPage"));
@@ -16,6 +19,8 @@ const LoginPage = lazy(() => import("@/pages/public/LoginPage"));
 const RegisterPage = lazy(() => import("@/pages/public/RegisterPage"));
 const VerifyEmailPage = lazy(() => import("@/pages/public/VerifyEmailPage"));
 const ResetPasswordPage = lazy(() => import("@/pages/public/ResetPasswordPage"));
+const AcceptInvitePage = lazy(() => import("@/pages/public/AcceptInvitePage"));
+const ResubmitCompanyPage = lazy(() => import("@/pages/public/ResubmitCompanyPage"));
 const NotFoundPage = lazy(() => import("@/pages/public/NotFoundPage"));
 const UnauthorizedPage = lazy(() => import("@/pages/public/UnauthorizedPage"));
 
@@ -32,8 +37,8 @@ const CandidateSettings = lazy(() => import("@/pages/candidate/CandidateSettings
 // Company
 const CompanyPending = lazy(() => import("@/pages/company/CompanyPending"));
 const CompanyOnboarding = lazy(() => import("@/pages/company/CompanyOnboarding"));
-const CompanyDashboard = lazy(() => import("@/pages/company/CompanyDashboard"));
-const CompanyTeam = lazy(() => import("@/pages/company/CompanyTeam"));
+const CompanyDashboard = lazy(() => (DEMO ? import("@/pages/company/CompanyDashboard") : import("@/pages/company/CompanyDashboardLive")));
+const CompanyTeam = lazy(() => (DEMO ? import("@/pages/company/CompanyTeam") : import("@/pages/company/CompanyTeamLive")));
 const CompanyJobs = lazy(() => import("@/pages/company/CompanyJobs"));
 const CompanyJobCreate = lazy(() => import("@/pages/company/CompanyJobCreate"));
 const CompanyJobPreview = lazy(() => import("@/pages/company/CompanyJobPreview"));
@@ -45,9 +50,9 @@ const CompanyCommunity = lazy(() => import("@/pages/company/CompanyCommunity"));
 const CompanySettings = lazy(() => import("@/pages/company/CompanySettings"));
 
 // Admin
-const AdminDashboard = lazy(() => import("@/pages/admin/AdminDashboard"));
+const AdminDashboard = lazy(() => (DEMO ? import("@/pages/admin/AdminDashboard") : import("@/pages/admin/AdminDashboardLive")));
 const AdminUsers = lazy(() => import("@/pages/admin/AdminUsers"));
-const AdminCompanies = lazy(() => import("@/pages/admin/AdminCompanies"));
+const AdminCompanies = lazy(() => (DEMO ? import("@/pages/admin/AdminCompanies") : import("@/pages/admin/AdminCompaniesLive")));
 const AdminCommunities = lazy(() => import("@/pages/admin/AdminCommunities"));
 const AdminReports = lazy(() => import("@/pages/admin/AdminReports"));
 const AdminSettings = lazy(() => import("@/pages/admin/AdminSettings"));
@@ -75,6 +80,8 @@ function App() {
             <Route path="/register" element={<GuestRoute><RegisterPage /></GuestRoute>} />
             <Route path="/verify-email" element={<VerifyEmailPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/accept-invite" element={<AcceptInvitePage />} />
+            <Route path="/resubmit-company" element={<GuestRoute><ResubmitCompanyPage /></GuestRoute>} />
             <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
             {/* ── Candidate Routes (role-guarded) ── */}

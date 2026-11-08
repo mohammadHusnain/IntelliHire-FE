@@ -13,7 +13,7 @@ function toQuery(params = {}) {
 
 export const usersApi = {
   /** { role: [..], status: [..], search, ordering, page, page_size } -> { count, next, previous, results, status_counts } */
-  list: (params) => api.get(`/platform-admin/users/${toQuery(params)}`),
+  list: (params, opts) => api.get(`/platform-admin/users/${toQuery(params)}`, opts),
   suspend: (id) => api.post(`/platform-admin/users/${id}/suspend/`),
   reactivate: (id) => api.post(`/platform-admin/users/${id}/reactivate/`),
 };

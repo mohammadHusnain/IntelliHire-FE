@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import AuthLayout from "@/components/layout/AuthLayout";
 import AuthField from "@/components/shared/AuthField";
 import ForgotPasswordModal from "@/components/shared/ForgotPasswordModal";
+import { ROUTES } from "@/config/routes";
 import ResendVerification from "@/components/shared/ResendVerification";
 import { USE_MOCK_API } from "@/config/env";
 import { useCountdown } from "@/hooks/useCountdown";
@@ -36,12 +37,15 @@ export default function LoginPage() {
   const notice = useAuthStore((s) => s.notice);
   const clearNotice = useAuthStore((s) => s.clearNotice);
   const justRegistered = !!location.state?.registered;
+  const justResubmitted = !!location.state?.resubmitted;
+  const justJoined = !!location.state?.invited; // accepted a staff invitation: the account is already active
 
-  const [email, setEmail] = useState(justRegistered ? location.state?.email || "" : "");
+  const [email, setEmail] = useState(justRegistered || justJoined || justResubmitted ? location.state?.email || "" : "");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState({});
   const [authError, setAuthError] = useState("");
   const [unverified, setUnverified] = useState(false);
+  const [rejected, setRejected] = useState(false);
   const [demoAccounts, setDemoAccounts] = useState([]);
   const [throttleLeft, startThrottle] = useCountdown();
   const formRef = useRef(null);
@@ -63,6 +67,7 @@ export default function LoginPage() {
     setErrors(next);
     setAuthError("");
     setUnverified(false);
+    setRejected(false);
     if (next.email || next.password) {
       requestAnimationFrame(() => formRef.current?.querySelector('[aria-invalid="true"]')?.focus());
       return;
@@ -74,6 +79,7 @@ export default function LoginPage() {
       if (!result.success) {
         setAuthError(result.error || "Invalid email or password.");
         setUnverified(result.code === "pending_verification");
+        setRejected(result.code === "rejected");
         if (result.retryAfterSeconds) startThrottle(result.retryAfterSeconds);
         setShakeKey((k) => k + 1);
       }
@@ -115,6 +121,20 @@ export default function LoginPage() {
         </div>
       )}
 
+      {justResubmitted && (
+        <div className="mt-6 flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 animate-fade-in-up">
+          <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-emerald-600" />
+          <p className="text-[14px] text-emerald-800"><span className="font-semibold">Sent for review again.</span> We will email you the decision. You can log in once the company is approved.</p>
+        </div>
+      )}
+
+      {justJoined && (
+        <div className="mt-6 flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 animate-fade-in-up">
+          <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-emerald-600" />
+          <p className="text-[14px] text-emerald-800"><span className="font-semibold">You have joined the team.</span> Log in with the password you just chose.</p>
+        </div>
+      )}
+
       {notice && NOTICES[notice] && !authError && (
         <div role="status" className="mt-6 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
           <p className="text-[14px] text-amber-800">{NOTICES[notice]}</p>
@@ -130,6 +150,11 @@ export default function LoginPage() {
           <div className="flex-1">
             <p className="text-[14px] text-red-700">{authError}</p>
             {unverified && <ResendVerification email={email.trim()} className="mt-2" />}
+            {rejected && !USE_MOCK_API && (
+              <Link to={ROUTES.RESUBMIT_COMPANY} className="link-brand mt-2 inline-block text-[13.5px] font-semibold">
+                Correct your details and submit again
+              </Link>
+            )}
           </div>
           <button
             type="button"

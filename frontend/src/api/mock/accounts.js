@@ -15,7 +15,8 @@ export const REGISTERED_USERS_KEY = "intellihire_registered_users";
 const OVERRIDES_KEY = "intellihire_account_overrides";
 
 // ─── Seed users (always present, never wiped) ────────────────────────────────
-const SEED_USERS = [
+// Literal env check: the sample accounts are removed from real builds.
+const SEED_USERS = import.meta.env.VITE_USE_MOCK_API !== "true" ? [] : [
   {
     id: "usr_c1",
     email: "candidate@test.com",

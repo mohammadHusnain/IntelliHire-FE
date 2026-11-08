@@ -6,12 +6,7 @@ import { getJobs } from "@/data/jobsStore";
 const DAY = 86400000;
 const WEEK = 7 * DAY;
 
-export const ACCOUNT_STATUS = {
-  active: { label: "Active", tone: "success" },
-  pending: { label: "Pending", tone: "warning" },
-  suspended: { label: "Suspended", tone: "danger" },
-  rejected: { label: "Rejected", tone: "danger" },
-};
+export { ACCOUNT_STATUS } from "./accountStatus";
 
 /** Practice records only exist for candidates who have signed in at least once. */
 export const practiceRecords = () => useCandidateStore.getState().records;

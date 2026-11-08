@@ -7,9 +7,14 @@ import Reveal from "@/components/shared/Reveal";
 import { useCompanyActions, useCompanyRecord } from "@/store/companyStore";
 import { toast } from "@/store/toastStore";
 import { ROUTES } from "@/config/routes";
+import { USE_MOCK_API } from "@/config/env";
+import { companyApi, mapCompanyFieldErrors } from "@/api/companyApi";
+import { COMPANY_SIZES, DESCRIPTION_MAX, changedCompanyFields, isCompanyAdmin } from "@/lib/companyMap";
+import { useAuthStore } from "@/store/authStore";
 
 const INDUSTRIES = ["Technology", "Finance", "Healthcare", "Education", "Retail", "Manufacturing", "Consulting", "Media", "Real Estate", "Non-profit", "Other"];
-const SIZES = ["1–10 employees", "11–50 employees", "51–200 employees", "201–500 employees", "500+ employees"];
+const SIZES = USE_MOCK_API ? ["1–10 employees", "11–50 employees", "51–200 employees", "201–500 employees", "500+ employees"].map((v) => ({ value: v, label: v })) : COMPANY_SIZES;
+const descriptionMax = USE_MOCK_API ? 500 : DESCRIPTION_MAX;
 
 const STEPS = [
   { id: 1, label: "Company" },
@@ -20,7 +25,9 @@ const STEPS = [
 export default function CompanyOnboarding() {
   const navigate = useNavigate();
   const record = useCompanyRecord();
-  const { updateProfile } = useCompanyActions();
+  const { updateProfile, hydrateProfile } = useCompanyActions();
+  const account = useAuthStore((s) => s.user);
+  const canEdit = USE_MOCK_API || isCompanyAdmin(account);
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(() => ({ ...record.profile }));
@@ -44,13 +51,45 @@ export default function CompanyOnboarding() {
   };
 
   const finish = async () => {
+    if (saving) return;
     setSaving(true);
+    if (!USE_MOCK_API) {
+      try {
+        const changes = changedCompanyFields(form, record.profile);
+        if (Object.keys(changes).length) hydrateProfile(account, await companyApi.saveProfile(changes, account));
+        toast({ title: "Company profile saved", message: "Post your first role whenever you are ready." });
+        navigate(ROUTES.COMPANY.JOB_CREATE);
+      } catch (error) {
+        // Show the server's message on the field it belongs to, on the step that holds it.
+        const fields = mapCompanyFieldErrors(error.fieldErrors);
+        if (Object.keys(fields).length) {
+          setErrors(fields);
+          setStep(["companyName", "industry", "companySize"].some((k) => fields[k]) ? 1 : 2);
+        }
+        toast({ type: "error", title: "Profile not saved", message: error.message });
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
     await new Promise((r) => setTimeout(r, 400));
     updateProfile(form);
     setSaving(false);
     toast({ title: "Company profile saved", message: "Post your first role whenever you are ready." });
     navigate(ROUTES.COMPANY.JOB_CREATE);
   };
+
+  if (!canEdit) {
+    return (
+      <div className="mx-auto max-w-[640px]">
+        <PageHeader eyebrow="Set up" title={<>Company <em>profile</em></>} subtitle="Only a company admin can set up or change the company profile." />
+        <Card className="p-6 sm:p-8">
+          <p className="text-[14.5px] text-stone-600">Ask your company admin to complete it in Settings.</p>
+          <button type="button" onClick={() => navigate(ROUTES.COMPANY.DASHBOARD)} className="btn-primary mt-5">Back to the dashboard</button>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-[640px]">
@@ -80,7 +119,7 @@ export default function CompanyOnboarding() {
                   <label htmlFor="ind" className="mb-1.5 block text-[13px] font-medium text-stone-700">Industry</label>
                   <select id="ind" value={form.industry} onChange={(e) => set("industry", e.target.value)} aria-invalid={errors.industry ? "true" : undefined} className="field cursor-pointer">
                     <option value="">Select an industry</option>
-                    {INDUSTRIES.map((i) => <option key={i}>{i}</option>)}
+                    {(form.industry && !INDUSTRIES.includes(form.industry) ? [...INDUSTRIES, form.industry] : INDUSTRIES).map((i) => <option key={i}>{i}</option>)}
                   </select>
                   {errors.industry && <p className="mt-1.5 text-[12.5px] text-red-600">{errors.industry}</p>}
                 </div>
@@ -88,7 +127,7 @@ export default function CompanyOnboarding() {
                   <label htmlFor="size" className="mb-1.5 block text-[13px] font-medium text-stone-700">Team size</label>
                   <select id="size" value={form.companySize} onChange={(e) => set("companySize", e.target.value)} className="field cursor-pointer">
                     <option value="">Select a size</option>
-                    {SIZES.map((i) => <option key={i}>{i}</option>)}
+                    {SIZES.map((i) => <option key={i.value} value={i.value}>{i.label}</option>)}
                   </select>
                 </div>
               </div>
@@ -97,18 +136,18 @@ export default function CompanyOnboarding() {
             {step === 2 && (
               <div className="space-y-5">
                 <AuthField label="Website" icon={Globe} type="url" value={form.website} onChange={(e) => set("website", e.target.value)} error={errors.website} placeholder="https://yourcompany.com" hint="Optional" />
-                <AuthField label="Location" value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="City, Country" hint="Optional" />
+                <AuthField label="Location" value={form.location} onChange={(e) => set("location", e.target.value)} error={errors.location} placeholder="City, Country" hint="Optional" />
                 <div>
                   <label htmlFor="about" className="mb-1.5 block text-[13px] font-medium text-stone-700">About the company</label>
                   <textarea
                     id="about"
                     rows={4}
                     value={form.description}
-                    onChange={(e) => set("description", e.target.value.slice(0, 500))}
+                    onChange={(e) => set("description", e.target.value.slice(0, descriptionMax))}
                     placeholder="Your mission, culture and what makes your team a great place to work."
                     className="field !h-auto resize-none py-3 leading-relaxed"
                   />
-                  <p className="mt-1 text-[12px] text-stone-400">{(form.description || "").length}/500</p>
+                  <p className="mt-1 text-[12px] text-stone-400">{(form.description || "").length}/{descriptionMax}</p>
                 </div>
               </div>
             )}
@@ -123,7 +162,7 @@ export default function CompanyOnboarding() {
                   Next, post a role. IntelliHire generates its application link, scores every CV against your requirements, and runs the first interview rounds.
                 </p>
                 <ul className="mt-6 space-y-2 text-left">
-                  {[["Industry", form.industry], ["Team size", form.companySize || "Not set"], ["Website", form.website || "Not set"]].map(([k, v]) => (
+                  {[["Industry", form.industry], ["Team size", SIZES.find((x) => x.value === form.companySize)?.label || "Not set"], ["Website", form.website || "Not set"]].map(([k, v]) => (
                     <li key={k} className="flex justify-between gap-3 rounded-xl bg-stone-50 px-4 py-2.5 text-[13.5px]">
                       <span className="text-stone-500">{k}</span>
                       <span className="truncate font-medium text-ink">{v}</span>

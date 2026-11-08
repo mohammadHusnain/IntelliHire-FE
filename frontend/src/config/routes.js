@@ -13,6 +13,8 @@ export const ROUTES = {
   REGISTER: "/register",
   VERIFY_EMAIL: "/verify-email",
   RESET_PASSWORD: "/reset-password",
+  ACCEPT_INVITE: "/accept-invite",
+  RESUBMIT_COMPANY: "/resubmit-company",
   UNAUTHORIZED: "/unauthorized",
 
   // Candidate

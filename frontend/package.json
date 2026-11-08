@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
-    "e2e": "node e2e/phase5.e2e.mjs"
+    "e2e": "node e2e/phase5.e2e.mjs",
+    "e2e:module2": "node e2e/phase5-module2.e2e.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

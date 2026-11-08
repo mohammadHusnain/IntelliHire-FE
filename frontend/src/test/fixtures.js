@@ -74,3 +74,71 @@ export const route = {
 };
 
 export const bearer = (request) => request.headers.get("authorization");
+
+// ── Module 2 ──────────────────────────────────────────────────────────────────
+export const apiCompanyProfile = (overrides = {}) => ({
+  id: "c0",
+  name: "Acme",
+  slug: "acme",
+  industry: "Technology",
+  official_email: "hr@acme.example",
+  contact_phone: "+92 300 1234567",
+  website: "",
+  description: "",
+  headquarters: "",
+  logo: null,
+  company_size: "",
+  status: "approved",
+  profile_completion: 0,
+  ...overrides,
+});
+
+export const apiMember = (overrides = {}) => ({
+  id: 1,
+  full_name: "Ali Khan",
+  email: "hr@acme.example",
+  role: "admin",
+  job_title: "",
+  joined_at: "2026-01-01T00:00:00Z",
+  is_active: true,
+  last_login: null,
+  ...overrides,
+});
+
+export const apiInvitation = (overrides = {}) => ({
+  id: "inv-1",
+  email: "newbie@acme.example",
+  full_name: "New Hire",
+  role: "recruiter",
+  job_title: "",
+  status: "pending",
+  created_at: "2026-02-01T00:00:00Z",
+  expires_at: "2026-02-08T00:00:00Z",
+  accepted_at: null,
+  ...overrides,
+});
+
+export const apiDashboard = (overrides = {}) => ({
+  company: { name: "Acme", logo: null, status: "approved", profile_completion: 40 },
+  jobs: { open: 2, draft: 1, closed: 3 },
+  applicants: { total: 10, new_last_7_days: 4 },
+  pipeline: { submitted: 3, under_review: 2, shortlisted: 2, interview: 1, selected: 1, rejected: 1, on_hold: 0 },
+  closing_soon: [{ id: "j1", title: "Backend Engineer", deadline: "2026-03-01T00:00:00Z", application_count: 5 }],
+  recent_applications: [{ candidate_name: "Sara Malik", job_title: "Backend Engineer", submitted_at: "2026-02-28T00:00:00Z", status: "submitted" }],
+  team: { active_members: 3, pending_invitations: 1 },
+  ...overrides,
+});
+
+export const apiAdminCompany = (overrides = {}) => ({
+  id: "co-1",
+  name: "Acme",
+  industry: "Technology",
+  official_email: "hr@acme.example",
+  contact_phone: "+92 300 1234567",
+  status: "pending",
+  created_at: "2026-01-02T00:00:00Z",
+  admin: { id: "u-1", full_name: "Ali Khan", email: "hr@acme.example", email_verified: true, status: "pending_approval", date_joined: "2026-01-02T00:00:00Z" },
+  ...overrides,
+});
+
+export const paged = (results, extra = {}) => json({ count: results.length, next: null, previous: null, results, ...extra });

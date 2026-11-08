@@ -168,3 +168,32 @@ describe("LoginPage", () => {
     expect(document.body.textContent).not.toMatch(/password123|12345678/);
   });
 });
+
+describe("LoginPage: company states (Module 2)", () => {
+  it("a rejected company sees the server's message and a link to submit again", async () => {
+    server.use(route.post("/auth/login/", () => errors.rejected()));
+    renderRoutes(routes, "/login");
+    await logIn();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Your company registration was not approved.");
+    expect(screen.getByRole("link", { name: /submit again/i })).toHaveAttribute("href", "/resubmit-company");
+  });
+
+  it("a company awaiting approval sees the server's message and no resubmit link", async () => {
+    server.use(route.post("/auth/login/", () => errors.pendingApproval()));
+    renderRoutes(routes, "/login");
+    await logIn();
+    expect(await screen.findByRole("alert")).toHaveTextContent("awaiting administrator approval");
+    expect(screen.queryByRole("link", { name: /submit again/i })).not.toBeInTheDocument();
+  });
+
+  it("shows a welcome after accepting an invitation, with the email filled in", async () => {
+    renderRoutes(routes, { pathname: "/login", state: { invited: true, email: "new@acme.example" } });
+    expect(await screen.findByText(/you have joined the team/i)).toBeInTheDocument();
+    expect(screen.getByLabelText("Email")).toHaveValue("new@acme.example");
+  });
+
+  it("shows a confirmation after a company was sent for review again", async () => {
+    renderRoutes(routes, { pathname: "/login", state: { resubmitted: true, email: "o@acme.example" } });
+    expect(await screen.findByText(/sent for review again/i)).toBeInTheDocument();
+  });
+});

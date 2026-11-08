@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { USE_MOCK_API } from "@/config/env";
 import { useAuthStore } from "@/store/authStore";
 import { candidateProfiles, candidatesList } from "@/data/candidatesData";
 
@@ -74,7 +75,8 @@ const SOURCES = ["LinkedIn", "Referral", "Job board", "Careers page", "Community
 
 function seedRecord(user) {
   const now = Date.now();
-  const demo = user.id === DEMO_COMPANY_ID;
+  // Literal env check: the demo company (and its sample roles, applicants and team) is removed from real builds.
+  const demo = import.meta.env.VITE_USE_MOCK_API === "true" && user.id === DEMO_COMPANY_ID;
   const profile = {
     companyName: user.companyName || user.name,
     industry: user.industry || "",
@@ -161,6 +163,14 @@ export const useCompanyStore = create(
             if (!user?.id || get().records[user.id]) return;
             set((s) => ({ records: { ...s.records, [user.id]: seedRecord(user) } }));
           },
+          /** Real backend: the company profile belongs to the server; replace the local copy with what it returned. */
+          hydrateProfile(user, serverProfile) {
+            if (!user?.id) return;
+            set((s) => {
+              const existing = s.records[user.id] || seedRecord(user);
+              return { records: { ...s.records, [user.id]: { ...existing, profile: { ...existing.profile, ...serverProfile } } } };
+            });
+          },
           updateProfile: (changes) => patch((r) => ({ ...r, profile: { ...r.profile, ...changes } })),
           updatePrefs: (changes) => patch((r) => ({ ...r, prefs: { ...r.prefs, ...changes } })),
           saveJob(job) {
@@ -204,7 +214,15 @@ export const useCompanyStore = create(
       name: "intellihire_company",
       version: 1,
       storage: createJSONStorage(() => localStorage),
-      partialize: (s) => ({ records: s.records }),
+      // Real backend: the profile belongs to the server, so only a name snapshot is kept locally and a stale
+      // copy can never outlive a logout or another login. (Jobs and applicants are still local until Modules 3 and 4.)
+      partialize: (s) => ({
+        records: USE_MOCK_API
+          ? s.records
+          : Object.fromEntries(
+              Object.entries(s.records).map(([id, record]) => [id, { ...record, profile: { companyName: record.profile?.companyName || "", ownerName: record.profile?.ownerName || "", email: record.profile?.email || "" } }]),
+            ),
+      }),
     },
   ),
 );

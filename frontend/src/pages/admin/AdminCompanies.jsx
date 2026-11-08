@@ -1,12 +1,14 @@
 import { useCallback, useMemo, useState } from "react";
 import {
-  Building2, CheckCircle2, Download, ExternalLink, Globe, Mail, PauseCircle, PlayCircle, SearchX, ShieldX, Users,
+  Building2, CheckCircle2, Download, ExternalLink, Globe, Mail, PauseCircle, SearchX, ShieldX, Users,
 } from "lucide-react";
 import { Badge, Card, EmptyState, PageHeader, StatTile } from "@/components/app/primitives";
 import { ActionDialog, DataTable, Drawer, Field, SearchField, SelectField, Tabs } from "@/components/admin/primitives";
 import Reveal from "@/components/shared/Reveal";
 import { accountsApi } from "@/api/authApi";
-import { ACCOUNT_STATUS, allAccounts } from "@/lib/adminStats";
+import { ACCOUNT_STATUS } from "@/lib/accountStatus";
+import { allAccounts } from "@/lib/adminStats";
+import { CompanyActions as Actions, CompanyLogo, StatusBadge } from "@/components/admin/companyParts";
 import { logAudit } from "@/store/auditStore";
 import { formatDate, relativeTime } from "@/lib/candidateStats";
 import { downloadFile, toCsv } from "@/lib/csv";
@@ -27,44 +29,6 @@ const ACTIONS = {
   suspend: { status: "suspended", title: (c) => `Suspend ${c}?`, message: "They are signed out immediately and cannot sign back in.", confirm: "Suspend company", reason: true, tone: "danger", audit: "suspend", toast: "suspended" },
   activate: { status: "active", title: (c) => `Reactivate ${c}?`, message: "They regain full access to their workspace.", confirm: "Reactivate", reason: false, audit: "activate", toast: "reactivated" },
 };
-
-const CompanyLogo = ({ company, size = 40 }) => (
-  <span
-    className="flex shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-ink to-stone-600 font-semibold text-white"
-    style={{ width: size, height: size, fontSize: size * 0.34 }}
-  >
-    {(company.companyName || company.name || "?").slice(0, 2).toUpperCase()}
-  </span>
-);
-
-const StatusBadge = ({ status }) => <Badge tone={ACCOUNT_STATUS[status]?.tone || "neutral"}>{ACCOUNT_STATUS[status]?.label || status}</Badge>;
-
-function Actions({ c, full = false, setDialog }) {
-  return (
-    <div className={`flex flex-wrap items-center gap-2 ${full ? "" : "justify-end"}`} onClick={(e) => e.stopPropagation()}>
-      {c.status === "pending" && (
-        <>
-          <button type="button" onClick={() => setDialog({ kind: "approve", company: c })} className={`btn-primary !h-9 !px-3.5 text-[12.5px] ${full ? "flex-1" : ""}`}>
-            <CheckCircle2 size={15} /> Approve
-          </button>
-          <button type="button" onClick={() => setDialog({ kind: "reject", company: c })} className={`btn-secondary !h-9 !px-3.5 text-[12.5px] hover:!border-red-300 hover:!text-red-600 ${full ? "flex-1" : ""}`}>
-            Reject
-          </button>
-        </>
-      )}
-      {c.status === "active" && (
-        <button type="button" onClick={() => setDialog({ kind: "suspend", company: c })} className="btn-secondary !h-9 !px-3.5 text-[12.5px] hover:!border-red-300 hover:!text-red-600">
-          <PauseCircle size={15} /> Suspend
-        </button>
-      )}
-      {(c.status === "suspended" || c.status === "rejected") && (
-        <button type="button" onClick={() => setDialog({ kind: "activate", company: c })} className="btn-secondary !h-9 !px-3.5 text-[12.5px]">
-          <PlayCircle size={15} /> Reactivate
-        </button>
-      )}
-    </div>
-  );
-}
 
 export default function AdminCompanies() {
   const [version, setVersion] = useState(0);
