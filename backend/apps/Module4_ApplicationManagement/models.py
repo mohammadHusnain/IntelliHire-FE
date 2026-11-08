@@ -115,3 +115,22 @@ class ApplicationStatusChange(models.Model):
 
     def __str__(self):
         return f"{self.application.reference}: {self.from_status or '-'} -> {self.to_status}"
+
+
+class ApplicationNote(models.Model):
+    """A free note a company teammate leaves on an application. Notes are never edited or deleted (audit trail)."""
+
+    application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name="notes")
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [models.Index(fields=["application", "created_at"], name="app_note_app_time_idx")]
+        constraints = [models.CheckConstraint(condition=~models.Q(text=""), name="app_note_text_not_empty")]
+
+    def __str__(self):
+        return f"{self.application.reference}: {self.text[:40]}"

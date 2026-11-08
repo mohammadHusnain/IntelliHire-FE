@@ -66,6 +66,7 @@ def _hiring_blocks(company):
         ],
         "recent_applications": [
             {
+                "id": application.pk,
                 "candidate_name": application.full_name,
                 "job_title": application.job.title,
                 "submitted_at": application.submitted_at,

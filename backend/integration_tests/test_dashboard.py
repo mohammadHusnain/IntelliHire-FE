@@ -73,7 +73,7 @@ class TestRealNumbers:
             apply(busy["soon"], email=f"extra{index}@example.com", full_name=f"Extra {index}")
         rows = get(clients[MemberRole.ADMIN])["recent_applications"]
         assert len(rows) == 5
-        assert set(rows[0]) == {"candidate_name", "job_title", "submitted_at", "status"}
+        assert set(rows[0]) == {"id", "candidate_name", "job_title", "submitted_at", "status"}
         stamps = [row["submitted_at"] for row in rows]
         assert stamps == sorted(stamps, reverse=True)
         assert rows[0]["candidate_name"] == "Extra 3" and rows[0]["job_title"] == "Closes in 3 days"
@@ -129,6 +129,9 @@ class TestAgreesWithTheOtherEndpoints:
         assert [(r["candidate_name"], r["job_title"], r["status"]) for r in recent] == [
             (r["full_name"], r["job"]["title"], r["status"]) for r in listed
         ]
+        # the id is the application's own id: it opens that application
+        assert [r["id"] for r in recent] == [r["id"] for r in listed]
+        assert client.get(f"/api/applications/{recent[0]['id']}/").status_code == 200
 
     def test_closing_soon_counts_match_the_job_list(self, clients, busy):
         client = clients[MemberRole.ADMIN]

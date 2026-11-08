@@ -2,6 +2,7 @@ from django.http import FileResponse, StreamingHttpResponse
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework.exceptions import NotFound
 from rest_framework.generics import GenericAPIView
+from rest_framework import status
 from rest_framework.response import Response
 
 from apps.Module3_JobPosting.models import JobPosting
@@ -15,7 +16,9 @@ from ..serializers.applications import (
     ApplicationDetailSerializer,
     ApplicationListResponseSerializer,
     ApplicationListSerializer,
+    ApplicationNoteSerializer,
     CompanyApplicationListSerializer,
+    NoteCreateSerializer,
     StatusChangeSerializer,
 )
 from ..services import review
@@ -120,6 +123,31 @@ class ApplicationStatusView(GenericAPIView):
             note=serializer.validated_data["note"],
         )
         return Response(ApplicationDetailSerializer(review.get_application(company, application_id)).data)
+
+
+class ApplicationNotesView(GenericAPIView):
+    """Free notes on an application: everyone in the company reads them, admin/HR/recruiter write them."""
+
+    serializer_class = NoteCreateSerializer
+    filter_backends = []
+    pagination_class = None
+
+    def get_permissions(self):
+        return [CanChangeStatus() if self.request.method == "POST" else IsCompanyUser()]
+
+    @extend_schema(responses={200: ApplicationNoteSerializer(many=True)})
+    def get(self, request, application_id):
+        notes = review.list_notes(company_of(request), application_id)
+        return Response(ApplicationNoteSerializer(notes, many=True).data)
+
+    @extend_schema(request=NoteCreateSerializer, responses={201: ApplicationNoteSerializer})
+    def post(self, request, application_id):
+        serializer = NoteCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        note = review.add_note(
+            company=company_of(request), application_id=application_id, user=request.user, text=serializer.validated_data["text"]
+        )
+        return Response(ApplicationNoteSerializer(note).data, status=status.HTTP_201_CREATED)
 
 
 class ApplicationResumeView(GenericAPIView):

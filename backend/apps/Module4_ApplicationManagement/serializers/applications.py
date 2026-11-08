@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from ..models import Application, ApplicationStatus
-from ..services.review import NOTE_MAX_LENGTH
+from ..services.review import FREE_NOTE_MAX_LENGTH, NOTE_MAX_LENGTH
 from apps.Module3_JobPosting.models import FieldType
 
 
@@ -61,17 +61,33 @@ class StatusHistorySerializer(serializers.Serializer):
     changed_at = serializers.DateTimeField()
 
 
+class ApplicationNoteSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    text = serializers.CharField()
+    author = serializers.SerializerMethodField()
+    created_at = serializers.DateTimeField()
+
+    def get_author(self, note) -> dict | None:
+        user = note.author
+        return {"id": str(user.pk), "full_name": user.full_name} if user else None
+
+
+class NoteCreateSerializer(serializers.Serializer):
+    text = serializers.CharField(max_length=FREE_NOTE_MAX_LENGTH, trim_whitespace=True)
+
+
 class ApplicationDetailSerializer(serializers.ModelSerializer):
     job = JobSummarySerializer(read_only=True)
     resume = serializers.SerializerMethodField()
     answers = serializers.SerializerMethodField()
     status_history = serializers.SerializerMethodField()
+    notes = serializers.SerializerMethodField()
 
     class Meta:
         model = Application
         fields = [
             "id", "reference", "status", "submitted_at", "updated_at", "job", "full_name", "email", "phone",
-            "education_level", "institution", "graduation_year", "resume", "answers", "status_history",
+            "education_level", "institution", "graduation_year", "resume", "answers", "status_history", "notes",
         ]
         read_only_fields = fields
 
@@ -91,6 +107,9 @@ class ApplicationDetailSerializer(serializers.ModelSerializer):
                 value = application.answers.get(field.key)
             result.append({"key": field.key, "label": field.label, "type": field.field_type, "value": value})
         return result
+
+    def get_notes(self, application) -> list:
+        return ApplicationNoteSerializer(application.notes.all(), many=True).data
 
     def get_status_history(self, application) -> list:
         return [

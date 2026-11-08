@@ -8,9 +8,13 @@ from rest_framework.exceptions import NotFound
 
 from apps.Module3_JobPosting.models import FieldType
 
-from ..models import Application, ApplicationStatus, ApplicationStatusChange
+from apps.common.errors import ApiError
+
+from ..models import Application, ApplicationNote, ApplicationStatus, ApplicationStatusChange
 
 NOTE_MAX_LENGTH = 1000
+FREE_NOTE_MAX_LENGTH = 2000
+MAX_NOTES_PER_APPLICATION = 100
 _SAFE_NUMBERISH = re.compile(r"[+\-\d\s().]+")
 
 
@@ -24,7 +28,7 @@ def get_application(company, application_id):
     try:
         return (
             applications_of(company)
-            .prefetch_related("files", "status_history__changed_by", "job__custom_fields")
+            .prefetch_related("files", "status_history__changed_by", "notes__author", "job__custom_fields")
             .get(pk=application_id)
         )
     except Application.DoesNotExist:
@@ -115,3 +119,21 @@ def export_rows(job):
             application.submitted_at.isoformat(),
         ] + [_answer_text(field, application, files) for field in fields]
         yield writer.writerow([_cell(value) for value in row])
+
+
+def list_notes(company, application_id):
+    """The notes of one application (newest first); 404 for another company's application."""
+    application = get_application(company, application_id)
+    return list(application.notes.select_related("author"))
+
+
+def add_note(*, company, application_id, user, text):
+    """Add a free note. Bounded per application so a single record cannot grow without end."""
+    with transaction.atomic():
+        try:
+            application = Application.objects.select_for_update(of=("self",)).filter(job__company=company).get(pk=application_id)
+        except Application.DoesNotExist:
+            raise NotFound("Application not found.")
+        if application.notes.count() >= MAX_NOTES_PER_APPLICATION:
+            raise ApiError(f"An application can have at most {MAX_NOTES_PER_APPLICATION} notes.", "limit_reached")
+        return ApplicationNote.objects.create(application=application, author=user, text=text)

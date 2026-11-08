@@ -37,6 +37,7 @@ class ClosingSoonSerializer(serializers.Serializer):
 
 
 class RecentApplicationSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
     candidate_name = serializers.CharField()
     job_title = serializers.CharField()
     submitted_at = serializers.DateTimeField()
