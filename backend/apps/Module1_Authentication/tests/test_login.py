@@ -122,3 +122,47 @@ def test_a_company_admin_of_a_suspended_company_can_still_log_in(api_client, mem
     admin = member_factory(role=MemberRole.ADMIN, company_status=CompanyStatus.SUSPENDED, email="adm@example.com")
     assert admin.status == User.Status.ACTIVE
     assert login(api_client, "adm@example.com").status_code == 200
+
+
+class TestDeactivatedMembers:
+    """A company admin can turn a member's access off. The account stays, but it cannot be used until restored."""
+
+    def test_a_deactivated_member_cannot_log_in(self, api_client, member_factory):
+        member = member_factory(role=MemberRole.RECRUITER, email="gone@example.com")
+        member.company_membership.is_active = False
+        member.company_membership.save()
+        response = login(api_client, "gone@example.com")
+        assert response.status_code == 403
+        assert response.json() == {"detail": "Your access to this company has been turned off. Contact your company admin.", "code": "member_deactivated"}
+
+    def test_wrong_password_still_looks_like_wrong_password(self, api_client, member_factory):
+        member = member_factory(role=MemberRole.RECRUITER, email="gone2@example.com")
+        member.company_membership.is_active = False
+        member.company_membership.save()
+        assert login(api_client, "gone2@example.com", password="Wrong-pass-1").json() == INVALID
+
+    def test_reactivated_member_can_log_in_again(self, api_client, member_factory):
+        member = member_factory(role=MemberRole.RECRUITER, email="back@example.com")
+        membership = member.company_membership
+        membership.is_active = False
+        membership.save()
+        assert login(api_client, "back@example.com").status_code == 403
+        membership.is_active = True
+        membership.save()
+        assert login(api_client, "back@example.com").status_code == 200
+
+    def test_an_old_refresh_token_of_a_deactivated_member_is_refused(self, api_client, member_factory):
+        from apps.Module1_Authentication import auth_tokens
+
+        member = member_factory(role=MemberRole.RECRUITER, email="old@example.com")
+        pair = auth_tokens.issue_tokens(member)
+        member.company_membership.is_active = False
+        member.company_membership.save()
+        response = api_client.post("/api/auth/token/refresh/", {"refresh": pair["refresh"]}, format="json")
+        assert response.status_code == 401 and response.json()["code"] == "member_deactivated"
+
+    def test_other_users_are_not_affected(self, api_client, user_factory, member_factory):
+        user_factory(email="cand@example.com")
+        assert login(api_client, "cand@example.com").status_code == 200
+        member_factory(role=MemberRole.ADMIN, email="boss@example.com")
+        assert login(api_client, "boss@example.com").status_code == 200

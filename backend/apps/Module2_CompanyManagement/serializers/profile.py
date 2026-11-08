@@ -31,8 +31,9 @@ class CompanyProfileSerializer(serializers.ModelSerializer):
             "company_size",
             "status",
             "profile_completion",
+            "created_at",
         ]
-        read_only_fields = ["id", "slug", "official_email", "status"]
+        read_only_fields = ["id", "slug", "official_email", "status", "created_at"]
 
     def get_profile_completion(self, company) -> int:
         return profile_completion(company)

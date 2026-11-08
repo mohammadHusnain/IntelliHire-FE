@@ -118,13 +118,15 @@ Source: Doc §2.4. Implemented and tested on `backend/module-02`; behaviour note
 | POST | /api/auth/register/company/resubmit/ | Public | official_email, password, company_name, industry, admin_full_name, admin_phone | 200 detail, status `pending` | 400 `invalid_credentials`, `not_rejected`, name taken; 429 | implemented |
 | GET | /api/platform-admin/companies/ | Platform admin | `?status` (default `pending`; `all`), `?search`, `?page`, `?page_size` | 200 paginated list | 400 bad status; 403 | implemented |
 | GET | /api/platform-admin/companies/<id>/ | Platform admin | none | 200 detail | 404 | implemented |
-| POST | /api/platform-admin/companies/<id>/approve/ | Platform admin | none | 200 detail | 404; 409 `already_reviewed` | implemented |
+| POST | /api/platform-admin/companies/<id>/approve/ | Platform admin | none | 200 detail (pending, or a rejected company: the rejection is overturned, D-075) | 404; 409 `already_reviewed` (approved or suspended) | implemented |
 | POST | /api/platform-admin/companies/<id>/reject/ | Platform admin | reason (≥ 10 chars) | 200 detail | 400 reason; 409 `already_reviewed` | implemented |
 | POST | /api/platform-admin/companies/<id>/suspend/ | Platform admin | reason (≥ 10 chars) | 200 detail | 400 reason; 409 `invalid_state` (only approved) | implemented |
 | POST | /api/platform-admin/companies/<id>/reactivate/ | Platform admin | none | 200 detail | 409 `invalid_state` (only suspended) | implemented |
 
 ### Module 2 — implemented behaviour
 
+- **Deactivated members (D-076).** Login answers 403 `member_deactivated` and token refresh 401 `member_deactivated`; every `/api/company/` call is 403. `/api/auth/me/` still answers so the app can explain what happened.
+- **Profile `created_at` (D-077).** Read-only registration time of the company.
 - **Access gate.** `IsCompanyUser` = active member of an **approved** company; a pending, rejected or suspended company gets 403 "Unauthorized access." on every `/api/company/` endpoint. A suspended company's users can still log in (login only checks the user's status).
 - **Isolation.** Every company-side lookup is scoped to the caller's company; another company's member or invitation id returns 404, identical to a missing id.
 - **Review list** is paginated (`count`, `next`, `previous`, `results`); rows carry `id, name, industry, official_email, contact_phone, status, created_at, admin{id, full_name, email, email_verified, status, date_joined}`. Detail adds slug, website, description, headquarters, logo, company_size, `rejection_reason`, `suspension_reason`, `reviewed_by` (email), `reviewed_at`.

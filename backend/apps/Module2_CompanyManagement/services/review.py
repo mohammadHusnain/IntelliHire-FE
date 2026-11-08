@@ -12,6 +12,8 @@ from ..models import Company
 
 ALREADY_REVIEWED = "Company has already been reviewed."
 PENDING_USER_STATUSES = (UserStatus.PENDING_VERIFICATION, UserStatus.PENDING_APPROVAL)
+# Approving a rejected company overturns the rejection, so its founder leaves the rejected status too.
+APPROVABLE_COMPANY_STATUSES = (CompanyStatus.PENDING, CompanyStatus.REJECTED)
 
 
 def _locked_company(company_id):
@@ -29,15 +31,18 @@ def _require_pending(company):
 
 
 def approve_company(*, company_id, reviewer):
+    """Approve a pending company, or overturn the rejection of a rejected one."""
     with transaction.atomic():
         company = _locked_company(company_id)
-        _require_pending(company)
+        if company.status not in APPROVABLE_COMPANY_STATUSES:
+            raise ApiError(ALREADY_REVIEWED, "already_reviewed", 409)
         company.status = CompanyStatus.APPROVED
+        company.rejection_reason = ""
         company.reviewed_by = reviewer
         company.reviewed_at = timezone.now()
-        company.save(update_fields=["status", "reviewed_by", "reviewed_at", "updated_at"])
+        company.save(update_fields=["status", "rejection_reason", "reviewed_by", "reviewed_at", "updated_at"])
         founder = company.created_by
-        if founder.status in PENDING_USER_STATUSES:
+        if founder.status in (*PENDING_USER_STATUSES, UserStatus.REJECTED):
             founder.status = derive_status(founder)
             founder.save(update_fields=["status"])
         emails.send_company_approved_email(founder, company)

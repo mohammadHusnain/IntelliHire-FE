@@ -54,9 +54,17 @@ class TestRead:
         body = auth_client(admin).get(URL).json()
         assert set(body) == {
             "id", "name", "slug", "industry", "official_email", "contact_phone", "website",
-            "description", "headquarters", "logo", "company_size", "status", "profile_completion",
+            "description", "headquarters", "logo", "company_size", "status", "profile_completion", "created_at",
         }
         assert body["profile_completion"] == 0 and body["status"] == "approved" and body["logo"] is None
+
+    def test_created_at_is_the_registration_time_and_cannot_be_edited(self, company_with_admin, auth_client):
+        company, admin = company_with_admin
+        client = auth_client(admin)
+        before = client.get(URL).json()["created_at"]
+        assert before.startswith(company.created_at.strftime("%Y-%m-%d"))
+        client.patch(URL, {"created_at": "2001-01-01T00:00:00Z", "headquarters": "Lahore"}, format="json")
+        assert client.get(URL).json()["created_at"] == before
 
     def test_completion_counts_filled_optional_fields(self, company_with_admin, auth_client):
         company, admin = company_with_admin

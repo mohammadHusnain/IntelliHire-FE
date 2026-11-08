@@ -23,6 +23,7 @@ INACTIVE_MESSAGES = {
     UserStatus.REJECTED: "Your company registration was not approved.",
     UserStatus.SUSPENDED: "Your account has been suspended.",
 }
+MEMBER_DEACTIVATED = "Your access to this company has been turned off. Contact your company admin."
 INVALID_RESET_LINK = "Reset link is invalid or has expired."
 COMPANY_ROLES = (UserRole.COMPANY_ADMIN, UserRole.HR)
 
@@ -119,7 +120,17 @@ def authenticate_credentials(email, password):
         raise ApiError(INVALID_CREDENTIALS, "invalid_credentials", 401)
     if user.status != UserStatus.ACTIVE:
         raise ApiError(INACTIVE_MESSAGES[user.status], user.status, 403)
+    if is_deactivated_member(user):
+        raise ApiError(MEMBER_DEACTIVATED, "member_deactivated", 403)
     return user
+
+
+def is_deactivated_member(user):
+    """A company user whose admin turned their access off (they keep their account, but cannot use it)."""
+    if user.role not in COMPANY_ROLES:
+        return False
+    membership = get_membership(user)
+    return membership is not None and not membership.is_active
 
 
 def login(email, password):
@@ -134,6 +145,8 @@ def refresh_tokens(refresh_token):
         user = User.objects.select_related("company_membership__company").filter(pk=old["user_id"]).first()
         if user is None or user.status != UserStatus.ACTIVE:
             raise ApiError("Account is not active.", "account_inactive", 401)
+        if is_deactivated_member(user):
+            raise ApiError(MEMBER_DEACTIVATED, "member_deactivated", 401)
         with transaction.atomic():
             auth_tokens.blacklist(old)
             return auth_tokens.issue_tokens(user)

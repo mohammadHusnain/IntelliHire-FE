@@ -121,13 +121,36 @@ class TestApprove:
         founder.refresh_from_db()
         assert founder.status == UserStatus.PENDING_VERIFICATION
 
-    @pytest.mark.parametrize("status", [CompanyStatus.APPROVED, CompanyStatus.REJECTED, CompanyStatus.SUSPENDED])
-    def test_cannot_approve_a_reviewed_company(self, admin_client, company_factory, status):
-        extra = {"rejection_reason": REASON} if status == CompanyStatus.REJECTED else {"suspension_reason": REASON} if status == CompanyStatus.SUSPENDED else {}
+    @pytest.mark.parametrize("status", [CompanyStatus.APPROVED, CompanyStatus.SUSPENDED])
+    def test_cannot_approve_an_approved_or_suspended_company(self, admin_client, company_factory, status):
+        extra = {"suspension_reason": REASON} if status == CompanyStatus.SUSPENDED else {}
         company = company_factory(status=status, **extra)
         response = admin_client.post(url(company, "approve"))
         assert response.status_code == 409 and response.json()["code"] == "already_reviewed"
         assert response.json()["detail"] == "Company has already been reviewed."
+
+    def test_approving_a_rejected_company_overturns_the_rejection(self, api_client, admin_client, platform_admin, pending_company, django_capture_on_commit_callbacks):
+        admin_client.post(url(pending_company, "reject"), {"reason": REASON}, format="json")
+        founder = pending_company.created_by
+        founder.refresh_from_db()
+        assert founder.status == UserStatus.REJECTED
+        mail.outbox.clear()
+        with django_capture_on_commit_callbacks(execute=True):
+            response = admin_client.post(url(pending_company, "approve"))
+        assert response.status_code == 200 and response.json()["status"] == "approved"
+        pending_company.refresh_from_db()
+        founder.refresh_from_db()
+        assert pending_company.status == CompanyStatus.APPROVED
+        assert pending_company.rejection_reason == "" and pending_company.reviewed_by == platform_admin
+        assert founder.status == UserStatus.ACTIVE
+        assert [m.to for m in mail.outbox] == [[founder.email]]
+        login = api_client.post(LOGIN, {"email": founder.email, "password": "Str0ng!pass-123"}, format="json")
+        assert login.status_code == 200
+
+    def test_an_overturned_rejection_cannot_be_approved_twice(self, admin_client, pending_company):
+        admin_client.post(url(pending_company, "reject"), {"reason": REASON}, format="json")
+        assert admin_client.post(url(pending_company, "approve")).status_code == 200
+        assert admin_client.post(url(pending_company, "approve")).status_code == 409
 
     def test_double_approve_sends_one_email(self, admin_client, pending_company, django_capture_on_commit_callbacks):
         with django_capture_on_commit_callbacks(execute=True):
