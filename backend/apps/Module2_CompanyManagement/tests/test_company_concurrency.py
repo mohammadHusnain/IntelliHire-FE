@@ -48,10 +48,15 @@ def test_concurrent_approve_and_reject_decide_exactly_once(auth_client, platform
         return client.post(base + "approve/").status_code
 
     codes = run_parallel(6, call)
-    assert sorted(codes).count(200) == 1 and codes.count(409) == 5, codes
+    # Since D-075 an approval may overturn a rejection, so two orders are valid: the approval comes first (one 200,
+    # every reject is refused) or a rejection comes first and the first approval then overturns it (two 200s).
+    # Every other call is a clean 409, and the company always ends approved.
+    assert codes.count(200) in (1, 2) and codes.count(200) + codes.count(409) == 6, codes
     company.refresh_from_db()
-    assert company.status in (CompanyStatus.APPROVED, CompanyStatus.REJECTED)
-    assert len([m for m in mail.outbox if m.to == [founder.email]]) == 1
+    assert company.status == CompanyStatus.APPROVED
+    to_founder = [m.subject for m in mail.outbox if m.to == [founder.email]]
+    assert sum("has been approved" in subject for subject in to_founder) == 1
+    assert sum("was not approved" in subject for subject in to_founder) == codes.count(200) - 1
 
 
 def test_concurrent_accepts_create_one_user(api_client_factory, member_factory, auth_client):

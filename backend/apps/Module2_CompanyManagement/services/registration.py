@@ -6,6 +6,7 @@ from apps.Module1_Authentication.models import User
 from apps.Module1_Authentication.services import authenticate_password, derive_status
 from apps.Module1_Authentication.validators import EMAIL_TAKEN
 from apps.common.choices import CompanyStatus, MemberRole, UserRole, UserStatus
+from apps.Module5_Foundation.events import log_event
 from apps.common.errors import ApiError, violated_constraint
 
 from .. import emails
@@ -33,6 +34,7 @@ def register_company_admin(*, company_name, industry, official_email, admin_full
                 created_by=user,
             )
             CompanyMember.objects.create(company=company, user=user, role=MemberRole.ADMIN)
+            log_event("company.registered", actor=user, company=company, target=company, summary=f"Company registered: {company.name}")
             account_emails.send_verification_email(user)
             emails.send_registration_received_email(user, company)
             emails.send_new_company_to_platform_admins(company)

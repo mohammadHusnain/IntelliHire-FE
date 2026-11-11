@@ -9,6 +9,7 @@ from apps.Module3_JobPosting.models import JobPosting, JobStatus
 from apps.Module3_JobPosting.services.form import CLOSED_MESSAGE
 from apps.common.errors import ApiError, violated_constraint
 from apps.common.storage import private_storage
+from apps.Module5_Foundation.events import log_event
 
 from .. import emails
 from ..models import Application, ApplicationFile, ApplicationStatus, ApplicationStatusChange
@@ -104,6 +105,10 @@ def _attempt(job_id, data, files, candidate, ip_address, user_agent, written):
         ApplicationStatusChange.objects.create(
             application=application, from_status="", to_status=ApplicationStatus.SUBMITTED, changed_by=None
         )
+        log_event(
+            "application.submitted", company=job.company_id, target=application,
+            summary=f"Application submitted for {job.title}", metadata={"reference": application.reference},
+        )  # fmt: skip
         emails.send_application_received(application)
         return application
 

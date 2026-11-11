@@ -18,6 +18,7 @@ Source of truth for contracts: Doc §1.7, §2.4, §3.4, §4.5. These tables are 
 | `/api/platform-admin/` | `users/` from Module 1; `companies/` from Module 2 |
 | `/api/jobs/` | `Module3_JobPosting` (label `jobs`): HR side |
 | `/api/jobs/<job_id>/applications/`, `/api/applications/` | `Module4_ApplicationManagement` (label `applications`): HR side |
+| `/api/notifications/` | `Module5_Foundation` (label `foundation`): the signed-in user's own notifications |
 | `/api/public/` | `invitations/` (Module 2); `jobs/<slug>/` (Module 3); `jobs/<slug>/apply/` (Module 4) |
 | `/api/docs/`, `/admin/` | Swagger UI, Django admin |
 
@@ -216,6 +217,29 @@ Source: Doc §4.5. Implemented and tested on `IntelliHire-backend`; behaviour no
 - **Module 3 link.** `applications_count` on jobs is now real (and can be ordered by), and after the first application the custom-field locks of Module 3 are enforced.
 
 **Decisions:** D-061 to D-070.
+
+## Module 5 — AI and notifications foundation (`Module5_Foundation`, Phase 2)
+
+Source: Phase 2 guide, Module 5. Implemented and tested on `IntelliHire-backend`. Any signed-in account (candidate, company user, platform admin) may use these; every query is limited to the caller's own rows.
+
+| Method | Endpoint | Access | Request | Success | Main errors | Status |
+|---|---|---|---|---|---|---|
+| GET | /api/notifications/ | Logged in | ?unread=true\|false, ?page, ?page_size | 200 paginated, newest first | 400 `invalid_filter`; 401 | implemented |
+| GET | /api/notifications/unread-count/ | Logged in | none | 200 `{count}` | 401 | implemented |
+| POST | /api/notifications/<id>/read/ | Logged in (owner) | none | 200 the notification, now read | 404 not yours or unknown | implemented |
+| POST | /api/notifications/read-all/ | Logged in | none | 200 `{count}` of rows changed | 401 | implemented |
+
+### Module 5 — implemented behaviour
+
+- **Row shape:** `id, kind, title, body, link, payload, read, read_at, created_at`. `link` is `""` or a path inside the frontend (always starts with one `/`); `payload` never holds secret-looking keys. Text is plain: render it as text, never as HTML.
+- **Marking read** is safe to repeat; the first `read_at` is kept. Another user's id answers 404, exactly like an unknown id.
+- **Throttle:** 120 requests per minute per user (`notifications`).
+- **Creating notifications** is internal (`notifications.notify`, `notify_many`); there is no public create endpoint.
+- **Email outbox, activity log, AI layer, prompt templates, AI settings and system alerts** have no endpoints in this module. Admin-facing endpoints for them arrive in Module 13. Behaviour: D-081 to D-091.
+- **Scheduled tasks** (`CELERY_BEAT_SCHEDULE`): send/retry emails every 10 minutes, `check_alerts` every 5, worker heartbeat every minute, purge email bodies daily, `close_expired_jobs` every 5. Run a worker and beat in production; run `python manage.py check_alerts` from cron every 5 minutes to detect a dead worker.
+- **Changed Phase 1 behaviour:** every email now goes through the outbox (same recipients and text; one message per recipient; sent after commit as before; verification, reset and invitation bodies are wiped after sending). `reactivate_user`, `suspend_company` and `reactivate_company` record who acted.
+
+**Decisions:** D-081 to D-091.
 
 ## Known frontend differences to resolve before Phase 5
 

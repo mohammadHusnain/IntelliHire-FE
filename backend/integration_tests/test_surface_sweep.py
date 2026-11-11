@@ -26,6 +26,8 @@ PUBLIC = {
 }
 ANY_LOGGED_IN = {
     ("POST", "/api/auth/logout/"), ("GET", "/api/auth/me/"), ("PATCH", "/api/auth/me/"), ("POST", "/api/auth/password/change/"),
+    ("GET", "/api/notifications/"), ("GET", "/api/notifications/unread-count/"), ("POST", "/api/notifications/read-all/"),
+    ("POST", "/api/notifications/{notification_id}/read/"),
 }
 
 
@@ -74,7 +76,7 @@ def call(client, operation, values=None, body=None):
 
 
 def test_every_operation_is_classified():
-    assert len(OPERATIONS) == 72
+    assert len(OPERATIONS) == 76
     assert [op for op in OPERATIONS if kind(op) == "unclassified"] == []
     assert PUBLIC <= set(OPERATIONS) and ANY_LOGGED_IN <= set(OPERATIONS)
 

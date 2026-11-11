@@ -9,6 +9,7 @@ A step is "complete" only when implementation, executed tests, documentation and
 | 1 — Project understanding | Complete |
 | 2 — Backend foundation | **Complete.** Approved by the owner and merged into `IntelliHire-backend` (`a1c6cec`) |
 | 3 — Module 1: Authentication and accounts | **Complete.** Approved by the owner and merged into `IntelliHire-backend` (`7fdb54b`); `main` untouched |
+| Phase 2 guide — Module 5: AI and notifications foundation | **Built; awaiting the owner's approval** |
 | 3 — Module 2: Company management | **Complete.** Approved by the owner and merged into `IntelliHire-backend` (`53826a8`) |
 | 3 — Module 3: Job posting and form | **Complete.** Approved by the owner and merged into `IntelliHire-backend` (`941f3f4`) |
 | 3 — Module 4: Applications | **Complete.** Verified on a fresh clone of GitHub and approved by the owner; on `IntelliHire-backend` (`7a57b04`) |
@@ -113,8 +114,26 @@ A step is "complete" only when implementation, executed tests, documentation and
 - Still not built: Azure Blob storage and signed URLs, SMTP and scheduling in production (deployment target undecided, Q3/Q23), candidate emails on status change (Module 10), Tally/ERP (deferred).
 - Phase 5 (connecting the React frontend) has not started; it changes `frontend/` and needs the owner's explicit go-ahead.
 
+## Phase 2, Module 5: AI and notifications foundation (built directly on `IntelliHire-backend`)
+
+Owner decisions: Q1 a (Celery, eager locally), Q2 a (schedules in settings), Q3 a (activity events wired into Phase 1), Q4 a (the Phase 2 guide is kept in `documentation/`).
+
+- New app `Module5_Foundation` with seven tables (`foundation.0001_initial`), four notification endpoints, the durable email outbox, the append-only activity log, the AI wrapper (fake and OpenAI providers), prompt templates, AI settings, system alerts and six scheduled tasks. Details: `API_CONTRACTS.md` (Module 5), `DATABASE_SCHEMA.md`, D-081 to D-091, `apps/Module5_Foundation/README.md`.
+- Phase 1 touched in small ways: emails carry a `kind` and credential emails are `sensitive`; one-line `log_event` calls in the services listed in D-084; `close_expired_jobs` now writes its events in bulk.
+
+**Verified (executed here: Python 3.13, PostgreSQL 16, Redis)**
+- `python -m pytest`: **1552 passed** = 1253 earlier tests (five assertions adapted to the outbox, one added) + 294 new Module 5 tests. `makemigrations --check` clean; `manage.py check` clean.
+- Real broker run (Redis, a Celery worker and beat, throwaway database): emails queued in a transaction were sent by the worker; the sensitive body was wiped in the database; with Redis stopped a request finished in 0.1 s and the email stayed queued, and after Redis returned the sweep sent it; beat sent the heartbeat task. Servers stopped and the database dropped afterwards.
+- Defects found by the new tests and fixed before the commit: a prompt placeholder such as `{a.b}` passed validation (attribute access) and is now refused; a phone number starting with a bracket kept the bracket; saving a fresh `AISettings` instance collided with the existing row.
+
+**Honest scope notes**
+- The OpenAI adapter is tested against stub clients that raise the SDK's real exception types; it has not called OpenAI (no key here). Run one real call before relying on it.
+- Seed prompt templates are added by the modules that use them (Module 6 onwards); this module ships the mechanism only.
+- The heartbeat is stored in the shared cache. Production uses the database cache, so web and worker see the same value; the local in-memory cache does not, which only matters for the worker-down alert.
+- Activity events before this module are not backfilled. The frontend has no notification bell yet; that is frontend work for a later, separately approved step.
+
 ## Next step
 
-Phase 4 and Module 4 are approved. Phase 5, on the owner's explicit go-ahead: connect the frontend page by page in the Doc's order, using the field mappings and known differences listed in `API_CONTRACTS.md`. Before that, the deployment questions (Q3, Q23) should be answered.
+Phase 2 Module 5 (foundation) is built and awaits the owner's approval; Module 6 (CV analysis) follows only on the owner's explicit go-ahead. Phase 4 and Module 4 are approved. Phase 5 (frontend), on the owner's explicit go-ahead: connect the frontend page by page in the Doc's order, using the field mappings and known differences listed in `API_CONTRACTS.md`. Before that, the deployment questions (Q3, Q23) should be answered.
 
 **Approval check (before approving).** A fresh clone of `origin/IntelliHire-backend` at `f1adaaf` was installed into a new virtualenv: 1159 tests passed; every Doc §4 requirement and TC-16 to TC-22 were run by name and passed; the 68-operation sweeps, quality gates and the end-to-end journey passed; `makemigrations --check`, the OpenAPI validation and `check` were clean.

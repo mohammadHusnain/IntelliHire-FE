@@ -328,4 +328,4 @@ class SuspendUserView(_UserStatusView):
 class ReactivateUserView(_UserStatusView):
     @extend_schema(request=None, responses={200: UserSerializer})
     def post(self, request, user_id):
-        return Response(UserSerializer(services.reactivate_user(user_id=user_id)).data)
+        return Response(UserSerializer(services.reactivate_user(user_id=user_id, actor=request.user)).data)

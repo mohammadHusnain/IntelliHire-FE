@@ -21,6 +21,8 @@ def send_verification_email(user):
             f"Confirm your email address to continue with your IntelliHire account:\n{link}\n\n"
             "This link expires in 24 hours. If you did not create an account, ignore this email.\n"
         ),
+        kind="email_verification",
+        sensitive=True,
     )
 
 
@@ -35,4 +37,6 @@ def send_password_reset_email(user):
             f"Use this link to choose a new password:\n{link}\n\n"
             "The link expires in 1 hour and works once. If you did not ask for this, ignore this email.\n"
         ),
+        kind="password_reset",
+        sensitive=True,
     )

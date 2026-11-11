@@ -15,6 +15,7 @@ from .auth_tokens import InvalidRefreshToken
 from .models import CandidateProfile, User
 from .resume import extract_resume_text
 from .validators import EMAIL_TAKEN, check_password_strength, normalize_email
+from apps.Module5_Foundation.events import log_event
 
 INVALID_CREDENTIALS = "Invalid email or password."
 INACTIVE_MESSAGES = {
@@ -65,6 +66,7 @@ def register_candidate(*, full_name, email, password, resume=None, **profile_fie
                 stored.append(profile.resume.name)
                 profile.resume_original_name = Path(resume.name).name[:255]
             profile.save()
+            log_event("user.registered", actor=user, target=user, summary="Candidate account registered", metadata={"role": UserRole.CANDIDATE})
             emails.send_verification_email(user)
     except IntegrityError as exc:
         _discard_files(stored)
@@ -237,14 +239,16 @@ def suspend_user(*, actor, user_id):
         target.status = UserStatus.SUSPENDED
         target.save(update_fields=["status"])
         auth_tokens.revoke_all_refresh_tokens(target)
+        log_event("user.suspended", actor=actor, target=target, summary="Account suspended", metadata={"role": target.role})
     return target
 
 
-def reactivate_user(*, user_id):
+def reactivate_user(*, user_id, actor=None):
     with transaction.atomic():
         target = _locked_user(user_id)
         if target.status != UserStatus.SUSPENDED:
             raise ApiError("Account is not suspended.", "not_suspended", 409)
         target.status = derive_status(target)
         target.save(update_fields=["status"])
+        log_event("user.reactivated", actor=actor, target=target, summary="Account reactivated", metadata={"role": target.role})
     return target

@@ -114,6 +114,18 @@ Constraints and indexes: **unique `(job, email)`** (`application_one_per_job_ema
 ### `applications_applicationstatuschange` (`applications.0001_initial`)
 `id` bigint identity · `application_id` FK **CASCADE** (`related_name status_history`) · `from_status` (blank for the first row, CHECK) · `to_status` (CHECK) · `changed_by_id` FK→user **SET NULL**, null for the first row · `note` text · `changed_at`. Index `(application, changed_at)`; ordered by time.
 
+### Module 5 — foundation tables (`foundation.0001_initial`)
+
+| Table | Columns and rules |
+|---|---|
+| `foundation_notification` | `id` uuid · `user_id` FK **CASCADE** · `kind` · `title` (200) · `body` · `link` (CHECK: empty, or starts with `/` and not `//`) · `payload` jsonb · `read_at` null · `created_at`. Indexes: `(user, -created_at)`, partial `(user, -created_at) WHERE read_at IS NULL` |
+| `foundation_outboundemail` | `id` uuid · `to_email` · `subject` (255) · `body_text`, `body_html` · `kind` · `sensitive`, `body_purged` · `status` (CHECK queued/sending/sent/failed) · `attempts` · `next_attempt_at` · `claimed_at` · `last_error` (300, never the address) · `related_type`, `related_id` · `created_at`, `sent_at`. Indexes: `(status, next_attempt_at)`, `(created_at)` |
+| `foundation_activityevent` | `id` uuid · `event_type` · `actor_id` FK **SET NULL** · `company_id` FK **SET NULL** · `target_type`, `target_id` · `summary` (300) · `metadata` jsonb (max 2 KB) · `created_at` (indexed). Append-only in code. Indexes: type+time, company+time, actor+time, target |
+| `foundation_airequestlog` | `id` uuid · `feature` · `provider` · `model` · `status` (CHECK ok/retried/failed/fallback_used/policy_blocked) · `attempts` · `prompt_tokens`, `completion_tokens` · `latency_ms` · `error` (300) · `related_type`, `related_id` · `created_at`. Never holds prompts or content |
+| `foundation_prompttemplate` | `key` · `version` · `model_role` (CHECK chat/eval) · `system_text`, `user_text` · `output_schema` jsonb · `is_active` · `created_by_id` FK **SET NULL** · `created_at`. Unique `(key, version)`; **unique `key` where `is_active`** (one active version per key); CHECK `version >= 1` |
+| `foundation_aisettings` | One row: `id` CHECK `= 1`. Provider, model names, fallback, temperatures (CHECK 0 to 2), `max_tokens` jsonb, `timeout_seconds`, `screening_min_score` (CHECK <= 100), `screening_questions`, `technical_questions`, `mock_questions` (CHECK 3 to 15), `updated_by_id`, `updated_at` |
+| `foundation_systemalert` | `id` uuid · `kind` (CHECK) · `severity` (CHECK warning/critical) · `message` · `is_active` · `created_at`, `resolved_at`, `acknowledged_at`, `acknowledged_by_id` FK **SET NULL**. **Unique `kind` where `is_active`** (one active alert per kind) |
+
 ### Other tables
 - `token_blacklist_*` (SimpleJWT): outstanding and blacklisted refresh tokens.
 - `django_cache` — production only, created by `manage.py createcachetable`; holds throttle counters.

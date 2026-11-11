@@ -34,3 +34,9 @@ EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")  # noqa: F405
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")  # noqa: F405
 EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)  # noqa: F405
 EMAIL_TIMEOUT = 10
+
+# Background tasks need a real broker and worker; scores must come from a real provider, never the fake one.
+if CELERY_TASK_ALWAYS_EAGER:  # noqa: F405
+    raise RuntimeError("CELERY_TASK_ALWAYS_EAGER must be false in production.")
+if AI_PROVIDER == "fake" or (AI_PROVIDER == "openai" and not OPENAI_API_KEY):  # noqa: F405
+    raise RuntimeError("Set AI_PROVIDER=openai and OPENAI_API_KEY in production (the fake provider is for tests).")

@@ -15,4 +15,6 @@ def send_application_received(application):
             f"Submitted: {submitted}\n\n"
             "Keep the reference number if you need to contact the company about your application.\n"
         ),
+        kind="application_received",
+        related=application,
     )

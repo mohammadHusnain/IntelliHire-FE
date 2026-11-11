@@ -25,6 +25,7 @@ def send_registration_received_email(user, company):
             "our team will review it and notify you of the decision. You will be able to log in "
             "once the company is approved.\n"
         ),
+        kind="company_registration_received",
     )
 
 
@@ -33,7 +34,7 @@ def _to_each_platform_admin(subject, body):
 
     admins = User.objects.filter(role="platform_admin", status="active").values_list("email", flat=True)
     for email in admins:
-        send_email_on_commit(to=email, subject=subject, body=body)
+        send_email_on_commit(to=email, subject=subject, body=body, kind="company_review_request")
 
 
 def send_new_company_to_platform_admins(company):
@@ -61,6 +62,7 @@ def send_company_approved_email(user, company):
             f"{company.name} has been approved. You can now log in, complete your company "
             f"profile and invite your team:\n{_link('/login')}\n"
         ),
+        kind="company_approved",
     )
 
 
@@ -74,6 +76,7 @@ def send_company_rejected_email(user, company):
             f"Reason: {company.rejection_reason}\n\n"
             f"You can correct your details and submit them again:\n{_link('/resubmit-company')}\n"
         ),
+        kind="company_rejected",
     )
 
 
@@ -90,4 +93,7 @@ def send_invitation_email(invitation, raw_token):
             f"{ROLE_LABELS[invitation.role]}.\n\nAccept the invitation and set your password:\n{link}\n\n"
             f"The link expires on {invitation.expires_at:%d %B %Y} (UTC) and works once.\n"
         ),
+        kind="staff_invitation",
+        sensitive=True,
+        related=invitation,
     )

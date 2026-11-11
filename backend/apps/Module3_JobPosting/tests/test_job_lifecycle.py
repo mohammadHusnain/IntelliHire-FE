@@ -284,12 +284,28 @@ class TestCloseExpiredJobs:
         job_factory(company, status="open", deadline=timezone.now() - timedelta(minutes=1))
         assert lifecycle.close_expired_jobs() == 1 and lifecycle.close_expired_jobs() == 0
 
-    def test_it_is_a_single_bulk_update(self, team, job_factory, django_assert_num_queries):
+    def test_the_number_of_queries_does_not_grow_with_the_number_of_jobs(self, team, job_factory):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
         company, _ = team
+        job_factory(company, status="open", deadline=timezone.now() - timedelta(minutes=1))
+        with CaptureQueriesContext(connection) as one:
+            assert lifecycle.close_expired_jobs() == 1
         for _ in range(5):
             job_factory(company, status="open", deadline=timezone.now() - timedelta(minutes=1))
-        with django_assert_num_queries(1):
+        with CaptureQueriesContext(connection) as five:
             assert lifecycle.close_expired_jobs() == 5
+        assert len(five) == len(one)
+
+    def test_each_closed_job_leaves_an_activity_event(self, team, job_factory):
+        from apps.Module5_Foundation.models import ActivityEvent
+
+        company, _ = team
+        job = job_factory(company, status="open", deadline=timezone.now() - timedelta(minutes=1))
+        lifecycle.close_expired_jobs()
+        event = ActivityEvent.objects.get(event_type="job.closed")
+        assert event.target_id == job.pk and event.company_id == company.pk and event.metadata == {"reason": "deadline"}
 
     def test_an_expired_open_job_is_not_accepting_even_before_the_command_runs(self, team, job_factory):
         company, _ = team

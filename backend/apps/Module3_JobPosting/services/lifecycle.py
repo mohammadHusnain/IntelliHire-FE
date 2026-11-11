@@ -5,6 +5,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 from rest_framework import serializers
 
+from apps.Module5_Foundation.events import log_event, log_events_bulk
 from apps.common.errors import ApiError, violated_constraint
 
 from ..models import ApplicationField, CloseReason, JobPosting, JobStatus
@@ -51,6 +52,7 @@ def _publish(job, user):
         try:
             with transaction.atomic():
                 job.save(update_fields=["status", "published_at", "form_slug", "updated_by", "updated_at"])
+                log_event("job.published", actor=user, company=job.company_id, target=job, summary=f"Job published: {job.title}")
             return job
         except IntegrityError as exc:
             if "form_slug" not in violated_constraint(exc):
@@ -109,6 +111,7 @@ def close_job(*, company, job_id, user):
         job.status, job.close_reason, job.closed_at = JobStatus.CLOSED, CloseReason.MANUAL, timezone.now()
         job.updated_by = user
         job.save(update_fields=["status", "close_reason", "closed_at", "updated_by", "updated_at"])
+        log_event("job.closed", actor=user, company=job.company_id, target=job, summary=f"Job closed: {job.title}", metadata={"reason": CloseReason.MANUAL})
     return job
 
 
@@ -182,6 +185,21 @@ def duplicate_job(*, company, job_id, user):
 def close_expired_jobs(now=None):
     """Close every open job whose deadline has passed, in one bulk update; returns how many."""
     now = now or timezone.now()
-    return JobPosting.objects.filter(status=JobStatus.OPEN, deadline__lte=now).update(
-        status=JobStatus.CLOSED, close_reason=CloseReason.DEADLINE, closed_at=now, updated_at=now
-    )
+    with transaction.atomic():
+        due = list(
+            JobPosting.objects.select_for_update(skip_locked=True)
+            .filter(status=JobStatus.OPEN, deadline__lte=now)
+            .values_list("pk", "company_id", "title")
+        )
+        closed = JobPosting.objects.filter(pk__in=[pk for pk, _, _ in due]).update(
+            status=JobStatus.CLOSED, close_reason=CloseReason.DEADLINE, closed_at=now, updated_at=now
+        )
+        log_events_bulk(
+            "job.closed",
+            [
+                {"company": company_id, "target_type": "jobposting", "target_id": pk, "summary": f"Job closed: {title}",
+                 "metadata": {"reason": CloseReason.DEADLINE}}
+                for pk, company_id, title in due
+            ],
+        )  # fmt: skip
+    return closed

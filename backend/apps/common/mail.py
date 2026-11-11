@@ -1,28 +1,10 @@
-import logging
-import smtplib
+def send_email_on_commit(*, to, subject, body, html_body=None, kind="general", sensitive=False, related=None):
+    """Queue an email for each recipient and send it after the surrounding transaction commits.
 
-from django.conf import settings
-from django.core.mail import EmailMultiAlternatives
-from django.db import transaction
-
-logger = logging.getLogger(__name__)
-
-
-def send_email_on_commit(*, to, subject, body, html_body=None):
-    """Send an email only after the surrounding transaction commits.
-
-    Delivery failures are logged and never raised, because the database change
-    they announce has already been committed. Recipients are not logged.
+    A thin wrapper over the durable outbox (Module 5): the message is stored first, so a broker or SMTP outage
+    delays it instead of losing it, and a rollback sends nothing. Delivery failures are logged and never raised.
+    Mark emails that carry a credential link `sensitive=True` so their body is wiped after sending.
     """
-    recipients = [to] if isinstance(to, str) else list(to)
+    from apps.Module5_Foundation.outbox import send_email
 
-    def _send():
-        message = EmailMultiAlternatives(subject, body, settings.DEFAULT_FROM_EMAIL, recipients)
-        if html_body:
-            message.attach_alternative(html_body, "text/html")
-        try:
-            message.send(fail_silently=False)
-        except (smtplib.SMTPException, OSError):
-            logger.exception("Email delivery failed (subject=%r, recipients=%d)", subject, len(recipients))
-
-    transaction.on_commit(_send)
+    return send_email(to=to, subject=subject, body=body, html_body=html_body, kind=kind, sensitive=sensitive, related=related)

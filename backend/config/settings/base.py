@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     "apps.Module2_CompanyManagement",
     "apps.Module3_JobPosting",
     "apps.Module4_ApplicationManagement",
+    "apps.Module5_Foundation",
 ]
 
 MIDDLEWARE = [
@@ -140,6 +141,7 @@ REST_FRAMEWORK = {
         "password_reset_confirm": "10/hour",
         "resend_verification": "3/hour",
         "public_apply": "10/hour",
+        "notifications": "120/min",
     },
 }
 
@@ -173,6 +175,52 @@ SPECTACULAR_SETTINGS = {
         "ApplicationStatusEnum": "apps.Module4_ApplicationManagement.models.ApplicationStatus.choices",
     },
 }
+
+# --- Background tasks (Celery) -------------------------------------------------------------------------------
+# Eager mode runs tasks inline (no Redis needed): local development and tests. Production runs a worker and beat.
+CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://localhost:6379/0")
+CELERY_TASK_ALWAYS_EAGER = env.bool("CELERY_TASK_ALWAYS_EAGER", default=False)
+CELERY_TASK_EAGER_PROPAGATES = False
+CELERY_TASK_ACKS_LATE = True
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
+CELERY_TASK_SOFT_TIME_LIMIT = 240
+CELERY_TASK_TIME_LIMIT = 300
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+# A dead broker must slow a web request by about a second, never hang it.
+CELERY_TASK_PUBLISH_RETRY_POLICY = {"max_retries": 1, "interval_start": 0, "interval_step": 0.2, "interval_max": 0.5}
+CELERY_BROKER_TRANSPORT_OPTIONS = {"socket_connect_timeout": 2, "socket_timeout": 5, "visibility_timeout": 3600}
+CELERY_BEAT_SCHEDULE = {
+    "foundation-retry-failed-emails": {"task": "foundation.retry_failed_emails", "schedule": 600.0},
+    "foundation-check-alerts": {"task": "foundation.check_alerts", "schedule": 300.0},
+    "foundation-worker-heartbeat": {"task": "foundation.worker_heartbeat", "schedule": 60.0},
+    "foundation-purge-email-bodies": {"task": "foundation.purge_email_bodies", "schedule": 86400.0},
+    "jobs-close-expired": {"task": "foundation.close_expired_jobs", "schedule": 300.0},
+}
+
+# --- Email outbox -----------------------------------------------------------------------------------------------
+EMAIL_OUTBOX_MAX_ATTEMPTS = 5
+EMAIL_RETRY_DELAYS_MINUTES = [1, 5, 15, 60, 240]
+EMAIL_SENDING_STALE_MINUTES = 15
+EMAIL_SENSITIVE_BODY_RETENTION_DAYS = 7
+EMAIL_ROW_RETENTION_DAYS = 90
+EMAIL_MAX_BODY_CHARS = 200_000
+
+# --- AI services (see Module5_Foundation.ai) --------------------------------------------------------------------
+AI_PROVIDER = env("AI_PROVIDER", default="fake")  # openai | fake
+AI_FALLBACK_PROVIDER = env("AI_FALLBACK_PROVIDER", default="")
+OPENAI_API_KEY = env("OPENAI_API_KEY", default="")
+AI_CHAT_MODEL = env("AI_CHAT_MODEL", default="gpt-4o-mini")
+AI_EVAL_MODEL = env("AI_EVAL_MODEL", default="gpt-4o")
+AI_EMBED_MODEL = env("AI_EMBED_MODEL", default="text-embedding-3-small")
+AI_STT_MODEL = env("AI_STT_MODEL", default="whisper-1")
+AI_ALLOWED_MODELS = env.list(
+    "AI_ALLOWED_MODELS",
+    default=["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1", "text-embedding-3-small", "text-embedding-3-large", "whisper-1"],
+)
+AI_TIMEOUT_SECONDS = 30
+AI_RETRY_DELAY_SECONDS = 10
+AI_MAX_OUTPUT_TOKENS = 1200
+AI_MAX_INPUT_CHARS = 12_000
 
 LOG_LEVEL = env("LOG_LEVEL", default="INFO")
 LOGGING = {

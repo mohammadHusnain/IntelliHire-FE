@@ -9,6 +9,7 @@ from rest_framework.exceptions import NotFound
 from apps.Module3_JobPosting.models import FieldType
 
 from apps.common.errors import ApiError
+from apps.Module5_Foundation.events import log_event
 
 from ..models import Application, ApplicationNote, ApplicationStatus, ApplicationStatusChange
 
@@ -63,8 +64,14 @@ def change_status(*, company, application_id, user, new_status, note=""):
             changed_by=user,
             note=note,
         )
+        previous = application.status
         application.status = new_status
         application.save(update_fields=["status", "updated_at"])
+        log_event(
+            "application.status_changed", actor=user, company=company, target=application,
+            summary=f"Application moved from {previous} to {new_status}",
+            metadata={"from": previous, "to": new_status, "reference": application.reference},
+        )  # fmt: skip
     return application
 
 

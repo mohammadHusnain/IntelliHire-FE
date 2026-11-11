@@ -40,6 +40,7 @@ def test_rest_framework_defaults(settings):
         "password_reset_confirm": "10/hour",
         "resend_verification": "3/hour",
         "public_apply": "10/hour",
+        "notifications": "120/min",
     }
 
 

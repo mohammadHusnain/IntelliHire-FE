@@ -16,3 +16,9 @@ CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"
 _media = tempfile.mkdtemp(prefix="intellihire-test-media-")
 MEDIA_ROOT = os.path.join(_media, "public")
 PRIVATE_MEDIA_ROOT = os.path.join(_media, "private")
+
+CELERY_TASK_ALWAYS_EAGER = True
+CELERY_TASK_EAGER_PROPAGATES = True
+AI_PROVIDER = "fake"
+AI_FALLBACK_PROVIDER = ""
+AI_RETRY_DELAY_SECONDS = 0

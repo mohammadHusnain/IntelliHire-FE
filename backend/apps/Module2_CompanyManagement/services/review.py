@@ -6,6 +6,7 @@ from rest_framework.exceptions import NotFound
 from apps.Module1_Authentication.services import derive_status
 from apps.common.choices import CompanyStatus, UserStatus
 from apps.common.errors import ApiError
+from apps.Module5_Foundation.events import log_event
 
 from .. import emails
 from ..models import Company
@@ -45,6 +46,7 @@ def approve_company(*, company_id, reviewer):
         if founder.status in (*PENDING_USER_STATUSES, UserStatus.REJECTED):
             founder.status = derive_status(founder)
             founder.save(update_fields=["status"])
+        log_event("company.approved", actor=reviewer, company=company, target=company, summary=f"Company approved: {company.name}")
         emails.send_company_approved_email(founder, company)
     return company
 
@@ -62,11 +64,12 @@ def reject_company(*, company_id, reviewer, reason):
         if founder.status in PENDING_USER_STATUSES:
             founder.status = UserStatus.REJECTED
             founder.save(update_fields=["status"])
+        log_event("company.rejected", actor=reviewer, company=company, target=company, summary=f"Company rejected: {company.name}")
         emails.send_company_rejected_email(founder, company)
     return company
 
 
-def suspend_company(*, company_id, reason):
+def suspend_company(*, company_id, reason, actor=None):
     with transaction.atomic():
         company = _locked_company(company_id)
         if company.status != CompanyStatus.APPROVED:
@@ -74,10 +77,11 @@ def suspend_company(*, company_id, reason):
         company.status = CompanyStatus.SUSPENDED
         company.suspension_reason = reason
         company.save(update_fields=["status", "suspension_reason", "updated_at"])
+        log_event("company.suspended", actor=actor, company=company, target=company, summary=f"Company suspended: {company.name}")
     return company
 
 
-def reactivate_company(*, company_id):
+def reactivate_company(*, company_id, actor=None):
     with transaction.atomic():
         company = _locked_company(company_id)
         if company.status != CompanyStatus.SUSPENDED:
@@ -85,6 +89,7 @@ def reactivate_company(*, company_id):
         company.status = CompanyStatus.APPROVED
         company.suspension_reason = ""
         company.save(update_fields=["status", "suspension_reason", "updated_at"])
+        log_event("company.reactivated", actor=actor, company=company, target=company, summary=f"Company reactivated: {company.name}")
     return company
 
 

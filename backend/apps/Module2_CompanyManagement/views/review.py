@@ -60,7 +60,7 @@ class CompanyApproveView(_CompanyDecisionView):
 class CompanyReactivateView(_CompanyDecisionView):
     @extend_schema(request=None, responses={200: CompanyReviewDetailSerializer})
     def post(self, request, company_id):
-        return self.respond(services.reactivate_company(company_id=company_id))
+        return self.respond(services.reactivate_company(company_id=company_id, actor=request.user))
 
 
 class _ReasonedDecisionView(_CompanyDecisionView):
@@ -78,4 +78,4 @@ class CompanyRejectView(_ReasonedDecisionView):
 
 class CompanySuspendView(_ReasonedDecisionView):
     def decide(self, request, company_id, reason):
-        return services.suspend_company(company_id=company_id, reason=reason)
+        return services.suspend_company(company_id=company_id, reason=reason, actor=request.user)
