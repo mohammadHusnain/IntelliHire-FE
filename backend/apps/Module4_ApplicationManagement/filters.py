@@ -10,10 +10,11 @@ class JobApplicationFilter(django_filters.FilterSet):
     education_level = django_filters.ChoiceFilter(choices=EducationLevel.choices)
     submitted_after = django_filters.DateFilter(field_name="submitted_at", lookup_expr="date__gte")
     submitted_before = django_filters.DateFilter(field_name="submitted_at", lookup_expr="date__lte")
+    min_cv_score = django_filters.NumberFilter(field_name="cv_match__score", lookup_expr="gte", min_value=0, max_value=100)
 
     class Meta:
         model = Application
-        fields = ["status", "education_level", "submitted_after", "submitted_before"]
+        fields = ["status", "education_level", "submitted_after", "submitted_before", "min_cv_score"]
 
 
 class CompanyApplicationFilter(JobApplicationFilter):

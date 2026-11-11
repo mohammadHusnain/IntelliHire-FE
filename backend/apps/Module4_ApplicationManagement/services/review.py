@@ -2,7 +2,11 @@ import csv
 import re
 
 from django.db import transaction
-from django.db.models import Count
+from django.utils import timezone
+from decimal import Decimal
+
+from django.db.models import Count, DecimalField, F, Value
+from django.db.models.functions import Coalesce
 from rest_framework import serializers
 from rest_framework.exceptions import NotFound
 
@@ -11,7 +15,8 @@ from apps.Module3_JobPosting.models import FieldType
 from apps.common.errors import ApiError
 from apps.Module5_Foundation.events import log_event
 
-from ..models import Application, ApplicationNote, ApplicationStatus, ApplicationStatusChange
+from ..models import Application, ApplicationNote, ApplicationStatus, ApplicationStatusChange, StatusChangeSource
+from ..signals import application_shortlisted
 
 NOTE_MAX_LENGTH = 1000
 FREE_NOTE_MAX_LENGTH = 2000
@@ -20,8 +25,16 @@ _SAFE_NUMBERISH = re.compile(r"[+\-\d\s().]+")
 
 
 def applications_of(company):
-    """Every application for the company's jobs; the base of every company-side lookup."""
-    return Application.objects.filter(job__company=company).select_related("job")
+    """Every application for the company's jobs; the base of every company-side lookup.
+
+    `cv_score` is the CV match score for sorting and filtering, with -1 for "not scored yet" so unscored
+    applications always sort below scored ones.
+    """
+    return (
+        Application.objects.filter(job__company=company)
+        .select_related("job", "job__screening_config", "cv_match", "cv_analysis")
+        .annotate(cv_score=Coalesce(F("cv_match__score"), Value(Decimal("-1")), output_field=DecimalField()))
+    )
 
 
 def get_application(company, application_id):
@@ -63,16 +76,43 @@ def change_status(*, company, application_id, user, new_status, note=""):
             to_status=new_status,
             changed_by=user,
             note=note,
+            source=StatusChangeSource.HR,
         )
         previous = application.status
         application.status = new_status
         application.save(update_fields=["status", "updated_at"])
+        if new_status == ApplicationStatus.SHORTLISTED:
+            application_shortlisted.send_robust(sender=Application, application=application)
         log_event(
             "application.status_changed", actor=user, company=company, target=application,
             summary=f"Application moved from {previous} to {new_status}",
             metadata={"from": previous, "to": new_status, "reference": application.reference},
         )  # fmt: skip
     return application
+
+
+def set_status_if(application_id, *, expected, new_status, note="", user=None, source=StatusChangeSource.SYSTEM):
+    """Move an application to `new_status` only if it is still in `expected`; returns whether it moved.
+
+    Every automatic move goes through here, so a background job that finishes late can never overwrite a
+    status a person has set in the meantime. The update, its history row and the audit event are one transaction.
+    """
+    with transaction.atomic():
+        moved = Application.objects.filter(pk=application_id, status=expected).update(status=new_status, updated_at=timezone.now())
+        if not moved:
+            return False
+        application = Application.objects.select_related("job").get(pk=application_id)
+        ApplicationStatusChange.objects.create(
+            application=application, from_status=expected, to_status=new_status, changed_by=user, note=note, source=source
+        )
+        log_event(
+            "application.status_changed", actor=user, company=application.job.company_id, target=application,
+            summary=f"Application moved from {expected} to {new_status}",
+            metadata={"from": expected, "to": new_status, "reference": application.reference, "source": source},
+        )  # fmt: skip
+        if new_status == ApplicationStatus.SHORTLISTED:
+            application_shortlisted.send_robust(sender=Application, application=application)
+    return True
 
 
 # --- CSV export -------------------------------------------------------------------------------

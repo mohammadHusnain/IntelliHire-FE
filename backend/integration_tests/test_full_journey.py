@@ -113,7 +113,9 @@ def test_the_whole_platform_end_to_end(auth_client, user_factory, django_capture
 
     # ---- HR reviews (TC-18, TC-22) ----
     listing = staff["viewer"].get(job_url + "applications/").json()
-    assert listing["count"] == 2 and listing["status_counts"]["submitted"] == 2
+    # CV analysis (Module 6) moves an application from submitted to under_review as soon as its CV was looked at.
+    counts = listing["status_counts"]
+    assert listing["count"] == 2 and counts["submitted"] + counts["under_review"] == 2
     sara = next(r for r in listing["results"] if r["reference"] == reference)
     detail = staff["viewer"].get(f"/api/applications/{sara['id']}/").json()
     assert [a["label"] for a in detail["answers"]] == ["LinkedIn Profile URL", "Level"] and detail["resume"]["name"] == "Sara CV.pdf"
@@ -121,7 +123,10 @@ def test_the_whole_platform_end_to_end(auth_client, user_factory, django_capture
     assert download.status_code == 200 and "Sara CV.pdf" in download["Content-Disposition"] and b"sara resume" in b"".join(download.streaming_content)
     assert staff["viewer"].patch(f"/api/applications/{sara['id']}/status/", {"status": "shortlisted"}, format="json").status_code == 403
     changed = staff["recruiter"].patch(f"/api/applications/{sara['id']}/status/", {"status": "shortlisted", "note": "Strong profile"}, format="json").json()
-    assert [(h["from_status"], h["to_status"]) for h in changed["status_history"]] == [(None, "submitted"), ("submitted", "shortlisted")]
+    steps = [(h["from_status"], h["to_status"], h["source"]) for h in changed["status_history"]]
+    assert steps[0] == (None, "submitted", "system") and steps[-1][1:] == ("shortlisted", "hr")
+    # In between, CV analysis may already have moved the application to under_review on its own.
+    assert steps[1:-1] in ([], [("submitted", "under_review", "system")])
 
     rival = actor()
     with capture():
@@ -137,7 +142,7 @@ def test_the_whole_platform_end_to_end(auth_client, user_factory, django_capture
     board = staff["viewer"].get("/api/company/dashboard/").json()
     assert board["jobs"] == {"open": 1, "draft": 0, "closed": 0}
     assert board["applicants"] == {"total": 2, "new_last_7_days": 2}
-    assert board["pipeline"]["shortlisted"] == 1 and board["pipeline"]["submitted"] == 1
+    assert board["pipeline"]["shortlisted"] == 1 and board["pipeline"]["submitted"] + board["pipeline"]["under_review"] == 1
     assert [c["title"] for c in board["closing_soon"]] == ["Backend Developer"] and board["closing_soon"][0]["application_count"] == 2
     assert {r["candidate_name"] for r in board["recent_applications"]} == {"Sara Malik", "Omar Farooq"}
     assert board["team"] == {"active_members": 3, "pending_invitations": 0}

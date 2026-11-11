@@ -12,7 +12,8 @@ from apps.common.storage import private_storage
 from apps.Module5_Foundation.events import log_event
 
 from .. import emails
-from ..models import Application, ApplicationFile, ApplicationStatus, ApplicationStatusChange
+from ..models import Application, ApplicationFile, ApplicationStatus, ApplicationStatusChange, StatusChangeSource
+from ..signals import application_submitted
 from .validation import validate_built_in, validate_custom
 
 logger = logging.getLogger(__name__)
@@ -103,8 +104,10 @@ def _attempt(job_id, data, files, candidate, ip_address, user_agent, written):
             _store(record.file, upload, written)
             record.save()
         ApplicationStatusChange.objects.create(
-            application=application, from_status="", to_status=ApplicationStatus.SUBMITTED, changed_by=None
-        )
+            application=application, from_status="", to_status=ApplicationStatus.SUBMITTED, changed_by=None,
+            source=StatusChangeSource.SYSTEM,
+        )  # fmt: skip
+        application_submitted.send_robust(sender=Application, application=application)
         log_event(
             "application.submitted", company=job.company_id, target=application,
             summary=f"Application submitted for {job.title}", metadata={"reference": application.reference},

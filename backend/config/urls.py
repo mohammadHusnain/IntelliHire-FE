@@ -17,6 +17,8 @@ urlpatterns = [
     path("api/jobs/", include("apps.Module3_JobPosting.urls")),
     path("api/jobs/", include("apps.Module4_ApplicationManagement.jobs_urls")),
     path("api/applications/", include("apps.Module4_ApplicationManagement.urls")),
+    path("api/jobs/", include("apps.Module6_CVAnalysis.jobs_urls")),
+    path("api/applications/", include("apps.Module6_CVAnalysis.urls")),
     path("api/notifications/", include("apps.Module5_Foundation.urls")),
     path("api/public/", include("apps.Module2_CompanyManagement.public_urls")),
     path("api/public/", include("apps.Module3_JobPosting.public_urls")),

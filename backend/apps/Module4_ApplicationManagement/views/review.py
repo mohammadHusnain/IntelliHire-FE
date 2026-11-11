@@ -24,7 +24,7 @@ from ..serializers.applications import (
 from ..services import review
 
 SEARCH_HELP = "Part of the full name, email or reference."
-ORDERING_HELP = "submitted_at or full_name; prefix with - for descending (default: newest first)."
+ORDERING_HELP = "submitted_at, full_name or cv_score; prefix with - for descending (default: newest first)."
 
 
 def company_of(request):
@@ -47,7 +47,7 @@ def _download(file_field, original_name):
 class _ApplicationList(GenericAPIView):
     permission_classes = [IsCompanyUser]
     search_fields = ["full_name", "email", "reference"]
-    ordering_fields = ["submitted_at", "full_name"]
+    ordering_fields = ["submitted_at", "full_name", "cv_score"]
     ordering = ["-submitted_at", "-id"]
 
     def get_queryset(self):

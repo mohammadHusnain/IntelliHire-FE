@@ -241,6 +241,31 @@ Source: Phase 2 guide, Module 5. Implemented and tested on `IntelliHire-backend`
 
 **Decisions:** D-081 to D-091.
 
+## Module 6 — CV analysis and shortlisting (`Module6_CVAnalysis`, Phase 2)
+
+Source: Phase 2 guide, Module 6. Implemented and tested on `IntelliHire-backend`. Company side only; another company's job or application is 404; candidates never see any of it.
+
+| Method | Endpoint | Access | Request | Success | Main errors | Status |
+|---|---|---|---|---|---|---|
+| GET, PUT | /api/jobs/<id>/screening-config/ | Company user (PUT: admin, HR manager) | any of `auto_analyse`, `shortlist_threshold`, `auto_shortlist`, `invite_on_shortlist`, four `weight_*` | 200 config + `warnings` | 400 invalid or weights not 100; 403; 404 | implemented |
+| POST | /api/jobs/<id>/cv-screening/run/ | Admin, HR manager, recruiter | `mode`: `missing` (default), `rescore`, `full` | 202 `{mode, queued}` | 400; 403; 404; 409 `no_applications` | implemented |
+| GET | /api/jobs/<id>/cv-screening/ | Company user | none | 200 counts per state, `paused`, `stale_scores`, `in_progress`, `percent_done` | 404 | implemented |
+| GET | /api/jobs/<id>/ranking/ | Company user | ?min_score, ?status, ?analysis_status (`none` = not analysed), ?page | 200 paginated ranked rows | 400 bad filter; 404 | implemented |
+| POST | /api/jobs/<id>/shortlist/apply-threshold/ | Admin, HR manager | `threshold` (default: saved), `dry_run` | 200 `{threshold, shortlisted}` or the preview | 400; 403; 404 | implemented |
+| GET | /api/applications/<id>/cv-analysis/ | Company user | none | 200 parsed data, flags, match, explanation | 404 (`not_analysed` when never analysed) | implemented |
+| POST | /api/applications/<id>/cv-analysis/rerun/ | Admin, HR manager, recruiter | none | 202 | 403; 404; 409 `analysis_in_progress` | implemented |
+
+### Module 6 — implemented behaviour
+
+- **Automatic flow.** A new application's CV is queued in the same transaction (if `auto_analyse`), analysed by a background task, scored, and the application moves from `submitted` to `under_review`. With `auto_shortlist` on, scores at or above the threshold also move to `shortlisted`. Nothing else is automatic and nobody is rejected.
+- **Ranking row:** `rank, id, reference, full_name, email, status, submitted_at, score, skills_score, experience_score, education_score, semantic_score, cv_label, analysis_status, stale`. Best first; ties to the earlier submission; unscored last.
+- **Labels (`cv_label`):** `shortlisted`, `meets_threshold`, `not_shortlisted`, `manual_review`, `analysing`, `failed`, or `null` when the CV was never queued.
+- **Analysis detail:** `status, failure_reason, flags[], parsed{technical_skills, soft_skills, education[], experience[], projects[], achievements[], total_experience_years}, attempts, analysed_at, cv_label, match{score, four part scores, matched_skills, missing_skills, experience_years, weights_used, explanation, explanation_is_ai_generated, stale, computed_at}, notice`. Show the notice and mark the explanation as AI-generated.
+- **Changed Module 4 responses:** application list rows and the detail gain `cv_score` (number or null) and `cv_label`; the lists accept `ordering=cv_score|-cv_score` and `min_cv_score`; each `status_history` entry gains `source` (`hr` or `system`). **An application may now already be `under_review` moments after it was submitted.**
+- **Scoring, durability, limits, flags:** D-092 to D-103.
+
+**Decisions:** D-092 to D-103.
+
 ## Known frontend differences to resolve before Phase 5
 
 Not backend defects; recorded so integration does not guess. Details and IDs in `UNRESOLVED_QUESTIONS.md`.

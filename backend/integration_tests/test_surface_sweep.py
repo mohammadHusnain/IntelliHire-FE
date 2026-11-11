@@ -76,7 +76,7 @@ def call(client, operation, values=None, body=None):
 
 
 def test_every_operation_is_classified():
-    assert len(OPERATIONS) == 76
+    assert len(OPERATIONS) == 84
     assert [op for op in OPERATIONS if kind(op) == "unclassified"] == []
     assert PUBLIC <= set(OPERATIONS) and ANY_LOGGED_IN <= set(OPERATIONS)
 
@@ -158,12 +158,15 @@ class TestAnotherCompanysDataIs404:
         ("PATCH", "/api/jobs/{job_id}/fields/{field_id}/"): {"label": "Hacked"},
         ("PATCH", "/api/applications/{application_id}/status/"): {"status": "rejected"},
         ("PATCH", "/api/company/members/{member_id}/"): {"job_title": "Hacked"},
+        ("PUT", "/api/jobs/{job_id}/screening-config/"): {"shortlist_threshold": 1},
+        ("POST", "/api/jobs/{job_id}/shortlist/apply-threshold/"): {"threshold": 0},
+        ("POST", "/api/jobs/{job_id}/cv-screening/run/"): {"mode": "full"},
     }
 
     COMPANY_OPS_WITH_IDS = [op for op in ops_of("company") if "{" in op[1]]
 
     def test_the_sweep_really_covers_the_id_operations(self):
-        assert len(self.COMPANY_OPS_WITH_IDS) == 24
+        assert len(self.COMPANY_OPS_WITH_IDS) == 32
 
     @pytest.mark.parametrize("operation", COMPANY_OPS_WITH_IDS, ids=lambda op: f"{op[0]} {op[1]}")
     def test_every_id_operation_is_404_for_another_company(self, world, operation):

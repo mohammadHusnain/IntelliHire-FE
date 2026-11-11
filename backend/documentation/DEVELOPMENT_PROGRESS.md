@@ -10,6 +10,7 @@ A step is "complete" only when implementation, executed tests, documentation and
 | 2 — Backend foundation | **Complete.** Approved by the owner and merged into `IntelliHire-backend` (`a1c6cec`) |
 | 3 — Module 1: Authentication and accounts | **Complete.** Approved by the owner and merged into `IntelliHire-backend` (`7fdb54b`); `main` untouched |
 | Phase 2 guide — Module 5: AI and notifications foundation | **Built; awaiting the owner's approval** |
+| Phase 2 guide — Module 6: CV analysis and shortlisting | **Built; awaiting the owner's approval** |
 | 3 — Module 2: Company management | **Complete.** Approved by the owner and merged into `IntelliHire-backend` (`53826a8`) |
 | 3 — Module 3: Job posting and form | **Complete.** Approved by the owner and merged into `IntelliHire-backend` (`941f3f4`) |
 | 3 — Module 4: Applications | **Complete.** Verified on a fresh clone of GitHub and approved by the owner; on `IntelliHire-backend` (`7a57b04`) |
@@ -132,8 +133,26 @@ Owner decisions: Q1 a (Celery, eager locally), Q2 a (schedules in settings), Q3 
 - The heartbeat is stored in the shared cache. Production uses the database cache, so web and worker see the same value; the local in-memory cache does not, which only matters for the worker-down alert.
 - Activity events before this module are not backfilled. The frontend has no notification bell yet; that is frontend work for a later, separately approved step.
 
+## Phase 2, Module 6: CV analysis and shortlisting (built directly on `IntelliHire-backend`)
+
+Owner decisions: Q1 a (semantic part embeds parsed fields), Q2 a (no fuzzy skill matching yet), Q3 a (500 analyses per company per day), Q4 a (a degree in progress counts one level below).
+
+- New app `Module6_CVAnalysis`: three tables, two seeded prompt templates, the scoring code, the durable analysis pipeline, threshold shortlisting, seven endpoints and a sweep task. Details: `API_CONTRACTS.md` (Module 6), `DATABASE_SCHEMA.md`, D-092 to D-103, the app README.
+- Module 4 gained, additively: `source` on status history, the compare-and-set helper `set_status_if`, two signals, and `cv_score`/`cv_label` on the application list and detail.
+
+**Verified (executed here: Python 3.13, PostgreSQL 16, Redis)**
+- `python -m pytest`: **1752 passed** = 1552 earlier (seven assertions adapted to the new fields, counts and the automatic move) + 184 new Module 6 tests + 16 new sweep cases for the eight new operations. `makemigrations --check` clean; `spectacular --validate --fail-on-warn` clean.
+- Guide test cases: UT-05 (66.7), UT-09 (threshold split), TC-23 (structured extraction), TC-24 (score is the weighted sum, 0 to 100), TC-25 (descending ranking that updates), TC-26 (threshold shortlists exactly those at or above; nobody rejected).
+- Real broker run (Redis, a Celery worker, throwaway database), 12 of 12 steps: three applications over HTTP were analysed by the worker (two scored, one manual review), all moved to under_review, progress and ranking were correct, a dry run matched the real threshold run, history showed system then hr, and with Redis stopped a new application was still accepted in 0.1 s and analysed after the sweep once Redis returned. Cleaned up afterwards.
+
+**Honest scope notes**
+- All of this ran on the fake AI provider. The `cv_extract` and `cv_explain` prompts have never been answered by a real model here (no key): expect prompt tuning, and calibrate `CV_SEMANTIC_LOW/HIGH` on five or six real anonymised CVs before trusting the semantic part.
+- `invite_on_shortlist` is stored but does nothing until Module 7.
+- With eager tasks (local development) the analysis runs inside the request that submitted the application, so that request takes as long as the model does. Production uses the worker.
+- The frontend does not show any of this yet, and its Module 4 e2e expects new applications to stay "Applied"; that needs adjusting in the separately approved frontend step.
+
 ## Next step
 
-Phase 2 Module 5 (foundation) is built and awaits the owner's approval; Module 6 (CV analysis) follows only on the owner's explicit go-ahead. Phase 4 and Module 4 are approved. Phase 5 (frontend), on the owner's explicit go-ahead: connect the frontend page by page in the Doc's order, using the field mappings and known differences listed in `API_CONTRACTS.md`. Before that, the deployment questions (Q3, Q23) should be answered.
+Phase 2 Modules 5 and 6 are built; Module 7 (interview engine) follows only on the owner's explicit go-ahead. Phase 4 and Module 4 are approved. Phase 5 (frontend), on the owner's explicit go-ahead: connect the frontend page by page in the Doc's order, using the field mappings and known differences listed in `API_CONTRACTS.md`. Before that, the deployment questions (Q3, Q23) should be answered.
 
 **Approval check (before approving).** A fresh clone of `origin/IntelliHire-backend` at `f1adaaf` was installed into a new virtualenv: 1159 tests passed; every Doc §4 requirement and TC-16 to TC-22 were run by name and passed; the 68-operation sweeps, quality gates and the end-to-end journey passed; `makemigrations --check`, the OpenAPI validation and `check` were clean.

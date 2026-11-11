@@ -126,6 +126,16 @@ Constraints and indexes: **unique `(job, email)`** (`application_one_per_job_ema
 | `foundation_aisettings` | One row: `id` CHECK `= 1`. Provider, model names, fallback, temperatures (CHECK 0 to 2), `max_tokens` jsonb, `timeout_seconds`, `screening_min_score` (CHECK <= 100), `screening_questions`, `technical_questions`, `mock_questions` (CHECK 3 to 15), `updated_by_id`, `updated_at` |
 | `foundation_systemalert` | `id` uuid · `kind` (CHECK) · `severity` (CHECK warning/critical) · `message` · `is_active` · `created_at`, `resolved_at`, `acknowledged_at`, `acknowledged_by_id` FK **SET NULL**. **Unique `kind` where `is_active`** (one active alert per kind) |
 
+### Module 6 — CV analysis tables (`cv_analysis.0001_initial`, `0002_seed_prompts`)
+
+| Table | Columns and rules |
+|---|---|
+| `cv_analysis_jobscreeningconfig` | `job_id` one-to-one **CASCADE** · `auto_analyse` (true) · `shortlist_threshold` (70, CHECK <= 100) · `auto_shortlist`, `invite_on_shortlist` (false) · `weight_skills/experience/education/semantic` (50/25/15/10, **CHECK sum = 100**) · `job_embedding` jsonb, `job_embedding_key` · `run_requested_at`, `completion_notified_at` · `updated_by_id` **SET NULL**, `updated_at` |
+| `cv_analysis_cvanalysis` | `application_id` one-to-one **CASCADE** · `status` (CHECK queued/processing/completed/failed/manual_review) · `parsed` jsonb · `flags` jsonb · `text_chars` · `embedding` jsonb, `embedding_model` · `parser_version` · `failure_reason` · `attempts`, `next_attempt_at`, `claimed_at` · `analysed_at`, `created_at`. Indexes `(status, next_attempt_at)`, `(analysed_at)`. The CV text itself is never stored |
+| `cv_analysis_cvmatch` | `application_id` one-to-one **CASCADE** · `score` and four part scores numeric(5,2) (CHECK 0 to 100) · `matched_skills`, `missing_skills` jsonb · `experience_years` · `weights_used` jsonb · `job_signature` · `explanation` · `computed_at`. Index `(-score)` |
+
+`applications_applicationstatuschange` gained `source` (`hr` default, or `system`; CHECK) in `applications.0003_status_change_source`.
+
 ### Other tables
 - `token_blacklist_*` (SimpleJWT): outstanding and blacklisted refresh tokens.
 - `django_cache` — production only, created by `manage.py createcachetable`; holds throttle counters.

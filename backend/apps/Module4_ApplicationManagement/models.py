@@ -93,8 +93,13 @@ class ApplicationFile(models.Model):
         return f"{self.application.reference}:{self.field_key}"
 
 
+class StatusChangeSource(models.TextChoices):
+    HR = "hr", "A company user"
+    SYSTEM = "system", "Automatic"
+
+
 class ApplicationStatusChange(models.Model):
-    """Audit trail of status changes; the first row (submitted) has no `changed_by`."""
+    """Audit trail of status changes; automatic rows (the first one included) have no `changed_by`."""
 
     application = models.ForeignKey(Application, on_delete=models.CASCADE, related_name="status_history")
     from_status = models.CharField(max_length=20, blank=True)
@@ -103,6 +108,7 @@ class ApplicationStatusChange(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )
     note = models.TextField(blank=True)
+    source = models.CharField(max_length=10, choices=StatusChangeSource.choices, default=StatusChangeSource.HR)
     changed_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -111,6 +117,7 @@ class ApplicationStatusChange(models.Model):
         constraints = [
             enum_check("from_status", ApplicationStatus, "status_change_from_valid", allow_blank=True),
             enum_check("to_status", ApplicationStatus, "status_change_to_valid"),
+            enum_check("source", StatusChangeSource, "status_change_source_valid"),
         ]
 
     def __str__(self):

@@ -87,7 +87,7 @@ class TestPublish:
     def test_keys_are_independent(self):
         publish_template(key="one", system_text="s", user_text="u", output_schema=SCHEMA)
         publish_template(key="two", system_text="s", user_text="u", output_schema=SCHEMA)
-        assert PromptTemplate.objects.filter(is_active=True).count() == 2
+        assert PromptTemplate.objects.filter(is_active=True, key__in=["one", "two"]).count() == 2
 
     def test_the_creator_and_model_role_are_stored(self, user_factory):
         user = user_factory()

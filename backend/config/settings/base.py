@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     "apps.Module3_JobPosting",
     "apps.Module4_ApplicationManagement",
     "apps.Module5_Foundation",
+    "apps.Module6_CVAnalysis",
 ]
 
 MIDDLEWARE = [
@@ -195,6 +196,7 @@ CELERY_BEAT_SCHEDULE = {
     "foundation-worker-heartbeat": {"task": "foundation.worker_heartbeat", "schedule": 60.0},
     "foundation-purge-email-bodies": {"task": "foundation.purge_email_bodies", "schedule": 86400.0},
     "jobs-close-expired": {"task": "foundation.close_expired_jobs", "schedule": 300.0},
+    "cv-analysis-sweep": {"task": "cv_analysis.sweep", "schedule": 300.0},
 }
 
 # --- Email outbox -----------------------------------------------------------------------------------------------
@@ -221,6 +223,18 @@ AI_TIMEOUT_SECONDS = 30
 AI_RETRY_DELAY_SECONDS = 10
 AI_MAX_OUTPUT_TOKENS = 1200
 AI_MAX_INPUT_CHARS = 12_000
+
+# --- CV analysis (Module6_CVAnalysis) -----------------------------------------------------------------------------
+CV_PARSER_VERSION = "1"
+CV_MIN_TEXT_CHARS = 200  # less readable text than this means a scanned or empty CV: manual review
+CV_ANALYSIS_MAX_ATTEMPTS = 3
+CV_ANALYSIS_RETRY_MINUTES = 5
+CV_ANALYSIS_STALE_MINUTES = 15
+CV_ANALYSIS_DAILY_LIMIT = env.int("CV_ANALYSIS_DAILY_LIMIT", default=500)  # per company per UTC day; 0 = no limit
+CV_SKILL_LIST_SUSPICIOUS = 60
+# Cosine similarity is rescaled so LOW maps to 0 and HIGH to 100. Calibrate on real CVs with the real model.
+CV_SEMANTIC_LOW = env.float("CV_SEMANTIC_LOW", default=0.2)
+CV_SEMANTIC_HIGH = env.float("CV_SEMANTIC_HIGH", default=0.8)
 
 LOG_LEVEL = env("LOG_LEVEL", default="INFO")
 LOGGING = {

@@ -54,7 +54,11 @@ def test_different_applicants_at_the_same_moment_all_get_unique_references(api_c
 
 
 def test_concurrent_status_changes_keep_a_consistent_history_chain(team, auth_client, api_client_factory, open_job):
+    from apps.Module6_CVAnalysis.models import JobScreeningConfig
+
     _, users = team
+    # No automatic CV analysis here: this test is about people changing the status at the same moment.
+    JobScreeningConfig.objects.create(job=open_job, auto_analyse=False)
     response = api_client_factory().post(apply_url(open_job), form(), format="multipart")
     application = Application.objects.get(reference=response.json()["reference"])
     targets = ["under_review", "shortlisted", "interview", "selected"]
