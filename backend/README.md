@@ -1,6 +1,6 @@
 # IntelliHire Backend
 
-Django + Django REST Framework API for the IntelliHire recruitment platform. Phase 1 covers authentication, company management and approval, job posting and the application form, and candidate application management. Project memory (requirements, architecture, schema, API contracts, decisions, open questions, progress) is in [`documentation/`](documentation).
+Django + Django REST Framework API for the IntelliHire recruitment platform. Phase 1 covers authentication, company management and approval, job posting and the application form, and candidate application management. Phase 2 (in progress, one module at a time) starts with the AI and notifications foundation, `Module5_Foundation`. Project memory (requirements, architecture, schema, API contracts, decisions, open questions, progress) is in [`documentation/`](documentation).
 
 ## Requirements
 
