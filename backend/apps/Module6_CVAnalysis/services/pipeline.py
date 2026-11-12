@@ -28,7 +28,7 @@ from apps.Module5_Foundation.redact import redact_pii
 from apps.Module5_Foundation.sanitize import clean_text
 
 from ..models import AnalysisStatus, CVAnalysis, CVMatch, JobScreeningConfig
-from ..signals import screening_completed
+from ..signals import cv_scored, screening_completed
 from . import scoring
 from .config import config_for, job_vector
 
@@ -258,6 +258,7 @@ def _run(analysis):
         if not saved:
             return "superseded"
         CVMatch.objects.update_or_create(application=application, defaults={**values, "explanation": "", "computed_at": timezone.now()})
+        cv_scored.send_robust(sender=CVMatch, application=application)
     _explain(application, values)
     _after_scoring(application, config, values["score"])
     _event(application, "completed", values["score"])
@@ -317,6 +318,7 @@ def rescore(application_id):
         CVAnalysis.objects.filter(pk=analysis.pk).update(embedding=cv_vector, embedding_model=get_config().embed_model)
     values = scoring.compute(analysis.parsed, job, config.weights, cv_vector, job_vector(job, config))
     CVMatch.objects.update_or_create(application=application, defaults={**values, "explanation": "", "computed_at": timezone.now()})
+    cv_scored.send_robust(sender=CVMatch, application=application)
     _after_scoring(application, config, values["score"])
     return True
 

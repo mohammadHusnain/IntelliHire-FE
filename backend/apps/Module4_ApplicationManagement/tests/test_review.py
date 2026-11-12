@@ -46,8 +46,8 @@ class TestJobApplicationList:
 
     def test_rows_have_the_documented_columns_and_nothing_private(self, clients, open_job, people):
         row = clients[MemberRole.VIEWER].get(job_url(open_job, "applications")).json()["results"][0]
-        assert set(row) == {"id", "reference", "full_name", "email", "phone", "education_level", "institution", "status", "submitted_at", "has_cv", "cv_score", "cv_label", "screening", "technical"}
-        assert row["screening"] is None and row["technical"] is None
+        assert set(row) == {"id", "reference", "full_name", "email", "phone", "education_level", "institution", "status", "submitted_at", "has_cv", "cv_score", "cv_label", "screening", "technical", "evaluation"}
+        assert row["screening"] is None and row["technical"] is None and row["evaluation"] is None
         assert row["has_cv"] is True and row["status"] == "submitted" and row["cv_score"] is None and row["cv_label"] == "analysing"
 
     def test_status_counts_cover_every_status(self, clients, open_job, people):

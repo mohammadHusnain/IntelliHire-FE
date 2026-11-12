@@ -148,6 +148,16 @@ Constraints and indexes: **unique `(job, email)`** (`application_one_per_job_ema
 
 Module 8 adds rules, not storage. Module 7's `interviews_interviewsession` gained `ai_failing_since` (timestamp, null) in `interviews.0003_ai_failing_since`.
 
+### Module 9 — evaluation tables (`evaluation.0001_initial`, `0002_append_only_decisions`, `0003_seed_prompts`)
+
+| Table | Columns and rules |
+|---|---|
+| `evaluation_evaluationweights` | `job_id` one-to-one **CASCADE** · `weight_cv`, `weight_screening`, `weight_technical` (defaults 30, 30, 40; CHECK they add up to 100) · `missing_stage_policy` (CHECK renormalise/zero) · `updated_by_id` FK **SET NULL** · `updated_at`. |
+| `evaluation_candidateevaluation` | `application_id` one-to-one **CASCADE** · `job_id` FK **CASCADE** (denormalised for ranking) · `cv_score`, `screening_score`, `technical_score` numeric(5,2) null · `composite_score` numeric(5,2) · `is_partial` · `missing_stages` jsonb · `weights_used` jsonb · `report` jsonb · `report_status` (CHECK none/generating/ready/failed) · `report_attempts`, `next_report_at`, `report_claimed_at` · `generated_at`, `created_at`, `updated_at`. CHECK every score between 0 and 100. Indexes: (job, -composite_score), (report_status, next_report_at). |
+| `evaluation_hrdecision` | `id` uuid · `application_id` FK **PROTECT** · `job_id` FK **PROTECT** · `decision` (CHECK selected/rejected/on_hold) · `decided_by_id` FK **PROTECT** · `decided_at` · `note` (CHECK at most 1000 characters) · `ai_recommendation` (CHECK strong_yes/yes/maybe/no or blank) · `overrode_ai` · `notified_candidate`. **Append-only:** a trigger (`evaluation_hrdecision_append_only`) refuses UPDATE and DELETE. Index: (application, -decided_at). |
+
+The `evaluation_report` prompt template is seeded by `evaluation.0003_seed_prompts`.
+
 ### Other tables
 - `token_blacklist_*` (SimpleJWT): outstanding and blacklisted refresh tokens.
 - `django_cache` — production only, created by `manage.py createcachetable`; holds throttle counters.

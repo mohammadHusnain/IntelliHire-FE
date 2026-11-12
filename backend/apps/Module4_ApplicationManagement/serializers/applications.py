@@ -58,14 +58,36 @@ class _InterviewFieldsMixin(serializers.Serializer):
         return self._interview_block(application, "technical")
 
 
-class ApplicationListSerializer(_CVFieldsMixin, _InterviewFieldsMixin, serializers.ModelSerializer):
+class _EvaluationFieldMixin(serializers.Serializer):
+    """The composite score and the report's recommendation (Module 9). Company side only; null until something is scored."""
+
+    evaluation = serializers.SerializerMethodField()
+
+    def get_evaluation(self, application) -> dict | None:
+        try:
+            evaluation = application.evaluation
+        except Exception:  # no evaluation row yet (RelatedObjectDoesNotExist)
+            return None
+
+        def number(value):
+            return float(value) if value is not None else None
+
+        return {
+            "composite_score": number(evaluation.composite_score), "cv_score": number(evaluation.cv_score),
+            "screening_score": number(evaluation.screening_score), "technical_score": number(evaluation.technical_score),
+            "is_partial": evaluation.is_partial, "report_status": evaluation.report_status,
+            "recommendation": evaluation.report.get("recommendation", "") if evaluation.report_status == "ready" else "",
+        }  # fmt: skip
+
+
+class ApplicationListSerializer(_CVFieldsMixin, _InterviewFieldsMixin, _EvaluationFieldMixin, serializers.ModelSerializer):
     has_cv = serializers.SerializerMethodField()
 
     class Meta:
         model = Application
         fields = [
             "id", "reference", "full_name", "email", "phone", "education_level",
-            "institution", "status", "submitted_at", "has_cv", "cv_score", "cv_label", "screening", "technical",
+            "institution", "status", "submitted_at", "has_cv", "cv_score", "cv_label", "screening", "technical", "evaluation",
         ]
         read_only_fields = fields
 
@@ -117,7 +139,7 @@ class NoteCreateSerializer(serializers.Serializer):
     text = serializers.CharField(max_length=FREE_NOTE_MAX_LENGTH, trim_whitespace=True)
 
 
-class ApplicationDetailSerializer(_CVFieldsMixin, _InterviewFieldsMixin, serializers.ModelSerializer):
+class ApplicationDetailSerializer(_CVFieldsMixin, _InterviewFieldsMixin, _EvaluationFieldMixin, serializers.ModelSerializer):
     job = JobSummarySerializer(read_only=True)
     resume = serializers.SerializerMethodField()
     answers = serializers.SerializerMethodField()
@@ -129,7 +151,7 @@ class ApplicationDetailSerializer(_CVFieldsMixin, _InterviewFieldsMixin, seriali
         fields = [
             "id", "reference", "status", "submitted_at", "updated_at", "job", "full_name", "email", "phone",
             "education_level", "institution", "graduation_year", "resume", "answers", "status_history", "notes",
-            "cv_score", "cv_label", "screening", "technical",
+            "cv_score", "cv_label", "screening", "technical", "evaluation",
         ]
         read_only_fields = fields
 

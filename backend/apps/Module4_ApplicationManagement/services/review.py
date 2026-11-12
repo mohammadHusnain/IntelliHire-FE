@@ -70,24 +70,34 @@ def change_status(*, company, application_id, user, new_status, note=""):
             raise NotFound("Application not found.")
         if application.status == new_status:
             raise serializers.ValidationError({"status": ["The application already has this status."]})
-        ApplicationStatusChange.objects.create(
-            application=application,
-            from_status=application.status,
-            to_status=new_status,
-            changed_by=user,
-            note=note,
-            source=StatusChangeSource.HR,
-        )
-        previous = application.status
-        application.status = new_status
-        application.save(update_fields=["status", "updated_at"])
-        if new_status == ApplicationStatus.SHORTLISTED:
-            application_shortlisted.send_robust(sender=Application, application=application)
-        log_event(
-            "application.status_changed", actor=user, company=company, target=application,
-            summary=f"Application moved from {previous} to {new_status}",
-            metadata={"from": previous, "to": new_status, "reference": application.reference},
-        )  # fmt: skip
+        if new_status in DECISION_STATUSES and decision_recorder is not None:
+            # selected, rejected and on_hold are HR decisions: Module 9 records one (without emailing the candidate)
+            decision_recorder(application, user=user, new_status=new_status, note=note, company=company)
+        else:
+            apply_status(application, user=user, new_status=new_status, note=note, company=company)
+    return application
+
+
+DECISION_STATUSES = ("selected", "rejected", "on_hold")
+# Set by Module 9 when it is installed: called inside change_status's transaction with the application locked.
+decision_recorder = None
+
+
+def apply_status(application, *, user, new_status, note="", company=None):
+    """Write the status change, its history row and the audit event. The caller holds the application's row lock."""
+    previous = application.status
+    ApplicationStatusChange.objects.create(
+        application=application, from_status=previous, to_status=new_status, changed_by=user, note=note, source=StatusChangeSource.HR
+    )
+    application.status = new_status
+    application.save(update_fields=["status", "updated_at"])
+    if new_status == ApplicationStatus.SHORTLISTED:
+        application_shortlisted.send_robust(sender=Application, application=application)
+    log_event(
+        "application.status_changed", actor=user, company=company or application.job.company_id, target=application,
+        summary=f"Application moved from {previous} to {new_status}",
+        metadata={"from": previous, "to": new_status, "reference": application.reference},
+    )  # fmt: skip
     return application
 
 

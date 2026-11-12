@@ -58,7 +58,7 @@ class _ApplicationList(GenericAPIView):
         from apps.Module7_Interviews.models import InterviewSession
 
         light = InterviewSession.objects.only("id", "application_id", "kind", "status", "overall_score", "recommendation", "invited_at")
-        return review.applications_of(company_of(self.request)).prefetch_related(Prefetch("interviews", queryset=light))
+        return review.applications_of(company_of(self.request)).select_related("evaluation").prefetch_related(Prefetch("interviews", queryset=light))
 
 
 _LIST_PARAMETERS = [

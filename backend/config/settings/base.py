@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "apps.Module6_CVAnalysis",
     "apps.Module7_Interviews",
     "apps.Module8_TechnicalInterview",
+    "apps.Module9_Evaluation",
 ]
 
 MIDDLEWARE = [
@@ -181,6 +182,10 @@ SPECTACULAR_SETTINGS = {
         "ApplicationStatusEnum": "apps.Module4_ApplicationManagement.models.ApplicationStatus.choices",
         "InterviewStatusEnum": "apps.Module7_Interviews.models.SessionStatus.choices",
         "InterviewKindEnum": "apps.Module7_Interviews.models.SessionKind.choices",
+        "HRDecisionEnum": "apps.Module9_Evaluation.models.Decision.choices",
+        "ReportStatusEnum": "apps.Module9_Evaluation.models.ReportStatus.choices",
+        "EvaluationRecommendationEnum": "apps.Module9_Evaluation.models.Recommendation.choices",
+        "MissingStagePolicyEnum": "apps.Module9_Evaluation.models.MissingStagePolicy.choices",
     },
 }
 
@@ -205,6 +210,7 @@ CELERY_BEAT_SCHEDULE = {
     "jobs-close-expired": {"task": "foundation.close_expired_jobs", "schedule": 300.0},
     "cv-analysis-sweep": {"task": "cv_analysis.sweep", "schedule": 300.0},
     "interviews-sweep": {"task": "interviews.sweep", "schedule": 300.0},
+    "evaluation-sweep": {"task": "evaluation.sweep", "schedule": 300.0},
 }
 
 # --- Email outbox -----------------------------------------------------------------------------------------------
@@ -258,6 +264,11 @@ INTERVIEW_EVAL_STALE_MINUTES = 15
 INTERVIEW_AI_OUTAGE_SECONDS = 120  # a technical interview is interrupted after the question hook has failed this long
 INTERVIEW_AI_RETRY_AFTER = 120
 INTERVIEW_EVAL_PARKED_HOURS = 6  # with no scoring hook merged, look at unevaluated interviews again this often
+
+# --- Evaluation (Module9_Evaluation) ------------------------------------------------------------------------------
+EVALUATION_REPORT_MAX_ATTEMPTS = 3
+EVALUATION_REPORT_RETRY_MINUTES = 5
+EVALUATION_REPORT_STALE_MINUTES = 15
 
 LOG_LEVEL = env("LOG_LEVEL", default="INFO")
 LOGGING = {

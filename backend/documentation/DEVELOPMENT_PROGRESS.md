@@ -194,8 +194,30 @@ Owner decisions: Q1 a (a screening `advance` sends the technical invitation by i
 - The hooks are fakes: follow-up quality, difficulty actually matching the band, technical scoring and the report text have never come from a real model. The outage path is tested with a failing hook, not a real provider outage. The prompt-injection case stays "after merge".
 - Redis here is 3.0 and cannot run Celery's Lua scripts, so the real-broker run used Celery's filesystem transport. The database was PostgreSQL 14.
 
+## Phase 2, Module 9: Evaluation and HR review (built directly on `IntelliHire-backend`)
+
+Owner decisions: Q3 a (the old status endpoint records decisions without emailing), Q4 a (a minimal neutral decision email now), Q5 a (reportlab). Decisions D-124 to D-130. Folder: `apps/Module9_Evaluation`.
+
+- Three tables, a seeded prompt, nine endpoints, a sweep: per-job weights, the composite score, the AI-assisted report (checked by code), ranking, compare, an append-only HR decision log with the status change in one transaction, the candidate email, and the PDF. Earlier code changed additively: Module 4 (`apply_status`, the `decision_recorder` hook, an `evaluation` block on the application list and detail), Module 6 (the `cv_scored` signal; the shortlist batch loads settings with its applications), Module 5 (event types), settings, `reportlab` in the base requirements.
+
+**Verified (executed here)**
+- `python -m pytest`: **2270 passed** = 2046 earlier (a few assertions adapted: the list columns, the throttle config, the evaluation-after-screening status, two technical-invite expectations) + 55 Module 8 + 152 Module 9 + new surface-sweep cases for the nine new operations. The sweep classifies 105 operations (49 company-side id operations, all 404 for another company); zero schema warnings.
+- Concurrency with real threads, repeated: two HR users deciding at once, two workers generating the same report; the append-only rule is tested at the model, queryset, raw SQL and admin level; query counts are constant for the ranking and the application list.
+- Real end-to-end run (see Module 8), Module 9 part: scores combined and rescaled for a missing CV stage (80 and 80 give 80, weights 42.86/57.14), the worker generated the report with a checked recommendation, ranking, compare, the PDF; a decision with the status change and the email (no score or note in it); the old status endpoint recorded a decision and sent no email; the database refused to edit or delete a decision; new weights recomputed the evaluation and the sweep regenerated the report; with a dead broker a report request and a decision still succeeded, the email waited in the outbox and the sweep finished the report.
+
+**Bugs found by the new tests and fixed**
+- A cached `application.cv_match` could hold an older score than the one just saved, so a CV rescore did not update the composite: scores are now read fresh.
+- The decision note check was a regular expression PostgreSQL rejects above 255 repetitions: replaced by a length check.
+- The transaction tests flush the seeded prompt and question bank; the suites now put them back when missing.
+- (Module 7 side, found by the same run) the shortlist receiver cost queries per candidate: already fixed in Module 7.
+
+**Honest scope notes**
+- The report model is a fake here: the words and the recommendation have never come from a real model; the guards (the composite's band, numbers from code, redaction of the model's input) are code and tested. The privacy test checks the prompt text sent to the fake provider, not a real provider's behaviour.
+- A weights change regenerates ready reports 50 per 5 minutes, so a big job takes a while to refresh; the scores themselves update at once.
+- The decision email is deliberately minimal (Module 10 owns the final wording). The frontend has none of this (not started, by instruction).
+
 ## Next step
 
-Phase 2 Modules 5 to 8 are built; Module 9 (evaluation and HR review) follows only on the owner's explicit go-ahead. Phase 4 and Module 4 are approved. Phase 5 (frontend), on the owner's explicit go-ahead: connect the frontend page by page in the Doc's order, using the field mappings and known differences listed in `API_CONTRACTS.md`. Before that, the deployment questions (Q3, Q23) should be answered.
+Phase 2 Modules 5 to 9 are built; Module 10 (candidate tracking) follows only on the owner's explicit go-ahead. Phase 4 and Module 4 are approved. Phase 5 (frontend), on the owner's explicit go-ahead: connect the frontend page by page in the Doc's order, using the field mappings and known differences listed in `API_CONTRACTS.md`. Before that, the deployment questions (Q3, Q23) should be answered.
 
 **Approval check (before approving).** A fresh clone of `origin/IntelliHire-backend` at `f1adaaf` was installed into a new virtualenv: 1159 tests passed; every Doc §4 requirement and TC-16 to TC-22 were run by name and passed; the 68-operation sweeps, quality gates and the end-to-end journey passed; `makemigrations --check`, the OpenAPI validation and `check` were clean.

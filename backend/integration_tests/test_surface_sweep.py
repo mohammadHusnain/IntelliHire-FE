@@ -78,7 +78,7 @@ def call(client, operation, values=None, body=None):
 
 
 def test_every_operation_is_classified():
-    assert len(OPERATIONS) == 96
+    assert len(OPERATIONS) == 105
     assert [op for op in OPERATIONS if kind(op) == "unclassified"] == []
     assert PUBLIC <= set(OPERATIONS) and ANY_LOGGED_IN <= set(OPERATIONS)
 
@@ -168,7 +168,7 @@ class TestAnotherCompanysDataIs404:
     COMPANY_OPS_WITH_IDS = [op for op in ops_of("company") if "{" in op[1]]
 
     def test_the_sweep_really_covers_the_id_operations(self):
-        assert len(self.COMPANY_OPS_WITH_IDS) == 40
+        assert len(self.COMPANY_OPS_WITH_IDS) == 49
 
     @pytest.mark.parametrize("operation", COMPANY_OPS_WITH_IDS, ids=lambda op: f"{op[0]} {op[1]}")
     def test_every_id_operation_is_404_for_another_company(self, world, operation):

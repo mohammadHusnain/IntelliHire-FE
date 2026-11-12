@@ -316,6 +316,31 @@ Source: Phase 2 guide, Module 8. No new routes and no new tables: the same Modul
 
 **Decisions:** D-118 to D-123.
 
+## Module 9 — Evaluation and HR review (`Module9_Evaluation`, Phase 2)
+
+Source: Phase 2 guide, Module 9. Company side only; another company's job or application is 404; viewers read only; candidates never see any of it.
+
+| Method | Endpoint | Access | Request | Success | Main errors |
+|---|---|---|---|---|---|
+| GET, PUT | /api/jobs/<id>/evaluation-weights/ | Company user (PUT: admin, HR manager) | any of `weight_cv`, `weight_screening`, `weight_technical`, `missing_stage_policy` | 200 | 400 weights not 100; 403; 404 |
+| GET | /api/jobs/<id>/evaluations/ | Company user | ?min_score, ?max_score, ?status, ?stage (`cv`, `screening`, `technical`, `complete`), ?partial, ?page | 200 ranked rows | 400 `invalid_filter`; 404 |
+| GET | /api/jobs/<id>/evaluations/compare/ | Company user | ?applications=id1,id2,... (2 to 4) | 200 side by side | 400 `invalid_count`; 404 |
+| GET | /api/applications/<id>/evaluation/ | Company user | none | 200 scores, composite, report, decision history | 404 (`not_evaluated` before anything is scored) |
+| POST | /api/applications/<id>/evaluation/generate/ | Admin, HR manager, recruiter | none | 202 | 403; 404; 409 `no_scores` |
+| GET | /api/applications/<id>/evaluation/pdf/ | Company user | none | 200 `application/pdf` | 404 |
+| POST | /api/applications/<id>/decision/ | Admin, HR manager, recruiter | `decision` (selected, rejected, on_hold), `note` (at most 1000), `notify` (default true) | 201 `{decision, status, hint}` | 400; 403; 404; 409 `same_decision` |
+| GET | /api/applications/<id>/decisions/ | Company user | none | 200 history, newest first | 404 |
+
+### Module 9 — implemented behaviour
+
+- **Composite:** `cv_score` (CV match), `screening_score` and `technical_score` (the latest evaluated interviews) combine by the job's weights (default 30, 30, 40); a missing stage makes the evaluation `is_partial` and is rescaled (`renormalise`, default) or counted as 0 (`zero`). 80, 70, 85 give 79.0. Saving different weights recomputes every candidate of the job in the background; decisions are untouched.
+- **Report:** `report_status` is `none`, `generating`, `ready` or `failed`; scores are visible at once and the report follows. `report` holds `summary`, `strengths`, `weaknesses`, `stage_summaries`, `recommendation` (`strong_yes`, `yes`, `maybe`, `no`, checked against the composite) and `ai_disclaimer`. After a failure the scores stay and HR can retry with Generate.
+- **Decisions are permanent:** each row has `decision`, `decided_by`, `decided_at`, `note`, `ai_recommendation`, `overrode_ai`, `notified_candidate`; the database refuses to change or delete one. The status change and the row are one transaction; the candidate's email goes out after commit (unless `notify` is false). The old status endpoint still takes `selected`, `rejected` and `on_hold` but never emails.
+- **Changed Module 4 responses:** application list rows and the detail gain an `evaluation` block (or null).
+- **Ranking row:** `rank, application_id, reference, full_name, email, status, submitted_at, cv_score, screening_score, technical_score, composite_score, is_partial, missing_stages, report_status, recommendation, decision`.
+
+**Decisions:** D-124 to D-130.
+
 ## Known frontend differences to resolve before Phase 5
 
 Not backend defects; recorded so integration does not guess. Details and IDs in `UNRESOLVED_QUESTIONS.md`.
