@@ -25,10 +25,12 @@ urlpatterns = [
     path("api/jobs/", include("apps.Module9_Evaluation.jobs_urls")),
     path("api/applications/", include("apps.Module9_Evaluation.urls")),
     path("api/notifications/", include("apps.Module5_Foundation.urls")),
+    path("api/candidate/", include("apps.Module10_Tracking.candidate_urls")),
     path("api/public/", include("apps.Module2_CompanyManagement.public_urls")),
     path("api/public/", include("apps.Module3_JobPosting.public_urls")),
     path("api/public/", include("apps.Module4_ApplicationManagement.public_urls")),
     path("api/public/", include("apps.Module7_Interviews.public_urls")),
+    path("api/public/", include("apps.Module10_Tracking.public_urls")),
 ]
 
 if settings.API_DOCS_ENABLED:

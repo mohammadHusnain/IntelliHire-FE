@@ -13,6 +13,7 @@ from apps.common.storage import private_storage
 from . import auth_tokens, emails, tokens
 from .auth_tokens import InvalidRefreshToken
 from .models import CandidateProfile, User
+from .signals import email_verified
 from .resume import extract_resume_text
 from .validators import EMAIL_TAKEN, check_password_strength, normalize_email
 from apps.Module5_Foundation.events import log_event
@@ -97,6 +98,7 @@ def verify_email(token):
             if user.status == UserStatus.PENDING_VERIFICATION:
                 user.status = derive_status(user)
             user.save(update_fields=["email_verified", "status"])
+            email_verified.send_robust(sender=User, user=user)
             return user, True
     return user, False
 

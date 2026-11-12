@@ -341,6 +341,30 @@ Source: Phase 2 guide, Module 9. Company side only; another company's job or app
 
 **Decisions:** D-124 to D-130.
 
+## Module 10 — Candidate application tracking (`Module10_Tracking`, Phase 2)
+
+Source: Phase 2 guide, Module 10. No tables of its own: read models over applications, interviews and decisions. Candidate endpoints are JWT (company users and platform admins get 403); the public ones take the private tracking link.
+
+| Method | Endpoint | Access | Request | Success | Main errors |
+|---|---|---|---|---|---|
+| GET | /api/candidate/applications/ | Candidate | ?status, ?page | 200 paginated rows: `id, reference, job_title, company_name, applied_at, status, status_label, current_stage, pending_invitation` | 400 `invalid_filter`; 403 |
+| GET | /api/candidate/applications/<id>/ | Candidate | none | 200 label, `stages[]`, `pending_invitation`, `decision`, `timeline[]` | 404 not yours |
+| POST | /api/candidate/applications/<id>/invitation/link/ | Candidate | none | 200 `{url, kind, expires_at}`: a new link, the earlier one stops working | 404 `no_pending_interview`; 429 |
+| GET | /api/candidate/dashboard/ | Candidate | none | 200 counts by label, waiting invitations, recent mock sessions, unread notifications, profile completeness | 403 |
+| GET | /api/public/track/<token>/ | Public | none | 200 the same single-application view | 404; 429 |
+| POST | /api/public/track/<token>/invitation/link/ | Public | none | 200 as above | 404; 429 |
+| POST | /api/public/track/request-link/ | Public | `email` | 200 always the same message | 400 not an email; 429 (3 per hour per IP) |
+
+### Module 10 — implemented behaviour
+
+- **Labels:** Submitted, Reviewing, Shortlisted, Interview scheduled, Decision: Selected, Decision: Not selected, Decision: On hold. **Stages:** `cv`, `screening`, `technical`, `decision`, each `done`, `current`, `waiting` or `skipped`; `current_stage` is null once decided.
+- **Never shown to a candidate:** scores, AI text or recommendations, notes, HR names, other candidates, the raw interview token. The decision (and its date) appears only after HR recorded one.
+- **Tracking token:** 32 characters, in the confirmation email (`{FRONTEND_URL}/track/<token>`); only its hash is stored. A lost-link request replaces the links of every application made with that address.
+- **Reminders:** an unstarted interview gets one email 48 hours before it expires, with a new link.
+- **Changed Phase 1 behaviour:** the confirmation email now carries the tracking link; verifying a candidate's email links their earlier applications to the account.
+
+**Decisions:** D-131 to D-137.
+
 ## Known frontend differences to resolve before Phase 5
 
 Not backend defects; recorded so integration does not guess. Details and IDs in `UNRESOLVED_QUESTIONS.md`.

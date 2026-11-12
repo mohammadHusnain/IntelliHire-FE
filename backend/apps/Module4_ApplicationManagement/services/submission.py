@@ -14,6 +14,7 @@ from apps.Module5_Foundation.events import log_event
 from .. import emails
 from ..models import Application, ApplicationFile, ApplicationStatus, ApplicationStatusChange, StatusChangeSource
 from ..signals import application_submitted
+from . import tracking_token
 from .validation import validate_built_in, validate_custom
 
 logger = logging.getLogger(__name__)
@@ -74,7 +75,9 @@ def _attempt(job_id, data, files, candidate, ip_address, user_agent, written):
             raise serializers.ValidationError(errors)
 
         cv = cleaned.pop("resume")
+        raw_tracking = tracking_token.new_token()
         application = Application(
+            tracking_token_hash=tracking_token.hash_token(raw_tracking),
             job=job,
             candidate_user=candidate,
             resume_original_name=cv.name[:255],
@@ -112,7 +115,7 @@ def _attempt(job_id, data, files, candidate, ip_address, user_agent, written):
             "application.submitted", company=job.company_id, target=application,
             summary=f"Application submitted for {job.title}", metadata={"reference": application.reference},
         )  # fmt: skip
-        emails.send_application_received(application)
+        emails.send_application_received(application, raw_tracking)
         return application
 
 

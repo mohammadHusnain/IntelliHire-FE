@@ -44,6 +44,9 @@ def test_rest_framework_defaults(settings):
         "interview_open": "120/min",
         "interview_start": "10/hour",
         "interview_answer": "60/min",
+        "track_open": "120/min",
+        "track_link": "10/hour",
+        "track_request": "3/hour",
     }
 
 

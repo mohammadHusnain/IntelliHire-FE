@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "apps.Module7_Interviews",
     "apps.Module8_TechnicalInterview",
     "apps.Module9_Evaluation",
+    "apps.Module10_Tracking",
 ]
 
 MIDDLEWARE = [
@@ -149,6 +150,9 @@ REST_FRAMEWORK = {
         "interview_open": "120/min",
         "interview_start": "10/hour",
         "interview_answer": "60/min",
+        "track_open": "120/min",
+        "track_link": "10/hour",
+        "track_request": "3/hour",
     },
 }
 
@@ -211,6 +215,7 @@ CELERY_BEAT_SCHEDULE = {
     "cv-analysis-sweep": {"task": "cv_analysis.sweep", "schedule": 300.0},
     "interviews-sweep": {"task": "interviews.sweep", "schedule": 300.0},
     "evaluation-sweep": {"task": "evaluation.sweep", "schedule": 300.0},
+    "tracking-sweep": {"task": "tracking.sweep", "schedule": 900.0},
 }
 
 # --- Email outbox -----------------------------------------------------------------------------------------------
@@ -269,6 +274,10 @@ INTERVIEW_EVAL_PARKED_HOURS = 6  # with no scoring hook merged, look at unevalua
 EVALUATION_REPORT_MAX_ATTEMPTS = 3
 EVALUATION_REPORT_RETRY_MINUTES = 5
 EVALUATION_REPORT_STALE_MINUTES = 15
+
+# --- Tracking (Module10_Tracking) ---------------------------------------------------------------------------------
+TRACKING_REMINDER_HOURS = 48  # an unstarted interview gets one reminder this long before it expires
+TRACKING_LINKS_PER_EMAIL_PER_HOUR = 3  # lost-link emails to one address, however many people ask
 
 LOG_LEVEL = env("LOG_LEVEL", default="INFO")
 LOGGING = {

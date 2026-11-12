@@ -19,7 +19,7 @@ EVENT_TYPES = frozenset(
         "job.published", "job.closed",
         "application.submitted", "application.status_changed",
         "cv.analysed", "interview.invited", "interview.completed", "interview.evaluated",
-        "interview.expired", "interview.resent", "interview.extended", "interview.cancelled", "interview.reevaluated",
+        "interview.expired", "interview.reminded", "interview.resent", "interview.extended", "interview.cancelled", "interview.reevaluated",
         "evaluation.generated", "evaluation.weights_changed", "decision.recorded",
         "community.created", "community.removed",
         "report.created", "moderation.resolved",

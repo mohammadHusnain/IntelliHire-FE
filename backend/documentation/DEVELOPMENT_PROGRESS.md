@@ -216,8 +216,24 @@ Owner decisions: Q3 a (the old status endpoint records decisions without emailin
 - A weights change regenerates ready reports 50 per 5 minutes, so a big job takes a while to refresh; the scores themselves update at once.
 - The decision email is deliberately minimal (Module 10 owns the final wording). The frontend has none of this (not started, by instruction).
 
+## Phase 2, Module 10: candidate application tracking (built directly on `IntelliHire-backend`)
+
+Owner decisions: Q1 a (a fresh interview link on demand, never a stored one), Q2 a (hashed tracking token, lost-link replaces links), Q4 a (existing accounts linked by a one-time migration). Decisions D-131 to D-137. Folder: `apps/Module10_Tracking` (no tables).
+
+- Seven endpoints (candidate list, detail, fresh interview link, dashboard; public track, fresh link, lost link), the four-stage tracker, the reminder sweep, linking on email verification, the tracking link in the confirmation email. Earlier code, additively: Module 4 (`tracking_token_hash`, the email), Module 1 (the `email_verified` signal), Module 7 (`reminder_sent_at`), Module 9 (a contact line in the decision email), Module 5 (event type), settings, throttles.
+
+**Verified (executed here: Python 3.13, PostgreSQL 14, Celery 5.7)**
+- `python -m pytest`: **2377 passed**, with 100 new Module 10 tests: stage rules, access (own email, linked account, two accounts, unverified), the leak test (no score, note, explanation or HR name in any candidate response), public tracking, lost-link (identical answers, quotas, old links dying), linking on verification, the backfill, reminders (including two sweeps at once) and the email wording rules. `makemigrations --check` clean; zero schema warnings; the surface sweep classifies 112 operations.
+- Real end-to-end run: see the Module 11 section's run (shared).
+
+**Honest scope notes**
+- Existing applications have no known tracking token; their owners get one through "lost link". Rotating links on request means anyone who knows an address can replace its links (throttled to 3 emails an hour per address and 3 requests an hour per IP).
+- A reminder or a "get my link" action replaces the interview link: an old email's link stops working, and the email says so.
+- The stage tracker treats an interview as done once the candidate finished it, even if no scoring hook is connected yet.
+- The frontend has none of this (not started, by instruction).
+
 ## Next step
 
-Phase 2 Modules 5 to 9 are built; Module 10 (candidate tracking) follows only on the owner's explicit go-ahead. Phase 4 and Module 4 are approved. Phase 5 (frontend), on the owner's explicit go-ahead: connect the frontend page by page in the Doc's order, using the field mappings and known differences listed in `API_CONTRACTS.md`. Before that, the deployment questions (Q3, Q23) should be answered.
+Phase 2 Modules 5 to 10 are built; Module 11 (mock interview) follows only on the owner's explicit go-ahead. Phase 4 and Module 4 are approved. Phase 5 (frontend), on the owner's explicit go-ahead: connect the frontend page by page in the Doc's order, using the field mappings and known differences listed in `API_CONTRACTS.md`. Before that, the deployment questions (Q3, Q23) should be answered.
 
 **Approval check (before approving).** A fresh clone of `origin/IntelliHire-backend` at `f1adaaf` was installed into a new virtualenv: 1159 tests passed; every Doc §4 requirement and TC-16 to TC-22 were run by name and passed; the 68-operation sweeps, quality gates and the end-to-end journey passed; `makemigrations --check`, the OpenAPI validation and `check` were clean.

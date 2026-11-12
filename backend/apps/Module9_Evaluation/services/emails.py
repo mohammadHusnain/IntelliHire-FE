@@ -26,7 +26,11 @@ def send_decision_email(application, decision):
     send_email_on_commit(
         to=application.email,
         subject=f"{subjects[decision]} on your application: {job.title} at {company}",
-        body=f"Hello {application.full_name},\n\n{lines[decision]}\n\nApplication reference: {application.reference}\n",
+        body=(
+            f"Hello {application.full_name},\n\n{lines[decision]}\n\n"
+            f"If you have any questions, please contact the recruiting team at {company}.\n"
+            f"Application reference: {application.reference}\n"
+        ),
         kind="application_decision",
         related=application,
     )

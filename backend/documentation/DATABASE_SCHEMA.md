@@ -158,6 +158,10 @@ Module 8 adds rules, not storage. Module 7's `interviews_interviewsession` gaine
 
 The `evaluation_report` prompt template is seeded by `evaluation.0003_seed_prompts`.
 
+### Module 10 — no tables
+
+Module 10 adds read models, not tables. `applications_application` gained `tracking_token_hash` (char(64), unique, never exposed) in `applications.0004` and `0005`; `interviews_interviewsession` gained `reminder_sent_at` (null) in `interviews.0004`; `tracking.0001` links existing verified candidates to their applications.
+
 ### Other tables
 - `token_blacklist_*` (SimpleJWT): outstanding and blacklisted refresh tokens.
 - `django_cache` — production only, created by `manage.py createcachetable`; holds throttle counters.

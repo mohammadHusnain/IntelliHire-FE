@@ -1,3 +1,5 @@
+import hashlib
+import secrets
 import uuid
 from pathlib import Path
 
@@ -27,6 +29,11 @@ def application_upload_path(instance, filename):
     return f"applications/{application.job_id}/{uuid.uuid4().hex}{Path(filename).suffix.lower()}"
 
 
+def random_tracking_hash():
+    """A hash nobody knows the token of: the default for an application created without one (tests, admin, imports)."""
+    return hashlib.sha256(secrets.token_urlsafe(24).encode()).hexdigest()
+
+
 class Application(models.Model):
     Status = ApplicationStatus
 
@@ -48,6 +55,8 @@ class Application(models.Model):
     resume_original_name = models.CharField(max_length=255)
     answers = models.JSONField(default=dict, blank=True)
     status = models.CharField(max_length=20, choices=ApplicationStatus.choices, default=ApplicationStatus.SUBMITTED)
+    # SHA-256 of the private tracking link (never shown to company users). Raw token: confirmation and lost-link emails only.
+    tracking_token_hash = models.CharField(max_length=64, unique=True, editable=False, default=random_tracking_hash)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     user_agent = models.CharField(max_length=500, blank=True)
     submitted_at = models.DateTimeField(auto_now_add=True)

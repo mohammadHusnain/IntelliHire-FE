@@ -87,6 +87,8 @@ class InterviewSession(models.Model):
     evaluation_claimed_at = models.DateTimeField(null=True, blank=True)
     # Set while the question hook keeps failing for a kind that does not fall back to the bank (technical).
     ai_failing_since = models.DateTimeField(null=True, blank=True)
+    # Set once the "48 hours left" reminder went out (Module 10), so it is sent at most once.
+    reminder_sent_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-invited_at"]
