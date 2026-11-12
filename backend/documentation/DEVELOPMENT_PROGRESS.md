@@ -224,7 +224,7 @@ Owner decisions: Q1 a (a fresh interview link on demand, never a stored one), Q2
 
 **Verified (executed here: Python 3.13, PostgreSQL 14, Celery 5.7)**
 - `python -m pytest`: **2377 passed**, with 100 new Module 10 tests: stage rules, access (own email, linked account, two accounts, unverified), the leak test (no score, note, explanation or HR name in any candidate response), public tracking, lost-link (identical answers, quotas, old links dying), linking on verification, the backfill, reminders (including two sweeps at once) and the email wording rules. `makemigrations --check` clean; zero schema warnings; the surface sweep classifies 112 operations.
-- Real end-to-end run: see the Module 11 section's run (shared).
+- Real end-to-end run: shared with Module 11 (31 of 31 checks; see its section).
 
 **Honest scope notes**
 - Existing applications have no known tracking token; their owners get one through "lost link". Rotating links on request means anyone who knows an address can replace its links (throttled to 3 emails an hour per address and 3 requests an hour per IP).
@@ -232,8 +232,24 @@ Owner decisions: Q1 a (a fresh interview link on demand, never a stored one), Q2
 - The stage tracker treats an interview as done once the candidate finished it, even if no scoring hook is connected yet.
 - The frontend has none of this (not started, by instruction).
 
+## Phase 2, Module 11: mock interview (built directly on `IntelliHire-backend`)
+
+Owner decisions: Q3 a (ending under 3 answers cancels and does not count), Q5 a (bank fallback on an outage; a policy block also logs a failure). Decisions D-138 to D-144. Folder: `apps/Module11_MockInterview`.
+
+- Two tables, a seeded 25-role catalog, ten endpoints and the candidate dashboard's recent-sessions card. A thin layer over the Module 7 engine: create (one open session, five a day, CV excerpt with personal details removed), run (the shared start and answer logic over JWT), end early, feedback (derived status, retry), history, progress, and a real delete. Earlier code, additively: Module 7 (a kinds hook for policy blocks, the one-open-mock constraint), Module 5 (event type), settings.
+
+**Verified (executed here: Python 3.13, PostgreSQL 14, Celery 5.7)**
+- `python -m pytest`: **2490 passed**, with 103 new Module 11 tests: the catalog, every create check and its order, the one-at-a-time and daily limits (including delete not resetting it), running on the shared engine, voice, idle and resume, policy-block and outage fallbacks, ending early, feedback with and without hooks and the retry, delete, history, progress and trend, the dashboard card, another candidate's session being 404 on every endpoint, and two creates at once. `makemigrations --check` clean; zero schema warnings; the surface sweep classifies 122 operations.
+- Real end-to-end run, Modules 10 and 11 together (a Celery worker in a separate process, real HTTP, a throwaway database), 31 of 31 checks: an applicant followed an application with the emailed tracking link; registering and verifying the same email linked it to the account; HR invited, the candidate saw the waiting invitation, got a fresh link (the emailed one died), finished the interview and saw the automatic technical invitation; the worker sent one 48-hour reminder (a second sweep sent none); a lost-link request answered identically for a known and an unknown address and replaced the old links; HR's decision showed as a label with no note or score and the email was respectful and plain; a mock session ran with the broker down (every request worked, no feedback yet), the sweep re-queued it and the worker produced the feedback (score 80); the sixth session of the day was 429; delete removed the transcript for good and did not reset the limit; progress, history and the dashboard card matched.
+
+**Honest scope notes**
+- The hooks are fakes: question quality, answer scoring, the feedback text and transcription have never come from a real model, so the feedback, progress scores and trend have only been shown with fake numbers. The report schema for mock (`suggestions`, `dimension_comments`) is validated by the runner but never produced by real output here.
+- `feedback_status` is derived, not stored (D-142). A deleted session leaves an empty hidden shell by design (D-141).
+- Redis here is 3.0 and cannot run Celery's Lua scripts; the real-broker run used Celery's filesystem transport. The database was PostgreSQL 14.
+- The frontend has none of this (not started, by instruction).
+
 ## Next step
 
-Phase 2 Modules 5 to 10 are built; Module 11 (mock interview) follows only on the owner's explicit go-ahead. Phase 4 and Module 4 are approved. Phase 5 (frontend), on the owner's explicit go-ahead: connect the frontend page by page in the Doc's order, using the field mappings and known differences listed in `API_CONTRACTS.md`. Before that, the deployment questions (Q3, Q23) should be answered.
+Phase 2 Modules 5 to 11 are built; Module 12 (talent communities) follows only on the owner's explicit go-ahead. Phase 4 and Module 4 are approved. Phase 5 (frontend), on the owner's explicit go-ahead: connect the frontend page by page in the Doc's order, using the field mappings and known differences listed in `API_CONTRACTS.md`. Before that, the deployment questions (Q3, Q23) should be answered.
 
 **Approval check (before approving).** A fresh clone of `origin/IntelliHire-backend` at `f1adaaf` was installed into a new virtualenv: 1159 tests passed; every Doc §4 requirement and TC-16 to TC-22 were run by name and passed; the 68-operation sweeps, quality gates and the end-to-end journey passed; `makemigrations --check`, the OpenAPI validation and `check` were clean.

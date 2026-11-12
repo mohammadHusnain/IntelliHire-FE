@@ -127,7 +127,10 @@ def ask_next_question(session, turns, hint):
             if not kinds.rules_for(session.kind).outage_uses_bank:
                 raise
             break
-        except (AIPolicyBlocked, AIInvalidOutput):
+        except AIPolicyBlocked:
+            kinds.rules_for(session.kind).on_policy_blocked(session)
+            break
+        except AIInvalidOutput:
             break
         if question is NOT_CONNECTED:
             break

@@ -48,7 +48,7 @@ def kind(operation):
         return "public"
     if operation in ANY_LOGGED_IN:
         return "any"
-    if path.startswith(("/api/auth/profile/", "/api/candidate/")):
+    if path.startswith(("/api/auth/profile/", "/api/candidate/", "/api/mock-interviews/")):
         return "candidate"
     if path.startswith("/api/platform-admin/"):
         return "platform"
@@ -79,7 +79,7 @@ def call(client, operation, values=None, body=None):
 
 
 def test_every_operation_is_classified():
-    assert len(OPERATIONS) == 112
+    assert len(OPERATIONS) == 122
     assert [op for op in OPERATIONS if kind(op) == "unclassified"] == []
     assert PUBLIC <= set(OPERATIONS) and ANY_LOGGED_IN <= set(OPERATIONS)
 

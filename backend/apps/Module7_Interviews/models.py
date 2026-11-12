@@ -119,6 +119,12 @@ class InterviewSession(models.Model):
                 condition=Q(status__in=[s.value for s in OPEN_STATUSES]) & Q(application__isnull=False),
                 name="interview_one_open_per_application_kind",
             ),
+            # A candidate practises one mock interview at a time (Module 11).
+            models.UniqueConstraint(
+                fields=["candidate_user"],
+                condition=Q(kind=SessionKind.MOCK) & Q(status__in=[s.value for s in OPEN_STATUSES]),
+                name="interview_one_open_mock_per_user",
+            ),
         ]
 
     def __str__(self):

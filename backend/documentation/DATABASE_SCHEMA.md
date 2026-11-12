@@ -162,6 +162,15 @@ The `evaluation_report` prompt template is seeded by `evaluation.0003_seed_promp
 
 Module 10 adds read models, not tables. `applications_application` gained `tracking_token_hash` (char(64), unique, never exposed) in `applications.0004` and `0005`; `interviews_interviewsession` gained `reminder_sent_at` (null) in `interviews.0004`; `tracking.0001` links existing verified candidates to their applications.
 
+### Module 11 — mock interview tables (`mock_interview.0001_initial`, `0002_seed_roles`)
+
+| Table | Columns and rules |
+|---|---|
+| `mock_interview_interviewrole` | `id` uuid · `slug` unique · `title` · `category` · `description` · `focus_skills` jsonb · `is_active` · `sort_order`. Seeded: 25 roles in six categories. Index: (is_active, category). |
+| `mock_interview_mockinterviewsession` | `session_id` one-to-one **CASCADE** to `interviews_interviewsession` (kind `mock`, no application) · `interview_type` (CHECK general/role_specific) · `target_role_id` FK **SET NULL** · `use_cv` · `counts_toward_limit` (false for a session ended before 3 answers) · `deleted_at` (an empty shell once deleted). |
+
+`interviews_interviewsession` gained the partial unique index `interview_one_open_mock_per_user` (one session in invited, in_progress or interrupted per candidate, kind mock) in `interviews.0005`.
+
 ### Other tables
 - `token_blacklist_*` (SimpleJWT): outstanding and blacklisted refresh tokens.
 - `django_cache` — production only, created by `manage.py createcachetable`; holds throttle counters.

@@ -40,6 +40,9 @@ class KindRules:
     def recommend(self, score, minimum):
         return None
 
+    def on_policy_blocked(self, session):
+        """Called when the question hook refused the content and the bank is used instead."""
+
     def extend_report(self, session, turns, report):
         return report
 

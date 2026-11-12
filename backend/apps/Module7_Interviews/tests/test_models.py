@@ -41,10 +41,17 @@ class TestConstraints:
             InterviewSession.objects.create(kind="screening", application=None, token_hash="a" * 64, role_title="r", question_target=3, expires_at=timezone.now())
         InterviewSession.objects.create(kind="mock", application=None, candidate_user=user_factory(), token_hash="b" * 64, role_title="r", question_target=3, expires_at=timezone.now())
 
-    def test_two_mock_sessions_may_both_be_open_but_two_screenings_may_not(self, session_factory, application, user_factory):
-        user = user_factory()
-        for n in range(2):
-            InterviewSession.objects.create(kind="mock", application=None, candidate_user=user, token_hash=f"{n}" * 64, role_title="r", question_target=3, expires_at=timezone.now())
+    def test_a_candidate_may_have_one_open_mock_session_and_different_candidates_one_each(self, session_factory, application, user_factory):
+        one, two = user_factory(), user_factory()
+
+        def mock(user, status, n):
+            return InterviewSession.objects.create(kind="mock", application=None, candidate_user=user, token_hash=f"{n}" * 64, status=status, role_title="r", question_target=3, expires_at=timezone.now())
+
+        mock(one, "invited", 1)
+        mock(two, "in_progress", 2)  # another candidate is a different slot
+        mock(one, "completed", 3)  # a finished session does not block a new one
+        with pytest.raises(IntegrityError), transaction.atomic():
+            mock(one, "interrupted", 4)
         session_factory(application, status="invited")
         with pytest.raises(IntegrityError), transaction.atomic():
             session_factory(application, status="in_progress", token="x2")

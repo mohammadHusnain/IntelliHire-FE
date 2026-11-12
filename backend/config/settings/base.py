@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     "apps.Module8_TechnicalInterview",
     "apps.Module9_Evaluation",
     "apps.Module10_Tracking",
+    "apps.Module11_MockInterview",
 ]
 
 MIDDLEWARE = [
@@ -186,6 +187,7 @@ SPECTACULAR_SETTINGS = {
         "ApplicationStatusEnum": "apps.Module4_ApplicationManagement.models.ApplicationStatus.choices",
         "InterviewStatusEnum": "apps.Module7_Interviews.models.SessionStatus.choices",
         "InterviewKindEnum": "apps.Module7_Interviews.models.SessionKind.choices",
+        "MockInterviewTypeEnum": "apps.Module11_MockInterview.models.InterviewType.choices",
         "HRDecisionEnum": "apps.Module9_Evaluation.models.Decision.choices",
         "ReportStatusEnum": "apps.Module9_Evaluation.models.ReportStatus.choices",
         "EvaluationRecommendationEnum": "apps.Module9_Evaluation.models.Recommendation.choices",
@@ -274,6 +276,13 @@ INTERVIEW_EVAL_PARKED_HOURS = 6  # with no scoring hook merged, look at unevalua
 EVALUATION_REPORT_MAX_ATTEMPTS = 3
 EVALUATION_REPORT_RETRY_MINUTES = 5
 EVALUATION_REPORT_STALE_MINUTES = 15
+
+# --- Mock interview (Module11_MockInterview) ---------------------------------------------------------------------
+MOCK_SESSIONS_PER_DAY = 5  # per candidate, to control cost; a session ended before 3 answers does not count
+MOCK_MIN_QUESTIONS = 8
+MOCK_MAX_QUESTIONS = 10
+MOCK_CV_EXCERPT_CHARS = 3000
+MOCK_TREND_THRESHOLD = 2  # points between the last 3 scores and the 3 before that for "improving" or "declining"
 
 # --- Tracking (Module10_Tracking) ---------------------------------------------------------------------------------
 TRACKING_REMINDER_HOURS = 48  # an unstarted interview gets one reminder this long before it expires

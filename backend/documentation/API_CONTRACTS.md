@@ -365,6 +365,32 @@ Source: Phase 2 guide, Module 10. No tables of its own: read models over applica
 
 **Decisions:** D-131 to D-137.
 
+## Module 11 — Mock interview (`Module11_MockInterview`, Phase 2)
+
+Source: Phase 2 guide, Module 11. Data model and every rule that is not an LLM call; the LLM code arrives through the Module 7 hooks. Candidate only (JWT): company and platform accounts get 403, someone else's session is 404.
+
+| Method | Endpoint | Request | Success | Main errors |
+|---|---|---|---|---|
+| GET | /api/mock-interviews/roles/ | ?q, ?category, ?page | 200 roles | |
+| POST | /api/mock-interviews/ | `interview_type` (general, role_specific), `role_id`, `use_cv`, `question_count` (8 to 10) | 201 the session | 400 `cv_missing`, `role_not_found`; 409 `session_in_progress` (+ `session_id`); 429 `daily_limit` (+ `resets_at`, `Retry-After`) |
+| GET | /api/mock-interviews/ | ?status, ?page | 200 history, newest first | 400 `invalid_filter` |
+| GET | /api/mock-interviews/<id>/ | none | 200 the session; the current question while open; the report and transcript once done | 404 |
+| POST | /api/mock-interviews/<id>/start/ | none | 200 first or current question | 410; 429; 503 `no_question_available` |
+| POST | /api/mock-interviews/<id>/answer/ | `turn_index`, `answer_text` or multipart `audio` | 200 next question or `done: true` | 400; 409 `wrong_turn`, `not_started`; 410; 422 `voice_not_available`; 429 |
+| POST | /api/mock-interviews/<id>/end/ | none | 200 the session (finished with partial feedback, or cancelled) | 409 `session_closed` |
+| POST | /api/mock-interviews/<id>/feedback/retry/ | none | 202 | 409 `not_failed` |
+| GET | /api/mock-interviews/progress/ | none | 200 trend summary (an empty state with no scored sessions) | |
+| DELETE | /api/mock-interviews/<id>/ | none | 204 | 404 |
+
+### Module 11 — implemented behaviour
+
+- **Row:** `id, date, role_title, interview_type, overall_score (null until scored), status, feedback_status (none|generating|ready|partial|failed), answered_count, question_count`. The detail adds `use_cv, target_role, started_at, completed_at, feedback_message, voice_available, disclaimer, current_turn, report, transcript[]`.
+- **Until the hooks are merged:** questions come from the bank, answers are stored, sessions complete, scores and feedback stay empty (`feedback_status: none`, "Feedback is not available yet."), voice is 422. History and progress are fully built and simply show no scores.
+- **One at a time, five a day:** a second open session is 409 with the id to resume; the sixth session of the UTC day is 429. A session ended before 3 answers does not count; a deleted one does.
+- **Delete is real:** the transcript, feedback and CV excerpt are removed; only an empty hidden shell stays.
+
+**Decisions:** D-138 to D-144.
+
 ## Known frontend differences to resolve before Phase 5
 
 Not backend defects; recorded so integration does not guess. Details and IDs in `UNRESOLVED_QUESTIONS.md`.
