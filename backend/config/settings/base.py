@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "apps.Module4_ApplicationManagement",
     "apps.Module5_Foundation",
     "apps.Module6_CVAnalysis",
+    "apps.Module7_Interviews",
 ]
 
 MIDDLEWARE = [
@@ -143,6 +144,9 @@ REST_FRAMEWORK = {
         "resend_verification": "3/hour",
         "public_apply": "10/hour",
         "notifications": "120/min",
+        "interview_open": "120/min",
+        "interview_start": "10/hour",
+        "interview_answer": "60/min",
     },
 }
 
@@ -174,6 +178,8 @@ SPECTACULAR_SETTINGS = {
         "CloseReasonEnum": "apps.Module3_JobPosting.models.CloseReason.choices",
         "FieldTypeEnum": "apps.Module3_JobPosting.models.FieldType.choices",
         "ApplicationStatusEnum": "apps.Module4_ApplicationManagement.models.ApplicationStatus.choices",
+        "InterviewStatusEnum": "apps.Module7_Interviews.models.SessionStatus.choices",
+        "InterviewKindEnum": "apps.Module7_Interviews.models.SessionKind.choices",
     },
 }
 
@@ -197,6 +203,7 @@ CELERY_BEAT_SCHEDULE = {
     "foundation-purge-email-bodies": {"task": "foundation.purge_email_bodies", "schedule": 86400.0},
     "jobs-close-expired": {"task": "foundation.close_expired_jobs", "schedule": 300.0},
     "cv-analysis-sweep": {"task": "cv_analysis.sweep", "schedule": 300.0},
+    "interviews-sweep": {"task": "interviews.sweep", "schedule": 300.0},
 }
 
 # --- Email outbox -----------------------------------------------------------------------------------------------
@@ -236,6 +243,19 @@ CV_SKILL_LIST_SUSPICIOUS = 60
 CV_SEMANTIC_LOW = env.float("CV_SEMANTIC_LOW", default=0.2)
 CV_SEMANTIC_HIGH = env.float("CV_SEMANTIC_HIGH", default=0.8)
 
+# --- Interviews (Module7_Interviews) ------------------------------------------------------------------------------
+INTERVIEW_LINK_VALID_DAYS = 7  # the candidate must start within this time (UC-08 EX-01)
+INTERVIEW_IDLE_MINUTES = 30  # without activity an in-progress interview is marked interrupted
+INTERVIEW_MAX_ANSWER_CHARS = 3000
+INTERVIEW_MAX_AUDIO_SECONDS = 120
+INTERVIEW_MAX_AUDIO_BYTES = 10 * 1024 * 1024
+INTERVIEW_MIN_ANSWERS_TO_FINISH = 3
+INTERVIEW_VOICE_ENABLED = env.bool("INTERVIEW_VOICE_ENABLED", default=False)  # turn on once the transcribe hook is merged
+INTERVIEW_EVAL_MAX_ATTEMPTS = 3
+INTERVIEW_EVAL_RETRY_MINUTES = 5
+INTERVIEW_EVAL_STALE_MINUTES = 15
+INTERVIEW_EVAL_PARKED_HOURS = 6  # with no scoring hook merged, look at unevaluated interviews again this often
+
 LOG_LEVEL = env("LOG_LEVEL", default="INFO")
 LOGGING = {
     "version": 1,
@@ -243,11 +263,14 @@ LOGGING = {
     "formatters": {
         "standard": {"format": "%(asctime)s %(levelname)s %(name)s: %(message)s"},
     },
+    "filters": {"redact_tokens": {"()": "apps.common.log_filters.RedactTokens"}},
     "handlers": {
-        "console": {"class": "logging.StreamHandler", "formatter": "standard"},
+        "console": {"class": "logging.StreamHandler", "formatter": "standard", "filters": ["redact_tokens"]},
     },
     "root": {"handlers": ["console"], "level": LOG_LEVEL},
     "loggers": {
         "django.request": {"handlers": ["console"], "level": "WARNING", "propagate": False},
+        # The development server's access lines carry the request path, which for a private link is its credential.
+        "django.server": {"handlers": ["console"], "level": "INFO", "propagate": False},
     },
 }

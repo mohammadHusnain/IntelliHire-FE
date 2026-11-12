@@ -266,6 +266,44 @@ Source: Phase 2 guide, Module 6. Implemented and tested on `IntelliHire-backend`
 
 **Decisions:** D-092 to D-103.
 
+## Module 7 — Interview engine and AI screening interview (`Module7_Interviews`, Phase 2)
+
+Source: Phase 2 guide, Module 7. Data model and every rule that is not an LLM call; the LLM code is merged later through the four hooks in `Module7_Interviews/ai_hooks.py` (D-108). Implemented and tested on `IntelliHire-backend`. Candidate endpoints are public (the token in the path is the only credential); company endpoints are JWT, same company only (another company's object is 404; viewers read only).
+
+**Candidate side (no login)**
+
+| Method | Endpoint | Request | Success | Main errors |
+|---|---|---|---|---|
+| GET | /api/public/interviews/<token>/ | none | 200 company, role, kind, instructions, question count, answered count, minutes, `expires_at`, `seconds_left_to_start`, `voice_available`, `ai_disclaimer`, `current_turn` | 404; 410 (`interview_expired`, `interview_completed`, `interview_cancelled`, `interview_unavailable`) |
+| POST | /api/public/interviews/<token>/start/ | none | 200 `{done, turn{index, question_text, asked_at}, answered_count, question_count}`: the first question, or the one waiting after a break | 410; 429; 503 `no_question_available` + `Retry-After` |
+| POST | /api/public/interviews/<token>/answer/ | `turn_index` and `answer_text` (JSON) or an `audio` file (multipart) | 200 same shape: the next question, or `done: true` | 400 empty, too long, both or neither; 409 `wrong_turn`, `not_started`; 410; 422 `voice_not_available`, `transcription_failed`, `audio_too_long`; 429; 503 |
+| POST | /api/public/interviews/<token>/finish/ | none | 200 `done: true` | 400 `too_few_answers` (fewer than 3); 410; 429 |
+
+**Company side**
+
+| Method | Endpoint | Access | Request | Success | Main errors |
+|---|---|---|---|---|---|
+| POST | /api/applications/<id>/interviews/ | Admin, HR manager, recruiter | `kind` (screening), `expires_in_days` 1 to 14, `override`, `note` | 201 session (never the token) | 400; 403; 404; 409 `open_session_exists`, `prerequisite_missing`, `company_not_active` |
+| GET | /api/applications/<id>/interviews/ | Company user | none | 200 sessions, newest first | 404 |
+| GET | /api/interviews/<id>/ | Company user | none | 200 transcript with per-answer score, feedback, criteria and flags; `report`; `ai_disclaimer` | 404 |
+| POST | /api/interviews/<id>/resend/ | Admin, HR manager, recruiter | none | 200 (new link emailed; the old one dies) | 409 `interview_closed`, `link_expired` |
+| POST | /api/interviews/<id>/extend/ | Admin, HR manager, recruiter | `days` 1 to 14 | 200 `{expires_at}` | 400; 409 `interview_closed`, `open_session_exists` |
+| POST | /api/interviews/<id>/cancel/ | Admin, HR manager, recruiter | none | 200 | 409 `interview_closed` |
+| POST | /api/interviews/<id>/reevaluate/ | Admin, HR manager | none | 202 | 409 `not_completed`, `evaluation_running` |
+| GET | /api/jobs/<id>/interviews/ | Company user | ?kind, ?status, ?page | 200 paginated | 400 `invalid_filter`; 404 |
+
+### Module 7 — implemented behaviour
+
+- **Statuses:** `invited`, `in_progress`, `interrupted` (open, one per application and kind), `completed`, `incomplete` (finished early), `evaluating`, `evaluated`, `evaluation_failed`, `expired`, `cancelled`. The frontend can resume after a refresh by calling GET and then start again.
+- **Session row:** `id, kind, status, role_title, question_target, answered_count, overall_score, recommendation (advance|hold|not_recommended|null), invited_at, expires_at, started_at, completed_at, created_by{id, full_name}|null, application{id, reference, full_name}`. Scores stay null until the scoring hook is merged.
+- **Nothing is decided automatically.** An evaluation never changes the application's status and the candidate is told nothing; the recommendation guard (default minimum 60, `hold` from 15 below) is plain code.
+- **Until the hooks are merged:** questions come from the bank, answers are stored, sessions complete, scores and reports stay empty, voice answers are 422, and unevaluated interviews are looked at again every 6 hours.
+- **Changed Module 4 responses:** application list rows and the detail gain `screening` and `technical` blocks (`{session_id, status, overall_score, recommendation}` or null); company side only.
+- **Automatic invitation:** with the job's `invite_on_shortlist` on, shortlisting (by hand, by rule or by threshold) sends the screening invitation (D-116).
+- **Throttles:** start 10/hour and answer/finish 60/min per link; opening 120/min per address.
+
+**Decisions:** D-104 to D-117.
+
 ## Known frontend differences to resolve before Phase 5
 
 Not backend defects; recorded so integration does not guess. Details and IDs in `UNRESOLVED_QUESTIONS.md`.

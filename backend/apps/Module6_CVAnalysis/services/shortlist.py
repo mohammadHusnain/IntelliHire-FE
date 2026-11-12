@@ -70,6 +70,6 @@ def apply_threshold(job, threshold, user):
             ],
             actor=user,
         )  # fmt: skip
-        for application in Application.objects.filter(pk__in=ids).select_related("job"):
+        for application in Application.objects.filter(pk__in=ids).select_related("job", "job__screening_config"):
             application_shortlisted.send_robust(sender=Application, application=application)
     return {"threshold": threshold, "shortlisted": len(ids)}

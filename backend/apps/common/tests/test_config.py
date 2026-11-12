@@ -41,6 +41,9 @@ def test_rest_framework_defaults(settings):
         "resend_verification": "3/hour",
         "public_apply": "10/hour",
         "notifications": "120/min",
+        "interview_open": "120/min",
+        "interview_start": "10/hour",
+        "interview_answer": "60/min",
     }
 
 

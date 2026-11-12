@@ -19,10 +19,14 @@ urlpatterns = [
     path("api/applications/", include("apps.Module4_ApplicationManagement.urls")),
     path("api/jobs/", include("apps.Module6_CVAnalysis.jobs_urls")),
     path("api/applications/", include("apps.Module6_CVAnalysis.urls")),
+    path("api/jobs/", include("apps.Module7_Interviews.jobs_urls")),
+    path("api/applications/", include("apps.Module7_Interviews.urls")),
+    path("api/interviews/", include("apps.Module7_Interviews.interviews_urls")),
     path("api/notifications/", include("apps.Module5_Foundation.urls")),
     path("api/public/", include("apps.Module2_CompanyManagement.public_urls")),
     path("api/public/", include("apps.Module3_JobPosting.public_urls")),
     path("api/public/", include("apps.Module4_ApplicationManagement.public_urls")),
+    path("api/public/", include("apps.Module7_Interviews.public_urls")),
 ]
 
 if settings.API_DOCS_ENABLED:

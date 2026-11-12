@@ -23,6 +23,8 @@ PUBLIC = {
     ("POST", "/api/auth/password/forgot/"), ("POST", "/api/auth/password/reset/"),
     ("GET", "/api/public/invitations/{token}/"), ("POST", "/api/public/invitations/{token}/accept/"),
     ("GET", "/api/public/jobs/{form_slug}/"), ("POST", "/api/public/jobs/{form_slug}/apply/"),
+    ("GET", "/api/public/interviews/{token}/"), ("POST", "/api/public/interviews/{token}/start/"),
+    ("POST", "/api/public/interviews/{token}/answer/"), ("POST", "/api/public/interviews/{token}/finish/"),
 }
 ANY_LOGGED_IN = {
     ("POST", "/api/auth/logout/"), ("GET", "/api/auth/me/"), ("PATCH", "/api/auth/me/"), ("POST", "/api/auth/password/change/"),
@@ -49,7 +51,7 @@ def kind(operation):
         return "candidate"
     if path.startswith("/api/platform-admin/"):
         return "platform"
-    if path.startswith(("/api/company/", "/api/jobs/", "/api/applications/")):
+    if path.startswith(("/api/company/", "/api/jobs/", "/api/applications/", "/api/interviews/")):
         return "company"
     return "unclassified"
 
@@ -76,7 +78,7 @@ def call(client, operation, values=None, body=None):
 
 
 def test_every_operation_is_classified():
-    assert len(OPERATIONS) == 84
+    assert len(OPERATIONS) == 96
     assert [op for op in OPERATIONS if kind(op) == "unclassified"] == []
     assert PUBLIC <= set(OPERATIONS) and ANY_LOGGED_IN <= set(OPERATIONS)
 
@@ -166,7 +168,7 @@ class TestAnotherCompanysDataIs404:
     COMPANY_OPS_WITH_IDS = [op for op in ops_of("company") if "{" in op[1]]
 
     def test_the_sweep_really_covers_the_id_operations(self):
-        assert len(self.COMPANY_OPS_WITH_IDS) == 32
+        assert len(self.COMPANY_OPS_WITH_IDS) == 40
 
     @pytest.mark.parametrize("operation", COMPANY_OPS_WITH_IDS, ids=lambda op: f"{op[0]} {op[1]}")
     def test_every_id_operation_is_404_for_another_company(self, world, operation):

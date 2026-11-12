@@ -136,6 +136,14 @@ Constraints and indexes: **unique `(job, email)`** (`application_one_per_job_ema
 
 `applications_applicationstatuschange` gained `source` (`hr` default, or `system`; CHECK) in `applications.0003_status_change_source`.
 
+### Module 7 — interview tables (`interviews.0001_initial`, `0002_seed_question_bank`)
+
+| Table | Columns and rules |
+|---|---|
+| `interviews_interviewsession` | `id` uuid · `kind` (CHECK screening/technical/mock) · `application_id` FK **CASCADE**, null only for mock (CHECK) · `candidate_user_id` FK **SET NULL** · `token_hash` char(64) **unique** (SHA-256; the raw token is never stored) · `status` (CHECK, ten values) · `role_title` · `context` jsonb (job snapshot and redacted CV summary, no contact details) · `question_target` (CHECK >= 1) · `invited_at`, `expires_at`, `started_at`, `completed_at`, `last_activity_at` · `overall_score` numeric(5,2) (CHECK 0 to 100) · `recommendation` (CHECK advance/hold/not_recommended or null) · `report` jsonb · `ai_disclaimer` (CHECK true) · `created_by_id` FK **SET NULL** · `evaluation_attempts`, `next_evaluation_at`, `evaluation_claimed_at`. **Partial unique index** `interview_one_open_per_application_kind` on (application, kind) where status is invited, in_progress or interrupted. Indexes: (application, kind, -invited_at), (status, expires_at), (status, last_activity_at), (next_evaluation_at). |
+| `interviews_interviewturn` | `id` uuid · `session_id` FK **CASCADE** · `index` (CHECK >= 1, **unique** with session) · `question_text` · `question_meta` jsonb (topic, competency, difficulty, is_follow_up, from_bank, bank_id) · `asked_at` · `answer_text`, `answer_source` (CHECK typed/voice/blank), `answered_at` (CHECK: all three set together or all empty) · `evaluation` jsonb · `score` numeric(4,2) (CHECK 0 to 10). |
+| `interviews_interviewquestionbank` | `kind` (CHECK) · `role_category` (blank = general) · `skills` jsonb · `competency` · `text` · `difficulty` (CHECK easy/medium/hard) · `is_active` · **unique** (kind, text). Seeded: 18 general screening, 12 role-specific screening, 20 technical, 16 general and 3 role-specific mock questions. |
+
 ### Other tables
 - `token_blacklist_*` (SimpleJWT): outstanding and blacklisted refresh tokens.
 - `django_cache` — production only, created by `manage.py createcachetable`; holds throttle counters.

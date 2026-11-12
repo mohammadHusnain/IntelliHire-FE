@@ -53,7 +53,12 @@ class _ApplicationList(GenericAPIView):
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
             return Application.objects.none()
-        return review.applications_of(company_of(self.request))
+        from django.db.models import Prefetch
+
+        from apps.Module7_Interviews.models import InterviewSession
+
+        light = InterviewSession.objects.only("id", "application_id", "kind", "status", "overall_score", "recommendation", "invited_at")
+        return review.applications_of(company_of(self.request)).prefetch_related(Prefetch("interviews", queryset=light))
 
 
 _LIST_PARAMETERS = [
