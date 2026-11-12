@@ -12,6 +12,7 @@ Django app label `interviews` · Phase 2 guide, Module 7 · API under `/api/publ
 | Resend, extend, cancel, evaluate again | `services/actions.py` |
 | Evaluation, score arithmetic, recommendation guard | `services/evaluation.py`, `services/scoring.py` |
 | Idle and expiry | `services/lifecycle.py` |
+| Per-kind rules the engine asks (Module 8 registers technical's) | `services/kinds.py` |
 | Question bank picker and the seed | `services/bank.py`, `seed_data.py`, `migrations/0002_seed_question_bank.py` |
 | HR notifications and the invitation email | `services/notices.py` |
 | Automatic invitation on shortlisting | `receivers.py` (listens to Module 4's `application_shortlisted`) |

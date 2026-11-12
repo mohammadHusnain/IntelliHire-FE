@@ -168,7 +168,7 @@ class TestAfterEvaluation:
         assert notification.link == f"/company/candidates/{application.pk}" and "advance" in notification.body
         assert Notification.objects.filter(kind="interview_evaluated").count() == 3
         application.refresh_from_db()
-        assert application.status == "shortlisted"  # nothing is decided automatically (P2-1)
+        assert application.status in ("shortlisted", "interview")  # never selected or rejected automatically (P2-1)
 
     @pytest.mark.parametrize("score, word", [(5.0, "hold"), (2.0, "not recommended")])
     def test_hold_and_not_recommended_notify_hr_with_the_transcript_link(self, session_factory, application, hooks, score, word):

@@ -144,6 +144,10 @@ Constraints and indexes: **unique `(job, email)`** (`application_one_per_job_ema
 | `interviews_interviewturn` | `id` uuid · `session_id` FK **CASCADE** · `index` (CHECK >= 1, **unique** with session) · `question_text` · `question_meta` jsonb (topic, competency, difficulty, is_follow_up, from_bank, bank_id) · `asked_at` · `answer_text`, `answer_source` (CHECK typed/voice/blank), `answered_at` (CHECK: all three set together or all empty) · `evaluation` jsonb · `score` numeric(4,2) (CHECK 0 to 10). |
 | `interviews_interviewquestionbank` | `kind` (CHECK) · `role_category` (blank = general) · `skills` jsonb · `competency` · `text` · `difficulty` (CHECK easy/medium/hard) · `is_active` · **unique** (kind, text). Seeded: 18 general screening, 12 role-specific screening, 20 technical, 16 general and 3 role-specific mock questions. |
 
+### Module 8 — no tables
+
+Module 8 adds rules, not storage. Module 7's `interviews_interviewsession` gained `ai_failing_since` (timestamp, null) in `interviews.0003_ai_failing_since`.
+
 ### Other tables
 - `token_blacklist_*` (SimpleJWT): outstanding and blacklisted refresh tokens.
 - `django_cache` — production only, created by `manage.py createcachetable`; holds throttle counters.

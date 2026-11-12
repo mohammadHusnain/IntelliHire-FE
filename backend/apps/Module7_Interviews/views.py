@@ -22,6 +22,7 @@ from .serializers import (
     ExtendSerializer,
     InterviewDetailSerializer,
     InterviewSessionSerializer,
+    InviteResponseSerializer,
     InviteSerializer,
 )
 from .services import actions
@@ -94,7 +95,7 @@ class ApplicationInterviewsView(_View):
         ),
         request=InviteSerializer,
         responses={
-            201: InterviewSessionSerializer,
+            201: InviteResponseSerializer,
             400: OpenApiResponse(description="Invalid input, or a kind that cannot be sent yet (`kind_not_available`)."),
             403: FORBIDDEN, 404: NOT_FOUND,
             409: OpenApiResponse(ErrorSerializer, description="An open interview of this kind exists (`open_session_exists`), the status needs an override (`prerequisite_missing`), or the company is not active (`company_not_active`)."),
@@ -109,7 +110,9 @@ class ApplicationInterviewsView(_View):
             expires_in_days=data.validated_data.get("expires_in_days"), override=data.validated_data["override"],
             note=data.validated_data.get("note", ""),
         )  # fmt: skip
-        return Response(InterviewSessionSerializer(_fresh(request, session)).data, status=status.HTTP_201_CREATED)
+        fresh = _fresh(request, session)
+        fresh.invite_warnings = getattr(session, "invite_warnings", [])
+        return Response(InviteResponseSerializer(fresh).data, status=status.HTTP_201_CREATED)
 
 
 class InterviewDetailView(_View):

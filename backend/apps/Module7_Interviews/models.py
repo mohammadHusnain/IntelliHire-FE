@@ -85,6 +85,8 @@ class InterviewSession(models.Model):
     evaluation_attempts = models.PositiveSmallIntegerField(default=0)
     next_evaluation_at = models.DateTimeField(null=True, blank=True)
     evaluation_claimed_at = models.DateTimeField(null=True, blank=True)
+    # Set while the question hook keeps failing for a kind that does not fall back to the bank (technical).
+    ai_failing_since = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-invited_at"]

@@ -18,7 +18,7 @@ from apps.Module5_Foundation.events import log_event
 from .. import runner
 from ..models import InterviewSession, InterviewTurn, SessionStatus
 from ..signals import interview_evaluated
-from . import notices, scoring
+from . import kinds, notices, scoring
 
 logger = logging.getLogger(__name__)
 CLAIMABLE = (SessionStatus.COMPLETED, SessionStatus.INCOMPLETE, SessionStatus.EVALUATION_FAILED)
@@ -131,17 +131,19 @@ def evaluate(session_id, rescore=False):
     except Exception as exc:
         logger.warning("evaluate_session hook failed: %s", type(exc).__name__)
         return _fail(session)
+    rules = kinds.rules_for(session.kind)
     if text is runner.NOT_CONNECTED:
         if not scored:
             return _fail(session) if failed else _park(session, previous)
-        text = {}
+        text = None if rules.report_needs_text else {}
     elif failed and not scored:
         return _fail(session)
     overall = scoring.overall_score(t.score for t in scored)
-    recommendation = scoring.recommendation_for(overall, minimum_for(session.kind)) if session.kind != "mock" else None
+    recommendation = rules.recommend(overall, minimum_for(session.kind))
+    report = {} if text is None else rules.extend_report(session, turns, _report(session, scored, turns, text))
     won = InterviewSession.objects.filter(pk=session.pk, status=SessionStatus.EVALUATING).update(
         status=SessionStatus.EVALUATED, overall_score=overall, recommendation=recommendation,
-        report=_report(session, scored, turns, text), evaluation_claimed_at=None, next_evaluation_at=None,
+        report=report, evaluation_claimed_at=None, next_evaluation_at=None,
     )  # fmt: skip
     if not won:
         return "skipped"

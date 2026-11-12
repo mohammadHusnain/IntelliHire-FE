@@ -283,7 +283,7 @@ Source: Phase 2 guide, Module 7. Data model and every rule that is not an LLM ca
 
 | Method | Endpoint | Access | Request | Success | Main errors |
 |---|---|---|---|---|---|
-| POST | /api/applications/<id>/interviews/ | Admin, HR manager, recruiter | `kind` (screening), `expires_in_days` 1 to 14, `override`, `note` | 201 session (never the token) | 400; 403; 404; 409 `open_session_exists`, `prerequisite_missing`, `company_not_active` |
+| POST | /api/applications/<id>/interviews/ | Admin, HR manager, recruiter | `kind` (screening, or technical with Module 8), `expires_in_days` 1 to 14, `override`, `note` | 201 session (never the token) | 400; 403; 404; 409 `open_session_exists`, `prerequisite_missing`, `company_not_active` |
 | GET | /api/applications/<id>/interviews/ | Company user | none | 200 sessions, newest first | 404 |
 | GET | /api/interviews/<id>/ | Company user | none | 200 transcript with per-answer score, feedback, criteria and flags; `report`; `ai_disclaimer` | 404 |
 | POST | /api/interviews/<id>/resend/ | Admin, HR manager, recruiter | none | 200 (new link emailed; the old one dies) | 409 `interview_closed`, `link_expired` |
@@ -303,6 +303,18 @@ Source: Phase 2 guide, Module 7. Data model and every rule that is not an LLM ca
 - **Throttles:** start 10/hour and answer/finish 60/min per link; opening 120/min per address.
 
 **Decisions:** D-104 to D-117.
+
+## Module 8 — AI technical interview (`Module8_TechnicalInterview`, Phase 2)
+
+Source: Phase 2 guide, Module 8. No new routes and no new tables: the same Module 7 endpoints behave differently for `kind = technical` because Module 8 registers its rules with the engine. Rules in code, no LLM; the four hooks are the same as Module 7's.
+
+- **Invite:** `POST /api/applications/<id>/interviews/` with `kind: "technical"`. 409 `screening_not_passed` unless the latest screening is evaluated as `advance`; an admin or HR manager can send `override: true` with a `note` (403 `override_not_allowed` for anyone else). The 201 body gains `warnings` (a job with no required skills). The application stays `interview`. A screening that advances sends this invitation by itself (D-118).
+- **Questions:** 8 by default (`AISettings.technical_questions`). The question hook's hint carries the seniority band, `difficulty`, `competencies_to_cover`, `focus_topic` and, when the follow-up rule fires, `follow_up_of`. Each turn payload has `is_follow_up`.
+- **Answers:** typed only; audio is 400 `voice_not_allowed`. If the question service is down: 503 `ai_unavailable` with `Retry-After: 120`; after 2 minutes the session is `interrupted` and `ai.provider_failure` is logged; the same link resumes.
+- **Result:** `overall_score` is a percentage, `recommendation` stays null (HR decides; Module 9 combines it). `report` has `summary`, `technical_relevance`, `strengths`, `weaknesses`, `questions[]` and `rubric_averages`; empty, with `report_message: "Report not available yet"`, until the report hook is merged.
+- **Not completed by the deadline:** the Module 7 sweep expires it and HR is told "Technical interview not completed".
+
+**Decisions:** D-118 to D-123.
 
 ## Known frontend differences to resolve before Phase 5
 

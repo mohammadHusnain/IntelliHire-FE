@@ -14,7 +14,7 @@ from apps.Module5_Foundation.models import AIRequestStatus
 
 from . import ai_hooks, rubrics
 from .ai_hooks import AINotConnected, AIInvalidOutput, AIPolicyBlocked, AIUnavailable
-from .services import bank
+from .services import bank, kinds
 
 logger = logging.getLogger(__name__)
 _sleep = time.sleep  # replaced in tests
@@ -123,7 +123,11 @@ def ask_next_question(session, turns, hint):
     for _ in range(2):
         try:
             question = call("next_question", session, turns, hint, session=session)
-        except (AIUnavailable, AIPolicyBlocked, AIInvalidOutput):
+        except AIUnavailable:
+            if not kinds.rules_for(session.kind).outage_uses_bank:
+                raise
+            break
+        except (AIPolicyBlocked, AIInvalidOutput):
             break
         if question is NOT_CONNECTED:
             break

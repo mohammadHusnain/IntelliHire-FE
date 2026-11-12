@@ -100,13 +100,30 @@ class InterviewTurnSerializer(serializers.ModelSerializer):
         return turn.evaluation.get("flags", [])
 
 
+class InviteResponseSerializer(InterviewSessionSerializer):
+    warnings = serializers.SerializerMethodField(help_text="Things HR should know about this invitation, for example a job with no required skills.")
+
+    class Meta(InterviewSessionSerializer.Meta):
+        fields = InterviewSessionSerializer.Meta.fields + ["warnings"]
+        read_only_fields = fields
+
+    def get_warnings(self, session) -> list:
+        return list(getattr(session, "invite_warnings", []))
+
+
 class InterviewDetailSerializer(InterviewSessionSerializer):
     turns = InterviewTurnSerializer(many=True, read_only=True)
     ai_disclaimer = serializers.SerializerMethodField()
+    report_message = serializers.SerializerMethodField(help_text="Why the report is empty, when it is.")
 
     class Meta(InterviewSessionSerializer.Meta):
-        fields = InterviewSessionSerializer.Meta.fields + ["report", "turns", "ai_disclaimer"]
+        fields = InterviewSessionSerializer.Meta.fields + ["report", "report_message", "turns", "ai_disclaimer"]
         read_only_fields = fields
+
+    def get_report_message(self, session) -> str:
+        if session.report or session.status not in ("completed", "incomplete", "evaluating", "evaluated", "evaluation_failed"):
+            return ""
+        return "Report not available yet"
 
     def get_ai_disclaimer(self, session) -> str:
         return AI_DISCLAIMER
@@ -121,6 +138,7 @@ class PublicTurnSerializer(serializers.Serializer):
     index = serializers.IntegerField()
     question_text = serializers.CharField()
     asked_at = serializers.DateTimeField()
+    is_follow_up = serializers.BooleanField(help_text="True when this question follows up a weak answer (technical interviews).")
 
 
 class PublicSummarySerializer(serializers.Serializer):

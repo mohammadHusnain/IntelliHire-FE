@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     "apps.Module5_Foundation",
     "apps.Module6_CVAnalysis",
     "apps.Module7_Interviews",
+    "apps.Module8_TechnicalInterview",
 ]
 
 MIDDLEWARE = [
@@ -254,6 +255,8 @@ INTERVIEW_VOICE_ENABLED = env.bool("INTERVIEW_VOICE_ENABLED", default=False)  # 
 INTERVIEW_EVAL_MAX_ATTEMPTS = 3
 INTERVIEW_EVAL_RETRY_MINUTES = 5
 INTERVIEW_EVAL_STALE_MINUTES = 15
+INTERVIEW_AI_OUTAGE_SECONDS = 120  # a technical interview is interrupted after the question hook has failed this long
+INTERVIEW_AI_RETRY_AFTER = 120
 INTERVIEW_EVAL_PARKED_HOURS = 6  # with no scoring hook merged, look at unevaluated interviews again this often
 
 LOG_LEVEL = env("LOG_LEVEL", default="INFO")

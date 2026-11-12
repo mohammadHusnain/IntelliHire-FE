@@ -120,15 +120,15 @@ class TestInvite:
         response = post(clients[MemberRole.RECRUITER], application, expires_in_days=days)
         assert response.status_code == 400 and "expires_in_days" in response.json()
 
-    @pytest.mark.parametrize("kind, status", [("technical", 400), ("mock", 400), ("nonsense", 400)])
-    def test_only_screening_can_be_sent_today(self, clients, application, kind, status):
+    @pytest.mark.parametrize("kind, status", [("mock", 400), ("nonsense", 400)])
+    def test_only_kinds_with_rules_can_be_sent(self, clients, application, kind, status):
         assert post(clients[MemberRole.RECRUITER], application, kind=kind).status_code == status
         assert not InterviewSession.objects.exists()
 
-    def test_technical_is_refused_with_its_own_code_by_the_service(self, application):
+    def test_a_kind_without_rules_is_refused_with_its_own_code_by_the_service(self, application):
         with pytest.raises(Exception) as caught:
-            invite_service.invite(application, kind="technical")
-        assert getattr(caught.value, "detail", None) and caught.value.status_code == 400
+            invite_service.invite(application, kind="mock")
+        assert caught.value.status_code == 400 and caught.value.detail.code == "kind_not_available"
 
 
 class TestPrerequisites:

@@ -20,10 +20,9 @@ from apps.Module5_Foundation.ai.config import get_config
 from apps.Module5_Foundation.events import log_event
 
 from .. import runner
-from ..ai_hooks import AIError
+from ..ai_hooks import AIError, AIUnavailable
 from ..models import FINISHED_STATUSES, OPEN_STATUSES, InterviewSession, InterviewTurn, SessionStatus
-from ..rubrics import FOCUS_AREAS
-from . import links, notices
+from . import kinds, links, notices
 from .bank import NoQuestionAvailable
 from .evaluation import queue_evaluation, save_turn_result
 
@@ -91,7 +90,9 @@ def current_turn(session):
 
 
 def turn_payload(turn):
-    return {"index": turn.index, "question_text": turn.question_text, "asked_at": turn.asked_at} if turn else None
+    if not turn:
+        return None
+    return {"index": turn.index, "question_text": turn.question_text, "asked_at": turn.asked_at, "is_follow_up": bool(turn.question_meta.get("is_follow_up"))}
 
 
 def public_summary(session):
@@ -116,11 +117,7 @@ def public_summary(session):
 
 # --- Making the next question -----------------------------------------------------------------------------------
 def _hint(session, turns):
-    areas = FOCUS_AREAS.get(session.kind)
-    hint = {"avoid_topics": []}
-    if areas:
-        hint["focus_area"] = areas[len(turns) % len(areas)]
-    return hint
+    return kinds.rules_for(session.kind).hint(session, turns)
 
 
 def ensure_current_turn(session):
@@ -135,11 +132,19 @@ def ensure_current_turn(session):
         return pending
     if len(turns) >= session.question_target:
         return None
-    question = runner.ask_next_question(session, turns, _hint(session, turns))
+    hint = _hint(session, turns)
+    try:
+        question = runner.ask_next_question(session, turns, hint)
+    except AIUnavailable:
+        raise _outage(session) from None
+    if session.ai_failing_since:
+        InterviewSession.objects.filter(pk=session.pk).update(ai_failing_since=None)
     meta = {k: question[k] for k in ("competency", "topic", "difficulty", "is_follow_up")}
     meta["from_bank"] = bool(question.get("from_bank"))
     if question.get("bank_id"):
         meta["bank_id"] = question["bank_id"]
+    if hint.get("follow_up_of") and question.get("is_follow_up"):
+        meta["follow_up_of"] = hint["follow_up_of"]
     with transaction.atomic():
         locked = InterviewSession.objects.select_for_update().get(pk=session.pk)
         if locked.status not in OPEN_STATUSES:
@@ -148,6 +153,26 @@ def ensure_current_turn(session):
         if existing:
             return existing
         return InterviewTurn.objects.create(session=locked, index=len(turns) + 1, question_text=question["question_text"], question_meta=meta)
+
+
+def _outage(session):
+    """The question hook is down and this kind does not fall back to the bank: 503 now, interrupted after a while.
+
+    The answer that led here is already saved. The candidate resumes from the same link, which restarts the clock.
+    """
+    now = timezone.now()
+    InterviewSession.objects.filter(pk=session.pk, ai_failing_since__isnull=True).update(ai_failing_since=now)
+    since = InterviewSession.objects.values_list("ai_failing_since", flat=True).get(pk=session.pk)
+    if since and (now - since).total_seconds() >= settings.INTERVIEW_AI_OUTAGE_SECONDS:
+        won = InterviewSession.objects.filter(pk=session.pk, status=SessionStatus.IN_PROGRESS).update(status=SessionStatus.INTERRUPTED)
+        if won and session.application_id:
+            log_event(
+                "ai.provider_failure", company=session.application.job.company_id, target=session,
+                summary="The question service stayed unavailable during an interview", metadata={"kind": session.kind, "hook": "next_question"},
+            )  # fmt: skip
+    error = ApiError("The interview service is busy. Your answers are saved; please try again shortly.", "ai_unavailable", 503)
+    error.wait = settings.INTERVIEW_AI_RETRY_AFTER
+    return error
 
 
 def _unavailable_question():
@@ -168,7 +193,7 @@ def start(session):
     with transaction.atomic():
         moved = InterviewSession.objects.filter(
             pk=session.pk, status__in=[SessionStatus.INVITED, SessionStatus.INTERRUPTED]
-        ).update(status=SessionStatus.IN_PROGRESS, started_at=Coalesce(F("started_at"), now), last_activity_at=now)
+        ).update(status=SessionStatus.IN_PROGRESS, started_at=Coalesce(F("started_at"), now), last_activity_at=now, ai_failing_since=None)
         if not moved:
             InterviewSession.objects.filter(pk=session.pk, status=SessionStatus.IN_PROGRESS).update(last_activity_at=now)
     session.refresh_from_db()
@@ -192,6 +217,9 @@ def _answer_text(session, text, audio):
         if len(text) > limit:
             raise serializers.ValidationError({"answer_text": [f"Answers can be at most {limit} characters."]})
         return text, "typed"
+    if not kinds.rules_for(session.kind).allow_voice:
+        audio.close()
+        raise ApiError("This interview accepts typed answers only.", "voice_not_allowed", 400)
     if getattr(audio, "size", 0) > settings.INTERVIEW_MAX_AUDIO_BYTES:
         raise serializers.ValidationError({"audio": ["This recording is too large."]})
     try:

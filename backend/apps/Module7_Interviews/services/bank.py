@@ -42,6 +42,9 @@ def pick(session, turns, hint=None):
     focus = _focus(session, turns, hint)
     category = category_for(session.role_title)
     wanted = {str(s).lower() for s in session.context.get("required_skills", []) if s}
+    if hint.get("focus_topic"):
+        wanted = {str(hint["focus_topic"]).lower()}  # a technical interview asked to cover one skill next
+    difficulty = hint.get("difficulty")
     base = InterviewQuestionBank.objects.filter(kind=session.kind, is_active=True).exclude(text__in=asked)
 
     tiers = [(category, focus), (category, None)] if category else []
@@ -59,9 +62,13 @@ def pick(session, turns, hint=None):
                 overlap = {q.pk: len(wanted & {str(s).lower() for s in q.skills}) for q in candidates}
                 best = max(overlap.values())
                 candidates = [q for q in candidates if overlap[q.pk] == best]
+            if difficulty:
+                suited = [q for q in candidates if q.difficulty == difficulty]
+                candidates = suited or candidates
             question = random.choice(candidates)
+            matched = [s for s in question.skills if str(s).lower() in wanted] or list(question.skills[:1])
             return {
-                "question_text": question.text, "competency": question.competency, "topic": question.competency,
+                "question_text": question.text, "competency": question.competency, "topic": matched[0] if matched else question.competency,
                 "difficulty": question.difficulty, "is_follow_up": False, "from_bank": True, "bank_id": question.pk,
             }  # fmt: skip
     raise NoQuestionAvailable()
