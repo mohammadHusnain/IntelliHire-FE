@@ -21,10 +21,10 @@ def test_a_new_profile_is_empty(auth_client, candidate):
     body = response.json()
     assert body["resume"] is None and body["avatar"] is None and body["resume_name"] == ""
     assert body["skills"] == [] and body["education"] == [] and body["experience"] == []
-    assert body["experience_level"] == "" and body["bio"] == ""
+    assert body["experience_level"] == "" and body["bio"] == "" and body["discoverable"] is False
     assert set(body) == {
         "phone", "headline", "location", "bio", "target_role", "experience_level", "avatar", "linkedin_url",
-        "github_url", "portfolio_url", "skills", "resume", "resume_name", "updated_at", "education", "experience",
+        "github_url", "portfolio_url", "skills", "discoverable", "resume", "resume_name", "updated_at", "education", "experience",
     }
 
 

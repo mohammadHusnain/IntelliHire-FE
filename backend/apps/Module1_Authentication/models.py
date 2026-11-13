@@ -80,6 +80,8 @@ class CandidateProfile(models.Model):
     )
     resume_original_name = models.CharField(max_length=255, blank=True)
     resume_text = models.TextField(blank=True)
+    # Companies can find this candidate for communities only if they opted in (P2-9).
+    discoverable = models.BooleanField(default=False)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

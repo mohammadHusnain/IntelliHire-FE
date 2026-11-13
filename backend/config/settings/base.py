@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "apps.Module9_Evaluation",
     "apps.Module10_Tracking",
     "apps.Module11_MockInterview",
+    "apps.Module12_Communities",
 ]
 
 MIDDLEWARE = [
@@ -187,6 +188,8 @@ SPECTACULAR_SETTINGS = {
         "ApplicationStatusEnum": "apps.Module4_ApplicationManagement.models.ApplicationStatus.choices",
         "InterviewStatusEnum": "apps.Module7_Interviews.models.SessionStatus.choices",
         "InterviewKindEnum": "apps.Module7_Interviews.models.SessionKind.choices",
+        "CommunityStatusEnum": "apps.Module12_Communities.models.CommunityStatus.choices",
+        "CommunityJoinModeEnum": "apps.Module12_Communities.models.JoinMode.choices",
         "MockInterviewTypeEnum": "apps.Module11_MockInterview.models.InterviewType.choices",
         "HRDecisionEnum": "apps.Module9_Evaluation.models.Decision.choices",
         "ReportStatusEnum": "apps.Module9_Evaluation.models.ReportStatus.choices",
@@ -218,6 +221,7 @@ CELERY_BEAT_SCHEDULE = {
     "interviews-sweep": {"task": "interviews.sweep", "schedule": 300.0},
     "evaluation-sweep": {"task": "evaluation.sweep", "schedule": 300.0},
     "tracking-sweep": {"task": "tracking.sweep", "schedule": 900.0},
+    "communities-sweep": {"task": "communities.sweep", "schedule": 900.0},
 }
 
 # --- Email outbox -----------------------------------------------------------------------------------------------

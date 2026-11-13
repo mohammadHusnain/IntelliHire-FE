@@ -171,6 +171,17 @@ Module 10 adds read models, not tables. `applications_application` gained `track
 
 `interviews_interviewsession` gained the partial unique index `interview_one_open_mock_per_user` (one session in invited, in_progress or interrupted per candidate, kind mock) in `interviews.0005`.
 
+### Module 12 — community tables (`communities.0001_initial`; `accounts.0003_profile_discoverable`)
+
+| Table | Columns and rules |
+|---|---|
+| `communities_community` | `id` uuid · `company_id` FK **PROTECT** · `name` (**unique** with company, case-insensitive) · `slug` unique · `description`, `mission` (<= 500) · `join_mode` (CHECK request/invite_only) · filters (`filter_universities`, `filter_degrees`, `filter_skills` jsonb, `filter_grad_year_from`/`to` CHECK in order, `filter_skill_mode` CHECK all/any) · `status` (CHECK active/archived/removed), `removed_reason` · `member_count` · `created_by_id`, `created_at`, `updated_at`. |
+| `communities_communitymembership` | `community_id`, `user_id` (**unique** together) · `status` (CHECK active/removed/left) · `source` (CHECK invitation/request) · `joined_at`, `removed_by_id`, `removed_at`, `removed_reason`. |
+| `communities_communityinvitation` | `id` uuid · `community_id`, `user_id` · `invited_by_id`, `message` · `status` (CHECK five values) · `expires_at`, `responded_at`. **Partial unique**: one pending per user and community. |
+| `communities_communityjoinrequest` | `id` uuid · `community_id`, `user_id` · `message`, `status` (CHECK pending/approved/rejected/auto_rejected) · `eligibility` jsonb · `reviewed_by_id`, `reviewed_at`, `decision_reason`. **Partial unique**: one pending per user and community. |
+| `communities_communitypost` | `id` uuid · `community_id`, `author_id` · `kind` (CHECK), `title`, `body` · `job_id` FK **SET NULL**, `apply_url`, `closes_at` · `status` (CHECK published/archived) · `notify_state` (CHECK none/pending/done), `notify_cursor`. |
+| `communities_postresponse` | `post_id`, `user_id` (**unique** together) · `message`, `created_at`. |
+
 ### Other tables
 - `token_blacklist_*` (SimpleJWT): outstanding and blacklisted refresh tokens.
 - `django_cache` — production only, created by `manage.py createcachetable`; holds throttle counters.

@@ -391,6 +391,38 @@ Source: Phase 2 guide, Module 11. Data model and every rule that is not an LLM c
 
 **Decisions:** D-138 to D-144.
 
+## Module 12 — Talent communities (`Module12_Communities`, Phase 2)
+
+Source: Phase 2 guide, Module 12. Staff endpoints belong to the owning company (anyone else's community is 404); candidate endpoints are JWT, candidate only.
+
+| Method | Endpoint | Access | Notes |
+|---|---|---|---|
+| GET, POST | /api/company/communities/ | Company user (POST: admin, HR manager) | create: `name`, `description`, `mission`, `join_mode`, filters; 400 duplicate name |
+| GET, PATCH, DELETE | /api/company/communities/<id>/ | read: company user; write: admin, HR manager | DELETE needs a `reason` and marks it removed (204) |
+| POST | /api/company/communities/<id>/archive/ | admin, HR manager | 409 unless active |
+| GET | /api/company/communities/<id>/members/ | Company user | ?q, ?ordering (`joined_at`, `-joined_at`, `institution`, `skill_match`), ?page |
+| DELETE | /api/company/communities/<id>/members/<user_id>/ | admin, HR manager | `reason` required; 204 |
+| GET | /api/company/communities/<id>/candidates/search/ | admin, HR manager | ?q, ?university, ?skill, ?grad_year, ?eligible_only; opted-in candidates only, never email, phone or CV |
+| GET, POST | /api/company/communities/<id>/invitations/ | admin, HR manager | POST `user_id`, `message`: 201 with the eligibility preview; 409 already member or invited |
+| DELETE | /api/company/communities/<id>/invitations/<inv_id>/ | admin, HR manager | withdraw; 204 |
+| GET | /api/company/communities/<id>/join-requests/ | admin, HR manager | ?status (default pending) with a profile summary and the eligibility snapshot |
+| POST | .../join-requests/<req_id>/approve/ , .../reject/ | admin, HR manager | reject needs a `reason`; 409 already decided |
+| GET, POST | /api/company/communities/<id>/posts/ | read: company user; create: admin, HR manager | `kind`, `title`, `body` (5000), `job`, `apply_url`, `closes_at`, `notify_members` |
+| PATCH, DELETE | /api/company/communities/<id>/posts/<post_id>/ | admin, HR manager | DELETE archives |
+| GET | /api/company/communities/<id>/posts/<post_id>/responses/ | Company user | who showed interest |
+| GET | /api/candidate/communities/ | Candidate | ?q, ?company; each row has `eligibility` and `state` (none, pending_request, invited, member) |
+| GET | /api/candidate/communities/mine/ | Candidate | my memberships |
+| GET | /api/candidate/communities/<id>/ | Candidate | 404 invite-only and not invited; never the member list |
+| POST | /api/candidate/communities/<id>/join/ , /leave/ | Candidate | join: 201 pending, 200 `auto_rejected` with reasons, 409; leave: 204 |
+| GET | /api/candidate/communities/<id>/feed/ | Candidate | members only (404 otherwise) |
+| POST | /api/candidate/community-posts/<id>/respond/ | Candidate | 201; 404 non-member; 409 already responded or closed |
+| GET | /api/candidate/community-invitations/ | Candidate | pending |
+| POST | /api/candidate/community-invitations/<id>/accept/ , /decline/ | Candidate | accept: 410 once expired |
+
+**Changed Phase 1 behaviour:** the candidate profile has `discoverable` (default false) in `GET` and `PATCH /api/auth/profile/`.
+
+**Decisions:** D-145 to D-150.
+
 ## Known frontend differences to resolve before Phase 5
 
 Not backend defects; recorded so integration does not guess. Details and IDs in `UNRESOLVED_QUESTIONS.md`.

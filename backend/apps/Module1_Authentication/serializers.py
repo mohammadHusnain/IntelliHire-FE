@@ -246,6 +246,7 @@ class CandidateProfileSerializer(serializers.ModelSerializer):
             "github_url",
             "portfolio_url",
             "skills",
+            "discoverable",
             "resume",
             "resume_name",
             "updated_at",

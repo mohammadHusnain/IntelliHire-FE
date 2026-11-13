@@ -248,8 +248,22 @@ Owner decisions: Q3 a (ending under 3 answers cancels and does not count), Q5 a 
 - Redis here is 3.0 and cannot run Celery's Lua scripts; the real-broker run used Celery's filesystem transport. The database was PostgreSQL 14.
 - The frontend has none of this (not started, by instruction).
 
+## Phase 2, Module 12: talent communities (built directly on `IntelliHire-backend`)
+
+Owner decision: Q4 a (members are emailed about posts in batches of 50). Decisions D-145 to D-150. Folder: `apps/Module12_Communities`.
+
+- Six tables, one eligibility function, 31 endpoints (staff and candidate), a durable batched notification task, a 15-minute sweep (invitation expiry, resuming unfinished notifications) and a count-repair command. Earlier code, additively: Module 1 (`discoverable`), Module 5 (event types), settings.
+
+**Verified (executed here: Python 3.13, PostgreSQL 14)**
+- `python -m pytest`: **2612 passed**, with 74 new Module 12 tests: every eligibility filter, staff rights and isolation, discovery states, join (auto-reject with reasons, pending, 409, invite-only 404), review, invitations (search privacy, ineligible invite with a warning, expiry, the invite and request race), members, posts and the member-only feed, batched notification (including suspended accounts), archive and remove, a suspended company, member-count invariant and repair, and two joins at once. Zero schema warnings; the surface sweep classifies 152 operations.
+
+**Honest scope notes**
+- Staff search and the `skill_match` ordering filter in Python over at most 500 and 2000 rows; a very large candidate pool would need a database-side search.
+- The post notification email is one message per member (the outbox keeps it durable); there is no per-member opt-out.
+- The frontend has none of this (not started, by instruction).
+
 ## Next step
 
-Phase 2 Modules 5 to 11 are built; Module 12 (talent communities) follows only on the owner's explicit go-ahead. Phase 4 and Module 4 are approved. Phase 5 (frontend), on the owner's explicit go-ahead: connect the frontend page by page in the Doc's order, using the field mappings and known differences listed in `API_CONTRACTS.md`. Before that, the deployment questions (Q3, Q23) should be answered.
+Phase 2 Modules 5 to 12 are built; Module 13 (platform admin) follows only on the owner's explicit go-ahead. Phase 4 and Module 4 are approved. Phase 5 (frontend), on the owner's explicit go-ahead: connect the frontend page by page in the Doc's order, using the field mappings and known differences listed in `API_CONTRACTS.md`. Before that, the deployment questions (Q3, Q23) should be answered.
 
 **Approval check (before approving).** A fresh clone of `origin/IntelliHire-backend` at `f1adaaf` was installed into a new virtualenv: 1159 tests passed; every Doc §4 requirement and TC-16 to TC-22 were run by name and passed; the 68-operation sweeps, quality gates and the end-to-end journey passed; `makemigrations --check`, the OpenAPI validation and `check` were clean.
