@@ -423,6 +423,32 @@ Source: Phase 2 guide, Module 12. Staff endpoints belong to the owning company (
 
 **Decisions:** D-145 to D-150.
 
+## Module 13 — Platform admin panel (`Module13_PlatformAdmin`, Phase 2)
+
+Source: Phase 2 guide, Module 13. Everything under `/api/platform-admin/` is platform-admin only (401 anonymous, 403 for anyone else) and read-only except the platform-level actions below. Phase 1's users list, company review, suspend and reactivate are unchanged.
+
+| Method | Endpoint | Notes |
+|---|---|---|
+| GET | /api/platform-admin/dashboard/ | users, companies, jobs, applications (7 and 30 days), interviews per kind, communities, open flags, active alerts, AI in the last 24 hours |
+| GET | /api/platform-admin/users/<id>/detail/ | facts, membership, last login, counts, last 20 activity events, open flags |
+| GET | /api/platform-admin/companies/<id>/onboarding/ | profile completion, members by role, jobs by status, applications, communities, staff |
+| GET | /api/platform-admin/jobs/ , /jobs/<id>/ | ?company, ?status, ?q, ?created_from, ?created_to; 400 `invalid_filter` |
+| GET | /api/platform-admin/communities/ , /communities/<id>/ | ?company, ?status, ?q; detail adds recent posts |
+| POST | /api/platform-admin/flags/ | `target_type`, `target_id`, `reason`; 404 if the target does not exist |
+| GET | /api/platform-admin/moderation/ | ?status, ?target_type; each row says whether its target still exists |
+| POST | .../moderation/<id>/review/ , /resolve/ | resolve takes `note` (required) and `action` (`dismiss` or `act`); 409 already resolved, `target_gone` |
+| GET | /api/platform-admin/activity/ , /activity/export/ , /activity/<id>/ , /activity/<id>/flag/ | ?event_type, ?actor, ?company, ?from, ?to; export is CSV; the log is read-only (405 on writes) |
+| GET | /api/platform-admin/health/ | database, storage, broker, worker heartbeat, email queue, AI last hour, CPU/memory/disk, alerts, last backup |
+| GET, POST | /api/platform-admin/alerts/ , /alerts/<id>/acknowledge/ | ?active |
+| GET, PUT | /api/platform-admin/ai-settings/ | allowed models only; audited with old and new values; keys stay in the environment |
+| GET | /api/platform-admin/prompts/ , /prompts/<key>/ | keys with their active version; all versions of one key |
+| POST | /api/platform-admin/prompts/<key>/ , /rollback/ | a new version becomes active (schema and placeholders validated); rollback re-activates an earlier one |
+| GET | /api/platform-admin/ai-usage/ | ?from, ?to, ?feature; calls, failures, tokens and average latency per feature per day; no data means no rows |
+| POST | /api/reports/ | any signed-in user reports a job, community or post; deduplicated 24 hours; 5/hour |
+| POST | /api/public/report-job/ | a visitor reports a public job; always 201; deduplicated by hashed address; 5/hour |
+
+**Decisions:** D-151 to D-157.
+
 ## Known frontend differences to resolve before Phase 5
 
 Not backend defects; recorded so integration does not guess. Details and IDs in `UNRESOLVED_QUESTIONS.md`.

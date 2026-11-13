@@ -11,7 +11,9 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/auth/", include("apps.Module2_CompanyManagement.auth_urls")),
     path("api/auth/", include("apps.Module1_Authentication.urls")),
+    path("api/platform-admin/", include("apps.Module13_PlatformAdmin.urls")),
     path("api/platform-admin/users/", include("apps.Module1_Authentication.platform_urls")),
+    path("api/reports/", include("apps.Module13_PlatformAdmin.report_urls")),
     path("api/platform-admin/companies/", include("apps.Module2_CompanyManagement.platform_urls")),
     path("api/company/", include("apps.Module2_CompanyManagement.urls")),
     path("api/jobs/", include("apps.Module3_JobPosting.urls")),
@@ -34,6 +36,7 @@ urlpatterns = [
     path("api/public/", include("apps.Module4_ApplicationManagement.public_urls")),
     path("api/public/", include("apps.Module7_Interviews.public_urls")),
     path("api/public/", include("apps.Module10_Tracking.public_urls")),
+    path("api/public/", include("apps.Module13_PlatformAdmin.public_urls")),
 ]
 
 if settings.API_DOCS_ENABLED:

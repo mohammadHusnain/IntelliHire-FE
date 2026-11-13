@@ -262,8 +262,23 @@ Owner decision: Q4 a (members are emailed about posts in batches of 50). Decisio
 - The post notification email is one message per member (the outbox keeps it durable); there is no per-member opt-out.
 - The frontend has none of this (not started, by instruction).
 
+## Phase 2, Module 13: platform admin panel (built directly on `IntelliHire-backend`)
+
+Owner decisions: Q1 a (psutil for CPU, memory and disk), Q2 a (rollback re-activates an earlier version), Q3 a (a CSV export of the activity log), Q5 a (anonymous reports deduplicated by a hashed address). Decisions D-151 to D-157. Folder: `apps/Module13_PlatformAdmin`.
+
+- Two tables, 27 endpoints: dashboard, user and company detail, job and community monitors, flags and the moderation queue, the activity log with a CSV export, system health, alerts, AI settings, prompt versions with rollback, the AI usage report, and the two reporting endpoints. A `record_backup` management command for the deployment's backup job. Moderation actions reuse the existing service for each object, so there is no second code path. Earlier code, additively: two throttle scopes, `psutil` in the base requirements.
+
+**Verified (executed here: Python 3.13, PostgreSQL 14)**
+- `python -m pytest`: **2703 passed** (one pre-existing slug-race flake in Module 3 that passes on its own and on three reruns), with 65 new Module 13 tests: access for every endpoint and role, dashboard blocks and a constant query count, details, monitors and filters, flags and every resolve action, dedupe and throttling of both report forms, the log with filters, metadata, the safe CSV export and 405 on writes, health with the backup warning, alerts, AI settings validation and audit, prompt versions, placeholder and schema checks, rollback, AI usage, Phase 1's self-suspension rule, and two admins resolving one flag at once. `makemigrations --check` clean; zero schema warnings; the surface sweep classifies 179 operations.
+
+**Honest scope notes**
+- Health is deliberately simple (one broker ping, the Module 5 heartbeat, psutil numbers); it is not a monitoring stack, and the broker check was exercised against Celery's filesystem transport here, not Redis.
+- Prompt edits are validated for schema and placeholders, but nothing proves a new prompt scores as well: rollback is the safety net.
+- The CSV export is capped at 5000 rows; a larger extract needs a database-side job.
+- The frontend has none of this (not started, by instruction).
+
 ## Next step
 
-Phase 2 Modules 5 to 12 are built; Module 13 (platform admin) follows only on the owner's explicit go-ahead. Phase 4 and Module 4 are approved. Phase 5 (frontend), on the owner's explicit go-ahead: connect the frontend page by page in the Doc's order, using the field mappings and known differences listed in `API_CONTRACTS.md`. Before that, the deployment questions (Q3, Q23) should be answered.
+Phase 2 is complete: Modules 5 to 13 are all built. What remains is merging the interview LLM code into the four hooks (section 7.5) and the frontend work, each only on the owner's explicit go-ahead. Phase 4 and Module 4 are approved. Phase 5 (frontend), on the owner's explicit go-ahead: connect the frontend page by page in the Doc's order, using the field mappings and known differences listed in `API_CONTRACTS.md`. Before that, the deployment questions (Q3, Q23) should be answered.
 
 **Approval check (before approving).** A fresh clone of `origin/IntelliHire-backend` at `f1adaaf` was installed into a new virtualenv: 1159 tests passed; every Doc §4 requirement and TC-16 to TC-22 were run by name and passed; the 68-operation sweeps, quality gates and the end-to-end journey passed; `makemigrations --check`, the OpenAPI validation and `check` were clean.

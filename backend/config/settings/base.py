@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "apps.Module10_Tracking",
     "apps.Module11_MockInterview",
     "apps.Module12_Communities",
+    "apps.Module13_PlatformAdmin",
 ]
 
 MIDDLEWARE = [
@@ -155,6 +156,8 @@ REST_FRAMEWORK = {
         "track_open": "120/min",
         "track_link": "10/hour",
         "track_request": "3/hour",
+        "report_content": "5/hour",
+        "report_public": "5/hour",
     },
 }
 
@@ -188,6 +191,8 @@ SPECTACULAR_SETTINGS = {
         "ApplicationStatusEnum": "apps.Module4_ApplicationManagement.models.ApplicationStatus.choices",
         "InterviewStatusEnum": "apps.Module7_Interviews.models.SessionStatus.choices",
         "InterviewKindEnum": "apps.Module7_Interviews.models.SessionKind.choices",
+        "FlagTargetEnum": "apps.Module13_PlatformAdmin.models.FlagTarget.choices",
+        "FlagStatusEnum": "apps.Module13_PlatformAdmin.models.FlagStatus.choices",
         "CommunityStatusEnum": "apps.Module12_Communities.models.CommunityStatus.choices",
         "CommunityJoinModeEnum": "apps.Module12_Communities.models.JoinMode.choices",
         "MockInterviewTypeEnum": "apps.Module11_MockInterview.models.InterviewType.choices",

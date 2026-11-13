@@ -47,6 +47,8 @@ def test_rest_framework_defaults(settings):
         "track_open": "120/min",
         "track_link": "10/hour",
         "track_request": "3/hour",
+        "report_content": "5/hour",
+        "report_public": "5/hour",
     }
 
 

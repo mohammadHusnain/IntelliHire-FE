@@ -25,12 +25,13 @@ PUBLIC = {
     ("GET", "/api/public/jobs/{form_slug}/"), ("POST", "/api/public/jobs/{form_slug}/apply/"),
     ("GET", "/api/public/interviews/{token}/"), ("POST", "/api/public/interviews/{token}/start/"),
     ("POST", "/api/public/interviews/{token}/answer/"), ("POST", "/api/public/interviews/{token}/finish/"),
+    ("POST", "/api/public/report-job/"),
     ("GET", "/api/public/track/{token}/"), ("POST", "/api/public/track/{token}/invitation/link/"), ("POST", "/api/public/track/request-link/"),
 }
 ANY_LOGGED_IN = {
     ("POST", "/api/auth/logout/"), ("GET", "/api/auth/me/"), ("PATCH", "/api/auth/me/"), ("POST", "/api/auth/password/change/"),
     ("GET", "/api/notifications/"), ("GET", "/api/notifications/unread-count/"), ("POST", "/api/notifications/read-all/"),
-    ("POST", "/api/notifications/{notification_id}/read/"),
+    ("POST", "/api/notifications/{notification_id}/read/"), ("POST", "/api/reports/"),
 }
 
 
@@ -79,7 +80,7 @@ def call(client, operation, values=None, body=None):
 
 
 def test_every_operation_is_classified():
-    assert len(OPERATIONS) == 152
+    assert len(OPERATIONS) == 179
     assert [op for op in OPERATIONS if kind(op) == "unclassified"] == []
     assert PUBLIC <= set(OPERATIONS) and ANY_LOGGED_IN <= set(OPERATIONS)
 

@@ -182,6 +182,13 @@ Module 10 adds read models, not tables. `applications_application` gained `track
 | `communities_communitypost` | `id` uuid · `community_id`, `author_id` · `kind` (CHECK), `title`, `body` · `job_id` FK **SET NULL**, `apply_url`, `closes_at` · `status` (CHECK published/archived) · `notify_state` (CHECK none/pending/done), `notify_cursor`. |
 | `communities_postresponse` | `post_id`, `user_id` (**unique** together) · `message`, `created_at`. |
 
+### Module 13 — platform admin tables (`platform_admin.0001_initial`)
+
+| Table | Columns and rules |
+|---|---|
+| `platform_admin_moderationflag` | `id` uuid · `target_type` (CHECK user/company/job/community/community_post), `target_id` uuid · `reason` (<= 1000) · `source` (CHECK reported/admin/system) · `reported_by_id` FK **SET NULL**, `reporter_fingerprint` (SHA-256 of an anonymous reporter's address) · `status` (CHECK open/reviewing/dismissed/actioned) · `resolved_by_id`, `resolution_note`, `action_taken` (CHECK) · `created_at`, `resolved_at`. CHECK: a resolved flag must carry a note. Indexes: (status, -created_at), (target_type, target_id). |
+| `platform_admin_backuprecord` | `id` uuid · `started_at`, `finished_at` · `status` (CHECK success/failed) · `size_bytes`, `location`, `notes`. Written only by `manage.py record_backup`. |
+
 ### Other tables
 - `token_blacklist_*` (SimpleJWT): outstanding and blacklisted refresh tokens.
 - `django_cache` — production only, created by `manage.py createcachetable`; holds throttle counters.
