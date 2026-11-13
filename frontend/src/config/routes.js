@@ -21,6 +21,9 @@ export const ROUTES = {
     INTERVIEW_SETUP: "/candidate/interview/setup",
     INTERVIEW_ROOM: "/candidate/interview/room",
     REPORT: "/candidate/report/:id",
+    INVITED_INTERVIEW: "/candidate/interviews/:id",
+    APPLICATIONS: "/candidate/applications",
+    APPLICATION: "/candidate/applications/:id",
   },
 
   // Company
@@ -35,6 +38,9 @@ export const ROUTES = {
     JOB_PREVIEW: "/company/jobs/:id/preview",
     CANDIDATES: "/company/candidates",
     JOB_CANDIDATES: "/company/jobs/:id/candidates",
+    CV_ANALYSIS: "/company/jobs/:id/cv-analysis",
+    INTERVIEWS: "/company/interviews",
+    EVALUATION: "/company/evaluation",
     CANDIDATE_PROFILE: "/company/candidates/:id",
     ANALYTICS: "/company/analytics",
     COMMUNITY: "/company/community",
@@ -50,6 +56,7 @@ export const ROUTES = {
     REPORTS: "/admin/reports",
     SETTINGS: "/admin/settings",
     MANAGEMENT: "/admin/management",
+    OPERATIONS: "/admin/operations",
   },
 };
 

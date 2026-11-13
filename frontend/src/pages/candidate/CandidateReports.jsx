@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight, ArrowUpDown, Award, ChevronRight, Clock, Download, FileBarChart2, LayoutGrid, List, Mic,
-  RotateCcw, Search, SearchX, TrendingUp, X,
+  RotateCcw, Search, SearchX, TrendingUp, Trash2, X,
 } from "lucide-react";
 import { Badge, Card, CardHeader, EmptyState, PageHeader, ScoreRing, Segmented, StatTile, TrendChart } from "@/components/app/primitives";
 import Reveal from "@/components/shared/Reveal";
@@ -13,6 +13,13 @@ import {
 import { DIMENSION_LABEL, DIMENSION_SHORT } from "@/lib/interview/evaluate";
 import { downloadFile, toCsv } from "@/lib/csv";
 import { toast } from "@/store/toastStore";
+import { clearActive, loadActive } from "@/lib/interview/activeSession";
+
+function ActiveDraft({ draft, onDiscard }) {
+  const total = draft.questions?.length || 0;
+  const answered = draft.answers?.filter((answer) => answer?.text?.trim()).length || 0;
+  return <Card className="border-amber-200 bg-amber-50/40 p-4"><div className="flex flex-wrap items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-amber-700"><RotateCcw size={16} /></span><div className="min-w-[180px] flex-1"><p className="text-[13px] font-semibold text-ink">Unfinished practice session</p><p className="mt-0.5 text-[12px] text-stone-600">{draft.config?.role || "Practice interview"} · {answered} of {total} answers saved in this tab</p></div><Link to="/candidate/interview/room" className="btn-primary !h-9 !px-3 text-[12px]">Resume <ArrowRight size={14} /></Link><button type="button" onClick={onDiscard} aria-label="Discard unfinished session" title="Discard unfinished session" className="icon-btn flex h-9 w-9 items-center justify-center rounded-lg text-stone-500 hover:bg-white hover:text-red-600"><Trash2 size={15} /></button></div></Card>;
+}
 
 const SORTS = {
   newest: { label: "Newest first", fn: (a, b) => b.completedAt - a.completedAt },
@@ -131,6 +138,8 @@ export default function CandidateReports() {
   const [sort, setSort] = useState("newest");
   const [view, setView] = useState("grid");
   const [metric, setMetric] = useState("overall");
+  const [draft, setDraft] = useState(() => loadActive());
+  const discardDraft = () => { clearActive(); setDraft(null); };
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -179,8 +188,9 @@ export default function CandidateReports() {
 
   if (!sessions.length) {
     return (
-      <div>
+      <div className="space-y-5">
         <PageHeader eyebrow="Reports" title={<>Your interview <em>reports</em></>} subtitle="Every practice interview gets a detailed report you can come back to." />
+        {draft && <ActiveDraft draft={draft} onDiscard={discardDraft} />}
         <EmptyState
           icon={FileBarChart2}
           title="No reports yet"
@@ -197,6 +207,7 @@ export default function CandidateReports() {
 
   return (
     <div className="space-y-6">
+      {draft && <ActiveDraft draft={draft} onDiscard={discardDraft} />}
       <PageHeader
         eyebrow="Reports"
         title={<>Your interview <em>reports</em></>}

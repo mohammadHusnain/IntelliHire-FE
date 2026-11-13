@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle, ArrowRight, Check, CheckCircle2, Clock, Code2, FileText, Headphones, Lightbulb,
-  MessageCircle, Mic, MicOff, Target, Volume2,
+  MessageCircle, Mic, MicOff, RotateCcw, Target, Trash2, Volume2,
 } from "lucide-react";
 import { Badge, Card, PageHeader, Segmented, Toggle } from "@/components/app/primitives";
 import Reveal from "@/components/shared/Reveal";
@@ -11,7 +11,7 @@ import useMicrophone from "@/hooks/useMicrophone";
 import { speechRecognitionSupported } from "@/hooks/useSpeechRecognition";
 import { useCandidateRecord } from "@/store/candidateStore";
 import { DIFFICULTIES, INTERVIEW_TYPES, LENGTHS, buildQuestions } from "@/lib/interview/questionBank";
-import { saveActive } from "@/lib/interview/activeSession";
+import { clearActive, loadActive, saveActive } from "@/lib/interview/activeSession";
 
 const TYPE_ICON = { general: MessageCircle, technical: Code2, "role-specific": Target };
 const TYPE_MIX = { general: "Behavioural only", technical: "Technical + behavioural", "role-specific": "Scenarios + technical" };
@@ -112,6 +112,8 @@ export default function InterviewSetup() {
   const [autoTranscribe, setAutoTranscribe] = useState(prefs.interview.autoTranscribe && speechRecognitionSupported);
   const [seed] = useState(() => Date.now());
   const [roleError, setRoleError] = useState(false);
+  const [savedDraft, setSavedDraft] = useState(() => loadActive());
+  const sessionsToday = sessions.filter((session) => new Date(session.completedAt).toDateString() === new Date().toDateString()).length;
 
   const chooseRole = (r) => {
     setRole(r);
@@ -148,6 +150,10 @@ export default function InterviewSetup() {
         title={<>Set up your <em>practice</em> session</>}
         subtitle="Choose the interview you want to rehearse. Every answer is analysed the moment you finish."
       />
+
+      {savedDraft && <Card className="mb-5 border-amber-200 bg-amber-50/50 p-4"><div className="flex flex-wrap items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-amber-700"><RotateCcw size={16} /></span><div className="min-w-[180px] flex-1"><p className="text-[13px] font-semibold text-ink">Practice session in progress</p><p className="mt-0.5 text-[12px] text-stone-600">{savedDraft.config?.role || "Practice interview"} · question {Math.min((savedDraft.index || 0) + 1, savedDraft.questions?.length || 1)} of {savedDraft.questions?.length || 1}</p></div><Link to="/candidate/interview/room" className="btn-primary !h-9 !px-3 text-[12px]">Resume session <ArrowRight size={14} /></Link><button type="button" onClick={() => { clearActive(); setSavedDraft(null); }} aria-label="Discard saved practice session" title="Discard saved session" className="icon-btn flex h-9 w-9 items-center justify-center rounded-lg text-stone-500 hover:bg-white hover:text-red-600"><Trash2 size={15} /></button></div></Card>}
+
+      {!profile.cv && <div className="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50/60 p-4"><span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-amber-700"><AlertTriangle size={16} /></span><div className="min-w-[180px] flex-1"><p className="text-[13px] font-semibold text-ink">No CV linked to this practice</p><p className="mt-0.5 text-[12px] text-stone-600">You can continue without one, or add a CV to tailor practice prompts.</p></div><Link to="/candidate/profile" className="btn-secondary !h-9 !px-3 text-[12px]">Open profile <ArrowRight size={14} /></Link></div>}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0 space-y-5">
@@ -333,6 +339,7 @@ export default function InterviewSetup() {
                     ))}
                   </ul>
                 </div>
+                <p className="mt-4 border-t border-[var(--line)] pt-4 text-[11.5px] text-stone-500">Completed practice today: <span className="font-semibold text-ink">{sessionsToday}</span>. Usage resets daily; your account limits will be shown here after integration.</p>
               </div>
             </Card>
           </Reveal>

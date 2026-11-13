@@ -6,6 +6,7 @@ import Palette from "@/components/app/CommandPalette";
 import { Avatar, UserMenu } from "@/components/app/HeaderMenus";
 import AnnouncementBanner from "@/components/app/AnnouncementBanner";
 import { COMPANY_NAV, COMPANY_PAGE_META } from "./nav";
+import CompanyNotifications from "./CompanyNotifications";
 import { useLogout } from "@/hooks/useLogout";
 import { useAuthStore } from "@/store/authStore";
 import { companyStats, useCompanyActions, useCompanyRecord } from "@/store/companyStore";
@@ -84,11 +85,14 @@ export default function CompanyLayout() {
       }
       headerActions={
         p && (
-          <UserMenu
-            user={{ name: p.ownerName, email: p.email }}
-            links={[{ icon: Briefcase, label: "Company settings", to: ROUTES.COMPANY.SETTINGS }]}
-            onLogout={logout}
-          />
+          <>
+            <CompanyNotifications />
+            <UserMenu
+              user={{ name: p.ownerName, email: p.email }}
+              links={[{ icon: Briefcase, label: "Company settings", to: ROUTES.COMPANY.SETTINGS }]}
+              onLogout={logout}
+            />
+          </>
         )
       }
       renderPalette={(close) => <Palette items={paletteItems} onClose={close} placeholder="Search roles, candidates or pages…" />}

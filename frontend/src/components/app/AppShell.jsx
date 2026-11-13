@@ -76,7 +76,7 @@ export default function AppShell({
   const { pathname } = useLocation();
   const [drawer, setDrawer] = useState(false);
   const [palette, setPalette] = useState(false);
-  const meta = pageMeta.find((m) => pathname.startsWith(m.match));
+  const meta = pageMeta.find((m) => typeof m.match === "function" ? m.match(pathname) : pathname.startsWith(m.match));
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  ArrowRight, Briefcase, CheckCircle2, Clock, Compass, Globe2, Lock, Search, SearchX, Sparkles, Users, X,
+  ArrowRight, Briefcase, CheckCircle2, Clock, Compass, Globe2, Lock, MessageSquareText, Search, SearchX, Send, Sparkles, Users, X,
 } from "lucide-react";
-import { Badge, Card, EmptyState, PageHeader, Segmented } from "@/components/app/primitives";
+import { Badge, Card, EmptyState, PageHeader, Segmented, Toggle } from "@/components/app/primitives";
 import Reveal from "@/components/shared/Reveal";
 import { useCandidateActions, useCandidateRecord } from "@/store/candidateStore";
 import { COMMUNITY_CATEGORIES } from "@/data/communitiesData";
@@ -118,6 +118,12 @@ function CommunityCard({ c, status, onAct, onOpen, recommended, delay }) {
 
 function Drawer({ c, status, joinedAt, onAct, onClose }) {
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [posts, setPosts] = useState([
+    { id: "welcome", author: "Community team", time: "2 hours ago", text: "Welcome to the group. Share a recent win or a question the community can help with." },
+    { id: "role", author: "Hiring partner", time: "Yesterday", text: "We are collecting topics for our next portfolio and interview review session." },
+  ]);
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -165,6 +171,8 @@ function Drawer({ c, status, joinedAt, onAct, onClose }) {
             {c.tags.map((t) => <span key={t} className="rounded-full bg-stone-100 px-3 py-1 text-[12.5px] font-medium text-stone-600">{t}</span>)}
           </div>
 
+          {status === "joined" && <section className="mt-7 border-t border-[var(--line)] pt-5"><h3 className="flex items-center gap-2 text-[13px] font-semibold text-ink"><MessageSquareText size={15} className="text-brand" /> Community feed</h3><div className="mt-3 space-y-2.5">{posts.map((post) => <article key={post.id} className="rounded-lg border border-[var(--line)] p-3"><div className="flex justify-between gap-2"><p className="text-[11.5px] font-semibold text-ink">{post.author}</p><span className="text-[10.5px] text-stone-400">{post.time}</span></div><p className="mt-1.5 text-[12px] leading-relaxed text-stone-600">{post.text}</p>{post.id === "welcome" && <button type="button" onClick={() => setLiked((value) => !value)} className={`mt-2 text-[11px] font-semibold ${liked ? "text-brand" : "text-stone-400 hover:text-brand"}`}>{liked ? "Liked · 13" : "Like · 12"}</button>}</article>)}</div><form onSubmit={(event) => { event.preventDefault(); if (!draft.trim()) return; setPosts((current) => [{ id: `post-${Date.now()}`, author: "You", time: "Just now", text: draft.trim() }, ...current]); setDraft(""); }} className="mt-3"><label className="sr-only" htmlFor="community-post">Write a community post</label><textarea id="community-post" rows="2" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Share a question or update" className="w-full resize-y rounded-lg border border-[var(--line)] p-2.5 text-[12px] outline-none focus:border-brand" /><button type="submit" disabled={!draft.trim()} className="btn-secondary mt-2 !h-9 !px-3 text-[12px] disabled:opacity-50"><Send size={13} /> Post update</button></form></section>}
+
           <p className="mt-6 text-[12px] font-semibold uppercase tracking-wide text-stone-400">What members get</p>
           <ul className="mt-2 space-y-2">
             {BENEFITS.map((b) => (
@@ -201,7 +209,8 @@ function Drawer({ c, status, joinedAt, onAct, onClose }) {
 
 export default function CandidateCommunities() {
   const COMMUNITIES = useVisibleCommunities();
-  const { profile } = useCandidateRecord();
+  const { profile, prefs } = useCandidateRecord();
+  const { updatePrefs } = useCandidateActions();
   const { memberships, act } = useMembership();
   const [tab, setTab] = useState("discover");
   const [query, setQuery] = useState("");
@@ -242,6 +251,8 @@ export default function CandidateCommunities() {
         title={<>Find your <em>talent communities</em></>}
         subtitle="Join focused groups where companies share roles, members trade referrals and everyone prepares together."
       />
+
+      <Card className="flex flex-wrap items-center gap-3 p-4"><span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-soft text-brand"><Users size={16} /></span><div className="min-w-[180px] flex-1"><p className="text-[13px] font-semibold text-ink">Discoverability</p><p className="mt-0.5 text-[12px] text-stone-500">{prefs.privacy.profileVisible ? "Your profile can appear in relevant community member searches." : "Your profile is hidden from community member searches."}</p></div><Toggle checked={prefs.privacy.profileVisible} onChange={(value) => updatePrefs("privacy", { profileVisible: value })} label="Allow my profile to appear in community search" /></Card>
 
       <Reveal>
         <Card className="relative overflow-hidden !bg-ink p-6 text-white sm:p-7">

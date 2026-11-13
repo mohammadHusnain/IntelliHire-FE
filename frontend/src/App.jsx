@@ -26,6 +26,8 @@ const InterviewRoom = lazy(() => import("@/pages/candidate/InterviewRoom"));
 const InterviewReport = lazy(() => import("@/pages/candidate/InterviewReport"));
 const CandidateCommunities = lazy(() => import("@/pages/candidate/CandidateCommunities"));
 const CandidateSettings = lazy(() => import("@/pages/candidate/CandidateSettings"));
+const CandidateInvitedInterview = lazy(() => import("@/pages/candidate/CandidateInvitedInterview"));
+const CandidateApplications = lazy(() => import("@/pages/candidate/CandidateApplications"));
 
 // Company
 const CompanyPending = lazy(() => import("@/pages/company/CompanyPending"));
@@ -36,6 +38,9 @@ const CompanyJobs = lazy(() => import("@/pages/company/CompanyJobs"));
 const CompanyJobCreate = lazy(() => import("@/pages/company/CompanyJobCreate"));
 const CompanyJobPreview = lazy(() => import("@/pages/company/CompanyJobPreview"));
 const CompanyCandidates = lazy(() => import("@/pages/company/CompanyCandidates"));
+const CompanyCVAnalysis = lazy(() => import("@/pages/company/CompanyCVAnalysis"));
+const CompanyInterviews = lazy(() => import("@/pages/company/CompanyInterviews"));
+const CompanyEvaluation = lazy(() => import("@/pages/company/CompanyEvaluation"));
 const CompanyAllCandidates = lazy(() => import("@/pages/company/CompanyAllCandidates"));
 const CompanyCandidateProfile = lazy(() => import("@/pages/company/CompanyCandidateProfile"));
 const CompanyAnalytics = lazy(() => import("@/pages/company/CompanyAnalytics"));
@@ -50,6 +55,7 @@ const AdminCommunities = lazy(() => import("@/pages/admin/AdminCommunities"));
 const AdminReports = lazy(() => import("@/pages/admin/AdminReports"));
 const AdminSettings = lazy(() => import("@/pages/admin/AdminSettings"));
 const AdminManagement = lazy(() => import("@/pages/admin/AdminManagement"));
+const AdminOperations = lazy(() => import("@/pages/admin/AdminOperations"));
 
 // ─── Suspense Fallback ──────────────────────────────────────────────────────
 function PageLoader() {
@@ -83,6 +89,9 @@ function App() {
                   <Route path="/candidate/reports" element={<CandidateReports />} />
                   <Route path="/candidate/interview/setup" element={<InterviewSetup />} />
                   <Route path="/candidate/report/:id" element={<InterviewReport />} />
+                  <Route path="/candidate/interviews/:id" element={<CandidateInvitedInterview />} />
+                  <Route path="/candidate/applications" element={<CandidateApplications />} />
+                  <Route path="/candidate/applications/:id" element={<CandidateApplications />} />
                   <Route path="/candidate/communities" element={<CandidateCommunities />} />
                   <Route path="/candidate/settings" element={<CandidateSettings />} />
                   <Route path="/candidate" element={<Navigate to="/candidate/dashboard" replace />} />
@@ -104,6 +113,9 @@ function App() {
                   <Route path="/company/jobs/:id/preview" element={<CompanyJobPreview />} />
                   <Route path="/company/candidates" element={<CompanyAllCandidates />} />
                   <Route path="/company/jobs/:id/candidates" element={<CompanyCandidates />} />
+                  <Route path="/company/jobs/:id/cv-analysis" element={<CompanyCVAnalysis />} />
+                  <Route path="/company/interviews" element={<CompanyInterviews />} />
+                  <Route path="/company/evaluation" element={<CompanyEvaluation />} />
                   <Route path="/company/candidates/:id" element={<CompanyCandidateProfile />} />
                   <Route path="/company/analytics" element={<CompanyAnalytics />} />
                   <Route path="/company/community" element={<CompanyCommunity />} />
@@ -123,6 +135,7 @@ function App() {
                 <Route path="/admin/reports" element={<AdminReports />} />
                 <Route path="/admin/settings" element={<AdminSettings />} />
                 <Route path="/admin/management" element={<AdminManagement />} />
+                <Route path="/admin/operations" element={<AdminOperations />} />
                 <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
               </Route>
             </Route>

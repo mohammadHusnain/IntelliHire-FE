@@ -1,4 +1,4 @@
-import { Building2, Globe2, LayoutDashboard, ScrollText, Settings, TrendingUp, Users } from "lucide-react";
+import { Activity, Building2, Globe2, LayoutDashboard, ScrollText, Settings, TrendingUp, Users } from "lucide-react";
 import { ROUTES } from "@/config/routes";
 
 export const ADMIN_NAV = [
@@ -23,7 +23,7 @@ export const ADMIN_NAV = [
   },
   {
     group: "Platform",
-    items: [{ to: ROUTES.ADMIN.SETTINGS, label: "Settings", icon: Settings }],
+    items: [{ to: ROUTES.ADMIN.OPERATIONS, label: "Operations", icon: Activity }, { to: ROUTES.ADMIN.SETTINGS, label: "Settings", icon: Settings }],
   },
 ];
 
@@ -35,4 +35,5 @@ export const ADMIN_PAGE_META = [
   { match: ROUTES.ADMIN.REPORTS, title: "Analytics" },
   { match: ROUTES.ADMIN.MANAGEMENT, title: "Audit log" },
   { match: ROUTES.ADMIN.SETTINGS, title: "Settings" },
+  { match: ROUTES.ADMIN.OPERATIONS, title: "Platform operations" },
 ];

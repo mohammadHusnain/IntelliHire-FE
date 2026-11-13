@@ -1,4 +1,4 @@
-import { BarChart3, Briefcase, Globe2, LayoutDashboard, Settings, Users, UsersRound } from "lucide-react";
+import { BarChart3, Briefcase, ClipboardCheck, Globe2, LayoutDashboard, Settings, Users, UsersRound } from "lucide-react";
 import { ROUTES } from "@/config/routes";
 
 export const COMPANY_NAV = [
@@ -8,6 +8,8 @@ export const COMPANY_NAV = [
       { to: ROUTES.COMPANY.DASHBOARD, label: "Dashboard", icon: LayoutDashboard },
       { to: ROUTES.COMPANY.JOBS, label: "Roles", icon: Briefcase, match: ["/company/jobs"] },
       { to: ROUTES.COMPANY.CANDIDATES, label: "Candidates", icon: Users, match: ["/company/candidates"], badge: "review" },
+      { to: ROUTES.COMPANY.INTERVIEWS, label: "Interviews", icon: ClipboardCheck },
+      { to: ROUTES.COMPANY.EVALUATION, label: "Evaluation", icon: BarChart3 },
     ],
   },
   {
@@ -24,7 +26,10 @@ export const COMPANY_NAV = [
 export const COMPANY_PAGE_META = [
   { match: ROUTES.COMPANY.DASHBOARD, title: "Dashboard" },
   { match: "/company/jobs/create", title: "New role", parent: { label: "Roles", to: ROUTES.COMPANY.JOBS } },
+  { match: (path) => /^\/company\/jobs\/[^/]+\/cv-analysis$/.test(path), title: "CV analysis", parent: { label: "Candidates", to: ROUTES.COMPANY.CANDIDATES } },
   { match: "/company/jobs/", title: "Role", parent: { label: "Roles", to: ROUTES.COMPANY.JOBS } },
+  { match: ROUTES.COMPANY.INTERVIEWS, title: "Interviews" },
+  { match: ROUTES.COMPANY.EVALUATION, title: "Evaluation" },
   { match: ROUTES.COMPANY.JOBS, title: "Roles" },
   { match: "/company/candidates/", title: "Candidate", parent: { label: "Candidates", to: ROUTES.COMPANY.CANDIDATES } },
   { match: ROUTES.COMPANY.CANDIDATES, title: "Candidates" },

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowRight, ChevronRight, Download, LayoutGrid, List, SearchX, Users } from "lucide-react";
+import { ArrowRight, ChevronRight, Download, FileSearch, LayoutGrid, List, SearchX, Users } from "lucide-react";
 import { Badge, Card, EmptyState, PageHeader, Segmented, StatTile } from "@/components/app/primitives";
 import { DataTable, SearchField, SelectField, Tabs } from "@/components/admin/primitives";
 import { Avatar } from "@/components/app/HeaderMenus";
@@ -122,7 +122,7 @@ export default function CompanyCandidates() {
           icon={Users}
           title="No applicants yet"
           message="Share a role's application link and candidates will appear here with their CV match score."
-          action={<Link to={ROUTES.COMPANY.JOBS} className="btn-primary">Go to roles <ArrowRight size={15} className="btn-arrow" /></Link>}
+          action={<div className="flex flex-wrap justify-center gap-2">{job && <Link to={`/company/jobs/${job.id}/cv-analysis`} className="btn-secondary"><FileSearch size={15} /> CV analysis settings</Link>}<Link to={ROUTES.COMPANY.JOBS} className="btn-primary">Go to roles <ArrowRight size={15} className="btn-arrow" /></Link></div>}
         />
       </div>
     );
@@ -139,6 +139,7 @@ export default function CompanyCandidates() {
             <button type="button" onClick={exportCsv} className="btn-secondary">
               <Download size={16} /> Export CSV
             </button>
+            {job && <Link to={`/company/jobs/${job.id}/cv-analysis`} className="btn-secondary"><FileSearch size={16} /> CV analysis</Link>}
             <Segmented
               ariaLabel="View"
               value={view}
