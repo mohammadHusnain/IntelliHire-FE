@@ -7,6 +7,7 @@ import Reveal from "@/components/shared/Reveal";
 import CompanyBlocked from "@/components/company/CompanyBlocked";
 import AnswerValue from "@/components/applications/AnswerValue";
 import StatusDialog from "@/components/applications/StatusDialog";
+import TechnicalInterviewPanel from "@/components/company/TechnicalInterviewPanel";
 import { isBlocked } from "@/api/companyApi";
 import { applicationsApi } from "@/api/applicationsApi";
 import { useRemote } from "@/hooks/useRemote";
@@ -238,6 +239,8 @@ function Applicant({ initial }) {
           </Card>
         </Reveal>
       </div>
+
+      <TechnicalInterviewPanel applicationId={a.id} memberRole={user?.memberRole} />
 
       {dialog && <StatusDialog title={`Change status of ${a.name}`} current={a.status} initial={dialog.initial} busy={busy} error={dialogError} onConfirm={changeStatus} onClose={() => !busy && setDialog(null)} />}
     </div>

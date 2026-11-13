@@ -15,7 +15,7 @@ const toasts = () => useToastStore.getState().toasts.map((t) => t.title);
 function mount({ memberRole = "admin", application = apiApplication(), handlers = [] } = {}) {
   setTokens({ access: "a", refresh: "r" });
   useAuthStore.setState({ isAuthenticated: true, isInitialized: true, user: { id: "u1", role: "company", status: "active", name: "Ali", email: "ali@acme.example", memberRole, companyStatus: "approved" } });
-  server.use(...handlers, route.get("/applications/app-1/", () => json(application)));
+  server.use(...handlers, route.get("/applications/app-1/", () => json(application)), route.get("/applications/app-1/interviews/", () => json([])));
   return render(
     <MemoryRouter initialEntries={["/company/candidates/app-1"]}>
       <Routes>
@@ -57,7 +57,8 @@ describe("CompanyApplicantLive: the profile", () => {
   it("never shows made-up scores", async () => {
     mount();
     await screen.findByRole("heading", { name: /Sara Malik/ });
-    expect(screen.queryByText(/cv match|screening|technical|overall|source/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/cv match|overall score/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\b\d+(?:\.\d+)?\/100\b/)).not.toBeInTheDocument();
   });
 
   it("shows every answer type properly: links only for http(s), choices as tags, unanswered as 'No answer'", async () => {
@@ -98,6 +99,50 @@ describe("CompanyApplicantLive: the profile", () => {
     mount({ application: apiApplication({ resume: null }) });
     await screen.findByRole("heading", { name: /Sara Malik/ });
     expect(screen.queryByRole("button", { name: /view cv/i })).not.toBeInTheDocument();
+  });
+});
+
+describe("CompanyApplicantLive: technical interviews", () => {
+  it("invites a technical interview after screening passes and refreshes the session list", async () => {
+    const sessions = [{ id: "screen-1", kind: "screening", status: "evaluated", recommendation: "advance", invited_at: "2026-11-01T10:00:00Z", expires_at: "2026-11-08T10:00:00Z", question_target: 6, answered_count: 6, overall_score: null }];
+    let inviteBody;
+    let listCalls = 0;
+    mount({ handlers: [
+      route.get("/applications/app-1/interviews/", () => json(++listCalls > 1 ? [...sessions, { id: "tech-1", kind: "technical", status: "invited", invited_at: "2026-11-12T10:00:00Z", expires_at: "2026-11-19T10:00:00Z", question_target: 8, answered_count: 0, overall_score: null }] : sessions)),
+      route.post("/applications/app-1/interviews/", async ({ request }) => ((inviteBody = await request.json()), json({ id: "tech-1", kind: "technical", status: "invited", warnings: [] }, 201))),
+    ] });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: /invite to technical interview/i }));
+    await user.click(screen.getByRole("button", { name: /send invitation/i }));
+    expect(await screen.findByText("Invited")).toBeInTheDocument();
+    expect(inviteBody).toEqual({ kind: "technical", expires_in_days: 7, override: false });
+  });
+
+  it("requires an explicit reason when an admin overrides the screening gate", async () => {
+    let inviteBody;
+    mount({ handlers: [
+      route.post("/applications/app-1/interviews/", async ({ request }) => ((inviteBody = await request.json()), json({ id: "tech-1", kind: "technical", status: "invited", warnings: [] }, 201))),
+    ] });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: /invite to technical interview/i }));
+    await user.click(screen.getByRole("checkbox", { name: /override screening prerequisite/i }));
+    expect(screen.getByRole("button", { name: /send invitation/i })).toBeDisabled();
+    await user.type(screen.getByLabelText("Reason for override"), "Urgent specialist review");
+    await user.click(screen.getByRole("button", { name: /send invitation/i }));
+    await waitFor(() => expect(inviteBody).toEqual({ kind: "technical", expires_in_days: 7, override: true, note: "Urgent specialist review" }));
+  });
+
+  it("shows the backend report-pending state and transcript without inventing scores", async () => {
+    mount({ handlers: [
+      route.get("/applications/app-1/interviews/", () => json([{ id: "tech-1", kind: "technical", status: "completed", invited_at: "2026-11-12T10:00:00Z", expires_at: "2026-11-19T10:00:00Z", question_target: 8, answered_count: 3, overall_score: null, recommendation: null }])),
+      route.get("/interviews/tech-1/", () => json({ id: "tech-1", kind: "technical", status: "completed", overall_score: null, recommendation: null, report: {}, report_message: "Report not available yet", ai_disclaimer: "AI output is reviewed by the hiring team.", turns: [{ index: 1, question_text: "How would you design a queue?", answer_text: "I would start with...", score: null, feedback: "", topic: "Systems", is_follow_up: false }] })),
+    ] });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: /view details/i }));
+    expect(await screen.findByText("Report not available yet")).toBeInTheDocument();
+    expect(screen.getByText(/How would you design a queue/)).toBeInTheDocument();
+    expect(screen.getByText("I would start with...")).toBeInTheDocument();
+    expect(screen.queryByText(/\b\d+(?:\.\d+)?\/100\b/)).not.toBeInTheDocument();
   });
 });
 
