@@ -46,6 +46,7 @@ const CompanyJobPreview = lazy(() => (DEMO ? import("@/pages/company/CompanyJobP
 const CompanyCandidates = lazy(() => (DEMO ? import("@/pages/company/CompanyCandidates") : import("@/pages/company/CompanyApplicantsLive")));
 const CompanyAllCandidates = lazy(() => (DEMO ? import("@/pages/company/CompanyAllCandidates") : import("@/pages/company/CompanyApplicantsLive")));
 const CompanyCVAnalysis = lazy(() => import("@/pages/company/CompanyCVAnalysis"));
+const CompanyEvaluation = lazy(() => import("@/pages/company/CompanyEvaluation"));
 const CompanyCandidateProfile = lazy(() => (DEMO ? import("@/pages/company/CompanyCandidateProfile") : import("@/pages/company/CompanyApplicantLive")));
 const CompanyAnalytics = lazy(() => (DEMO ? import("@/pages/company/CompanyAnalytics") : import("@/pages/company/CompanyAnalyticsLive")));
 const CompanyCommunity = lazy(() => import("@/pages/company/CompanyCommunity"));
@@ -120,6 +121,7 @@ function App() {
                   <Route path="/company/candidates" element={<CompanyAllCandidates />} />
                   <Route path="/company/jobs/:id/candidates" element={<CompanyCandidates />} />
                   <Route path="/company/jobs/:id/cv-analysis" element={<CompanyCVAnalysis />} />
+                  <Route path="/company/evaluation" element={<CompanyEvaluation />} />
                   <Route path="/company/candidates/:id" element={<CompanyCandidateProfile />} />
                   <Route path="/company/analytics" element={<CompanyAnalytics />} />
                   <Route path="/company/community" element={<CompanyCommunity />} />

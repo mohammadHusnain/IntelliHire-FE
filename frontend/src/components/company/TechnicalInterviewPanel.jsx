@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { AlertCircle, CalendarClock, CheckCircle2, ChevronDown, ChevronUp, Clock3, Eye, Loader2, RefreshCw, Send, X } from "lucide-react";
 import { Badge, Card, CardHeader } from "@/components/app/primitives";
 import { interviewsApi } from "@/api/interviewsApi";
+import { useRemote } from "@/hooks/useRemote";
 
 const MANAGE_ROLES = ["admin", "hr_manager", "recruiter"];
 const OVERRIDE_ROLES = ["admin", "hr_manager"];
@@ -58,9 +59,6 @@ export default function TechnicalInterviewPanel({ applicationId, memberRole }) {
   const canManage = MANAGE_ROLES.includes(memberRole);
   const canOverride = OVERRIDE_ROLES.includes(memberRole);
   const canReevaluate = canOverride;
-  const [sessions, setSessions] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   const [showInvite, setShowInvite] = useState(false);
   const [override, setOverride] = useState(false);
@@ -75,24 +73,10 @@ export default function TechnicalInterviewPanel({ applicationId, memberRole }) {
   const [extendId, setExtendId] = useState("");
   const [extendDays, setExtendDays] = useState(7);
 
-  const reload = useCallback(async (signal) => {
-    setLoading(true);
-    setLoadError("");
-    try {
-      const result = await interviewsApi.listForApplication(applicationId, { signal });
-      setSessions(result);
-    } catch (cause) {
-      if (cause.code !== "aborted") setLoadError(cause.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [applicationId]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    reload(controller.signal);
-    return () => controller.abort();
-  }, [reload, reloadKey]);
+  const sessionsRemote = useRemote((options) => interviewsApi.listForApplication(applicationId, options), [applicationId, reloadKey]);
+  const sessions = useMemo(() => sessionsRemote.data || [], [sessionsRemote.data]);
+  const loading = sessionsRemote.status === "loading";
+  const loadError = sessionsRemote.error?.message || "";
 
   const screening = useMemo(() => sessions.find((session) => session.kind === "screening"), [sessions]);
   const technical = useMemo(() => sessions.filter((session) => session.kind === "technical"), [sessions]);
@@ -198,6 +182,7 @@ export default function TechnicalInterviewPanel({ applicationId, memberRole }) {
       )}
 
       <ApiMessage>{loadError || (!showInvite ? error : "")}</ApiMessage>
+      {sessionsRemote.status === "error" && <button type="button" onClick={() => setReloadKey((x) => x + 1)} className="mt-2 text-[12.5px] font-semibold text-brand underline">Retry interview list</button>}
       {warning && <p role="status" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-[13px] text-amber-800">{warning}</p>}
 
       {loading && sessions.length === 0 ? <div className="flex justify-center py-8"><Loader2 size={21} className="animate-spin text-brand" aria-label="Loading interviews" /></div> : technical.length === 0 ? (
