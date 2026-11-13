@@ -141,7 +141,9 @@ describe("CompanyApplicantsLive: the company-wide view", () => {
   it("never shows made-up scores, sources or years of experience", async () => {
     mount();
     await screen.findAllByText("Person 1");
-    expect(screen.queryByText(/cv match|screening|technical|source|average/i)).not.toBeInTheDocument();
+    // CV match is real (Module 6 serves it), but nothing invents a value for an unscored row.
+    expect(screen.queryByText(/screening|technical|source|average/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/%\s*match/)).not.toBeInTheDocument();
   });
 
   it("choosing a role switches to that role's pipeline (and its address)", async () => {
@@ -278,5 +280,61 @@ describe("CompanyApplicantsLive: errors and access", () => {
     })] });
     expect((await screen.findAllByText("Person 1")).length).toBeGreaterThan(0);
     expect(within(screen.getByRole("region", { name: "Interview" })).getByRole("alert")).toBeInTheDocument();
+  });
+});
+
+describe("CompanyApplicantsLive: the CV match column (Module 6)", () => {
+  const scored = (n, cv_score, cv_label, extra = {}) => row(n, { cv_score, cv_label, ...extra });
+
+  it("shows the score and the server's label, and an em dash when nothing is scored yet", async () => {
+    const user = userEvent.setup();
+    mount({ rows: [scored(1, 84.5, "meets_threshold"), row(2)] });
+    await listView(user);
+    const table = await screen.findByRole("table");
+    const sara = within(table).getByText("Person 1").closest("tr");
+    expect(within(sara).getByText("85%")).toBeInTheDocument();
+    expect(within(sara).getByText("Meets threshold")).toBeInTheDocument();
+    expect(within(within(table).getByText("Person 2").closest("tr")).getByText("—")).toBeInTheDocument();
+  });
+
+  it("treats the list's -1 'not scored' sentinel as no score at all", async () => {
+    const user = userEvent.setup();
+    mount({ rows: [row(1, { cv_score: -1, cv_label: null })] });
+    await listView(user);
+    const table = await screen.findByRole("table");
+    expect(within(within(table).getByText("Person 1").closest("tr")).getByText("—")).toBeInTheDocument();
+    expect(screen.queryByText("-1%")).not.toBeInTheDocument();
+  });
+
+  it("links the score to that role's CV analysis", async () => {
+    const user = userEvent.setup();
+    mount({ rows: [scored(1, 84.5, "meets_threshold")] });
+    await listView(user);
+    expect(within(await screen.findByRole("table")).getByText("85%").closest("a")).toHaveAttribute("href", "/company/jobs/job-1/cv-analysis");
+  });
+
+  it("orders by best match through the server", async () => {
+    const user = userEvent.setup();
+    const fake = mount({ rows: [scored(1, 60, "not_shortlisted"), scored(2, 90, "meets_threshold")] });
+    await listView(user);
+    await user.selectOptions(screen.getByLabelText("Order by"), "-cv_score");
+    await waitFor(() => expect(fake.asked.some((q) => q.ordering === "-cv_score")).toBe(true));
+  });
+
+  it("filters on a minimum match through min_cv_score, and ignores a nonsense value", async () => {
+    const user = userEvent.setup();
+    const fake = mount({ rows: [scored(1, 60, "not_shortlisted"), scored(2, 90, "meets_threshold")] });
+    await listView(user);
+    await user.type(screen.getByLabelText("Minimum CV match"), "70");
+    await waitFor(() => expect(fake.asked.some((q) => q.min_cv_score === "70")).toBe(true));
+    await user.clear(screen.getByLabelText("Minimum CV match"));
+    await user.type(screen.getByLabelText("Minimum CV match"), "250");
+    await waitFor(() => expect(fake.asked.at(-1).min_cv_score).toBeUndefined());
+  });
+
+  it("shows the score on the board card too", async () => {
+    mount({ rows: [scored(1, 90, "shortlisted", { status: "shortlisted" })] });
+    const column = await screen.findByRole("region", { name: "Shortlisted" });
+    expect(await within(column).findByText("90% match")).toBeInTheDocument();
   });
 });

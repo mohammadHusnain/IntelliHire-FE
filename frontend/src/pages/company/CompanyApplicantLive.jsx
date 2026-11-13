@@ -8,6 +8,7 @@ import CompanyBlocked from "@/components/company/CompanyBlocked";
 import AnswerValue from "@/components/applications/AnswerValue";
 import StatusDialog from "@/components/applications/StatusDialog";
 import TechnicalInterviewPanel from "@/components/company/TechnicalInterviewPanel";
+import CvAnalysisPanel from "@/components/company/CvAnalysisPanel";
 import { isBlocked } from "@/api/companyApi";
 import { applicationsApi } from "@/api/applicationsApi";
 import { useRemote } from "@/hooks/useRemote";
@@ -239,6 +240,8 @@ function Applicant({ initial }) {
           </Card>
         </Reveal>
       </div>
+
+      <CvAnalysisPanel applicationId={a.id} jobId={a.job?.id} memberRole={user?.memberRole} />
 
       <TechnicalInterviewPanel applicationId={a.id} memberRole={user?.memberRole} />
 

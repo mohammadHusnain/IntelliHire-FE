@@ -22,12 +22,24 @@ export const ORDERINGS = [
   { value: "submitted_at", label: "Oldest first" },
   { value: "full_name", label: "Name A–Z" },
   { value: "-full_name", label: "Name Z–A" },
+  { value: "-cv_score", label: "Best CV match first" },
+  { value: "cv_score", label: "Lowest CV match first" },
 ];
 
 /** Only people who may edit roles may change a status or write a note (the server enforces it as well). */
 export const canChangeStatus = (user) => ["admin", "hr_manager", "recruiter"].includes(user?.memberRole);
 
 const time = (v) => (v ? Date.parse(v) || null : null);
+
+/**
+ * The CV match score, or null when there is none. The list annotates unscored applications with
+ * -1 so they sort below scored ones; that sentinel never reaches the screens.
+ */
+function cvScore(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const score = Number(value);
+  return Number.isFinite(score) && score >= 0 ? score : null;
+}
 
 export function mapApplicationRow(a) {
   return {
@@ -43,6 +55,8 @@ export function mapApplicationRow(a) {
     submittedAt: time(a.submitted_at),
     hasCv: Boolean(a.has_cv),
     job: a.job ? { id: a.job.id, title: a.job.title } : null,
+    cvScore: cvScore(a.cv_score),
+    cvLabel: a.cv_label || null,
   };
 }
 

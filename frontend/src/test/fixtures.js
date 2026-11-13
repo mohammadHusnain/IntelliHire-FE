@@ -266,3 +266,88 @@ export const apiApplication = (overrides = {}) => ({
 export const apiNote = (overrides = {}) => ({ id: 1, text: "Spoke on the phone", author: { id: "u1", full_name: "Ali Khan" }, created_at: "2026-03-02T10:00:00Z", ...overrides });
 
 export const statusCounts = (overrides = {}) => ({ submitted: 0, under_review: 0, shortlisted: 0, interview: 0, selected: 0, rejected: 0, on_hold: 0, total: 0, ...overrides });
+
+// ── Module 6 (CV analysis and shortlisting) ──────────────────────────────────
+export const apiScreeningConfig = (overrides = {}) => ({
+  auto_analyse: true,
+  shortlist_threshold: 70,
+  auto_shortlist: false,
+  invite_on_shortlist: false,
+  weight_skills: 50,
+  weight_experience: 25,
+  weight_education: 15,
+  weight_semantic: 10,
+  updated_at: "2026-06-01T09:00:00Z",
+  warnings: [],
+  ...overrides,
+});
+
+/** `percent_done` is the server's "done out of analysed", not out of every application. */
+export const apiScreeningProgress = (overrides = {}) => ({
+  total_applications: 3,
+  not_analysed: 1,
+  queued: 0,
+  processing: 0,
+  completed: 2,
+  failed: 0,
+  manual_review: 0,
+  paused: 0,
+  stale_scores: 0,
+  in_progress: false,
+  percent_done: 100,
+  ...overrides,
+});
+
+export const apiRankingRow = (overrides = {}) => ({
+  rank: 1,
+  id: "app-1",
+  reference: "IH-000001",
+  full_name: "Sara Malik",
+  email: "sara@example.com",
+  status: "under_review",
+  submitted_at: "2026-06-03T12:00:00Z",
+  score: 84.5,
+  skills_score: 90,
+  experience_score: 75,
+  education_score: 80,
+  semantic_score: 70,
+  cv_label: "meets_threshold",
+  analysis_status: "completed",
+  stale: false,
+  ...overrides,
+});
+
+export const apiCvAnalysis = ({ match, ...overrides } = {}) => ({
+  status: "completed",
+  failure_reason: "",
+  flags: [],
+  parsed: {
+    technical_skills: ["Python", "Django"],
+    soft_skills: ["Communication"],
+    education: [{ degree: "MSc Computer Science", institution: "UCL", year: "2022" }],
+    experience: [{ role: "Backend Engineer", company: "Acme", start: "2022", end: "Present" }],
+    projects: [{ name: "Hiring API", summary: "Built a recruiting service" }],
+    achievements: ["Open-source contributor"],
+  },
+  attempts: 1,
+  analysed_at: "2026-06-03T12:00:00Z",
+  cv_label: "meets_threshold",
+  notice: "Scores and the explanation are generated automatically to support, not replace, a person's review.",
+  match: match === null ? null : {
+    score: 84.5,
+    skills_score: 90,
+    experience_score: 75,
+    education_score: 80,
+    semantic_score: 70,
+    matched_skills: ["Python", "Django"],
+    missing_skills: ["Kubernetes"],
+    experience_years: 4,
+    weights_used: { weight_skills: 50, weight_experience: 25, weight_education: 15, weight_semantic: 10 },
+    explanation: "Strong backend skills with relevant experience.",
+    explanation_is_ai_generated: true,
+    stale: false,
+    computed_at: "2026-06-03T12:00:00Z",
+    ...match,
+  },
+  ...overrides,
+});

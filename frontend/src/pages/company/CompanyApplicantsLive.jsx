@@ -13,6 +13,7 @@ import { jobsApi } from "@/api/jobsApi";
 import { useDebounced } from "@/hooks/useDebounced";
 import { useRemote } from "@/hooks/useRemote";
 import { APPLICATION_STATUSES, LIMITS, ORDERINGS, canChangeStatus, statusLabel, statusTone } from "@/lib/applicationMap";
+import { cvLabel, cvLabelTone, scoreText, scoreTone, validThreshold } from "@/lib/cvMap";
 import { relativeTime, formatDate } from "@/lib/candidateStats";
 import { EDUCATION_LEVELS } from "@/lib/jobMap";
 import { saveBlob } from "@/lib/download";
@@ -23,6 +24,12 @@ import { ROUTES } from "@/config/routes";
 const selectCls = "h-11 cursor-pointer rounded-xl border border-[var(--line)] bg-white px-3 text-[13px] font-semibold text-stone-600 outline-none hover:border-stone-300 focus:border-brand";
 const dateCls = "h-11 rounded-xl border border-[var(--line)] bg-white px-3 text-[13px] text-stone-600 outline-none hover:border-stone-300 focus:border-brand";
 
+/** The CV match score, as a badge. Nothing is shown until Module 6 has scored the CV. */
+function CvScore({ a }) {
+  if (a.cvScore == null) return null;
+  return <Badge tone={scoreTone(a.cvScore)}>{scoreText(a.cvScore)}% match</Badge>;
+}
+
 function BoardCard({ a, showJob }) {
   return (
     <Link to={`/company/candidates/${a.id}`} className="group block rounded-xl border border-[var(--line)] bg-white p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-sm">
@@ -32,6 +39,7 @@ function BoardCard({ a, showJob }) {
           <p className="truncate text-[13.5px] font-semibold text-ink">{a.name}</p>
           <p className="truncate text-[11.5px] text-stone-500">{showJob ? a.job?.title || "—" : a.institution}</p>
         </div>
+        <CvScore a={a} />
       </div>
       <p className="mt-2 text-[11.5px] text-stone-400">{relativeTime(a.submittedAt)} · {a.reference}</p>
     </Link>
@@ -82,6 +90,7 @@ function Applicants({ routeJobId }) {
   const [education, setEducation] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [minScore, setMinScore] = useState("");
   const [ordering, setOrdering] = useState("-submitted_at");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState([]);
@@ -93,7 +102,8 @@ function Applicants({ routeJobId }) {
 
   const jobs = useRemote((o) => jobsApi.list({ status: "all", pageSize: 100 }, o), []);
   const counts = useRemote((o) => applicationsApi.counts({ jobId, signal: o.signal }), [jobId, version]);
-  const filters = { jobId, educationLevel: education, submittedAfter: from, submittedBefore: to, search, ordering };
+  const scoreFilter = validThreshold(minScore) ? minScore : "";
+  const filters = { jobId, educationLevel: education, submittedAfter: from, submittedBefore: to, search, minCvScore: scoreFilter, ordering };
   const list = useRemote((o) => (view === "list" ? applicationsApi.list({ ...filters, status: tab, page, pageSize: LIMITS.pageSize }, o) : Promise.resolve(null)), [view, JSON.stringify(filters), tab, page, version]);
 
   if (isBlocked(counts.error) || isBlocked(list.error)) return <CompanyBlocked onRetry={() => setVersion((v) => v + 1)} />;
@@ -105,7 +115,7 @@ function Applicants({ routeJobId }) {
   const job = (jobs.data?.results || []).find((j) => j.id === jobId);
   const rows = list.data?.results || [];
   const pages = Math.max(1, Math.ceil((list.data?.count || 0) / LIMITS.pageSize));
-  const filtered = Boolean(search || education || from || to);
+  const filtered = Boolean(search || education || from || to || scoreFilter);
   const nothingYet = counts.data && !counts.error && c.total === 0 && !filtered;
   const refresh = () => setVersion((v) => v + 1);
   const reset = (setter) => (value) => {
@@ -173,6 +183,31 @@ function Applicants({ routeJobId }) {
     },
     ...(jobId ? [] : [{ key: "role", label: "Role", cell: (a) => <span className="truncate text-stone-600">{a.job?.title || "—"}</span> }]),
     { key: "education", label: "Education", cell: (a) => <span className="text-stone-600">{a.educationLabel}{a.institution ? ` · ${a.institution}` : ""}</span> },
+    {
+      key: "cv",
+      label: "CV match",
+      cell: (a) =>
+        a.cvScore == null && !a.cvLabel ? (
+          <span className="text-stone-400">—</span>
+        ) : (
+          <div className="flex min-w-0 flex-col items-start gap-1">
+            {a.cvScore != null &&
+              (a.job?.id ? (
+                <Link
+                  to={ROUTES.COMPANY.JOB_CV_ANALYSIS.replace(":id", a.job.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  title="Open the CV analysis for this role"
+                  className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+                >
+                  <Badge tone={scoreTone(a.cvScore)}>{scoreText(a.cvScore)}%</Badge>
+                </Link>
+              ) : (
+                <Badge tone={scoreTone(a.cvScore)}>{scoreText(a.cvScore)}%</Badge>
+              ))}
+            {a.cvLabel && <span className="text-[11.5px] text-stone-500">{cvLabel(a.cvLabel)}</span>}
+          </div>
+        ),
+    },
     { key: "status", label: "Status", cell: (a) => <Badge tone={statusTone(a.status)}>{statusLabel(a.status)}</Badge> },
     { key: "applied", label: "Applied", cell: (a) => <span className="whitespace-nowrap text-stone-600">{formatDate(a.submittedAt)}</span> },
     { key: "go", label: "", className: "text-right", cell: () => <ChevronRight size={16} className="ml-auto text-stone-300" /> },
@@ -188,6 +223,8 @@ function Applicants({ routeJobId }) {
           <div className="mt-2 flex flex-wrap gap-1.5">
             <Badge tone={statusTone(a.status)}>{statusLabel(a.status)}</Badge>
             <Badge tone="neutral">{a.educationLabel}</Badge>
+            <CvScore a={a} />
+            {a.cvLabel && <Badge tone={cvLabelTone(a.cvLabel)}>{cvLabel(a.cvLabel)}</Badge>}
           </div>
         </div>
       </Link>
@@ -254,6 +291,11 @@ function Applicants({ routeJobId }) {
         </label>
         <label className="flex items-center gap-1.5 text-[12.5px] text-stone-500">Applied from <input type="date" aria-label="Applied from" value={from} max={to || undefined} onChange={(e) => reset(setFrom)(e.target.value)} className={dateCls} /></label>
         <label className="flex items-center gap-1.5 text-[12.5px] text-stone-500">to <input type="date" aria-label="Applied to" value={to} min={from || undefined} onChange={(e) => reset(setTo)(e.target.value)} className={dateCls} /></label>
+        <label className="flex h-11 items-center gap-1.5 rounded-xl border border-[var(--line)] bg-white px-3 text-[12.5px] text-stone-500">
+          Min CV match
+          <input type="number" min="0" max="100" step="1" aria-label="Minimum CV match" value={minScore} onChange={(e) => reset(setMinScore)(e.target.value)} className="w-12 border-0 bg-transparent p-0 text-right text-[13px] text-ink outline-none" />
+          <span aria-hidden className="text-stone-400">%</span>
+        </label>
         {view === "list" && (
           <label>
             <span className="sr-only">Order by</span>
@@ -318,7 +360,7 @@ function Applicants({ routeJobId }) {
                   icon={SearchX}
                   title="No candidates match"
                   message="Try a different status, role or search."
-                  action={<button type="button" onClick={() => { setQuery(""); setEducation(""); setFrom(""); setTo(""); setTab(""); setPage(1); }} className="btn-secondary">Clear filters</button>}
+                  action={<button type="button" onClick={() => { setQuery(""); setEducation(""); setFrom(""); setTo(""); setMinScore(""); setTab(""); setPage(1); }} className="btn-secondary">Clear filters</button>}
                 />
               }
             />

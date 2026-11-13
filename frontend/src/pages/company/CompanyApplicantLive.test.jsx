@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { server } from "@/test/server";
-import { apiApplication, apiNote, detail, json, route } from "@/test/fixtures";
+import { apiApplication, apiCvAnalysis, apiNote, detail, json, route } from "@/test/fixtures";
 import { Where } from "@/test/utils";
 import { useAuthStore } from "@/store/authStore";
 import { useToastStore } from "@/store/toastStore";
@@ -15,7 +15,13 @@ const toasts = () => useToastStore.getState().toasts.map((t) => t.title);
 function mount({ memberRole = "admin", application = apiApplication(), handlers = [] } = {}) {
   setTokens({ access: "a", refresh: "r" });
   useAuthStore.setState({ isAuthenticated: true, isInitialized: true, user: { id: "u1", role: "company", status: "active", name: "Ali", email: "ali@acme.example", memberRole, companyStatus: "approved" } });
-  server.use(...handlers, route.get("/applications/app-1/", () => json(application)), route.get("/applications/app-1/interviews/", () => json([])));
+  server.use(
+    ...handlers,
+    route.get("/applications/app-1/", () => json(application)),
+    route.get("/applications/app-1/interviews/", () => json([])),
+    // Module 6's panel asks for this on every profile; "not analysed" is the neutral default.
+    route.get("/applications/app-1/cv-analysis/", () => detail(404, "This CV has not been analysed yet.", "not_analysed")),
+  );
   return render(
     <MemoryRouter initialEntries={["/company/candidates/app-1"]}>
       <Routes>
@@ -384,5 +390,80 @@ describe("CompanyApplicantLive: access", () => {
     fail = false;
     await userEvent.setup().click(screen.getByRole("button", { name: /try again/i }));
     expect(await screen.findByRole("heading", { name: /Sara Malik/ })).toBeInTheDocument();
+  });
+});
+
+describe("CompanyApplicantLive: the CV analysis panel (Module 6)", () => {
+  const analysed = (overrides) => [route.get("/applications/app-1/cv-analysis/", () => json(apiCvAnalysis(overrides)))];
+
+  it("shows the score, the four parts, the skill chips and the AI notice", async () => {
+    mount({ handlers: analysed() });
+    const panel = (await screen.findByRole("heading", { name: "CV analysis" })).closest("section");
+    expect(await within(panel).findByText("85%")).toBeInTheDocument();
+    expect(within(panel).getByText("Meets threshold")).toBeInTheDocument();
+    for (const part of ["Skills", "Experience", "Education", "Semantic fit"]) {
+      expect(within(panel).getByText(part)).toBeInTheDocument();
+    }
+    expect(within(panel).getByText("Matched skills")).toBeInTheDocument();
+    expect(within(panel).getByText("Kubernetes")).toBeInTheDocument();
+    expect(within(panel).getByText("Experience identified: 4 years")).toBeInTheDocument();
+    expect(within(panel).getByText("Strong backend skills with relevant experience.")).toBeInTheDocument();
+    expect(within(panel).getByText("AI-generated, for review by a person")).toBeInTheDocument();
+  });
+
+  it("hides what was read from the CV until it is asked for", async () => {
+    mount({ handlers: analysed() });
+    const panel = (await screen.findByRole("heading", { name: "CV analysis" })).closest("section");
+    await within(panel).findByText("85%");
+    expect(within(panel).queryByText("MSc Computer Science · UCL · 2022")).not.toBeInTheDocument();
+    await userEvent.setup().click(within(panel).getByRole("button", { name: /show what was read/i }));
+    expect(await within(panel).findByText("MSc Computer Science · UCL · 2022")).toBeInTheDocument();
+  });
+
+  it("says plainly when a CV has not been analysed, and offers to analyse it", async () => {
+    let hits = 0;
+    mount({ handlers: [route.post("/applications/app-1/cv-analysis/rerun/", () => (hits += 1, json({ detail: "Analysis queued." }, 202)))] });
+    const panel = (await screen.findByRole("heading", { name: "CV analysis" })).closest("section");
+    expect(await within(panel).findByText("This CV has not been analysed yet.")).toBeInTheDocument();
+    await userEvent.setup().click(within(panel).getByRole("button", { name: /analyse again/i }));
+    await waitFor(() => expect(hits).toBe(1));
+    await waitFor(() => expect(toasts()).toContain("Analysis queued"));
+  });
+
+  it("offers Retry beside a failure reason and reports a 409", async () => {
+    mount({
+      handlers: [
+        route.get("/applications/app-1/cv-analysis/", () => json(apiCvAnalysis({ status: "manual_review", failure_reason: "Scanned or unreadable CV", match: null }))),
+        route.post("/applications/app-1/cv-analysis/rerun/", () => detail(409, "This CV is being analysed right now.", "analysis_in_progress")),
+      ],
+    });
+    const panel = (await screen.findByRole("heading", { name: "CV analysis" })).closest("section");
+    expect(await within(panel).findByText("Scanned or unreadable CV")).toBeInTheDocument();
+    await userEvent.setup().click(within(panel).getAllByRole("button", { name: /analyse again/i })[0]);
+    expect(await within(panel).findByText("This CV is being analysed right now.")).toBeInTheDocument();
+  });
+
+  it("warns when the score predates the role's current requirements", async () => {
+    mount({ handlers: analysed({ match: { stale: true } }) });
+    const panel = (await screen.findByRole("heading", { name: "CV analysis" })).closest("section");
+    expect(await within(panel).findByText(/computed before the role's requirements or weights last changed/)).toBeInTheDocument();
+  });
+
+  it("gives a viewer no way to start an analysis", async () => {
+    const seen = [];
+    mount({ memberRole: "viewer", handlers: [
+      route.get("/applications/app-1/cv-analysis/", () => json(apiCvAnalysis({ status: "failed", failure_reason: "The model was unavailable.", match: null }))),
+      route.post("/applications/app-1/cv-analysis/rerun/", () => (seen.push("rerun"), json({}, 202))),
+    ] });
+    const panel = (await screen.findByRole("heading", { name: "CV analysis" })).closest("section");
+    expect(await within(panel).findByText("The model was unavailable.")).toBeInTheDocument();
+    expect(within(panel).queryByRole("button", { name: /analyse again/i })).not.toBeInTheDocument();
+    expect(seen).toEqual([]);
+  });
+
+  it("links to the role's full ranking", async () => {
+    mount({ handlers: analysed() });
+    const panel = (await screen.findByRole("heading", { name: "CV analysis" })).closest("section");
+    expect(within(panel).getByRole("link", { name: "Full ranking" })).toHaveAttribute("href", "/company/jobs/job-1/cv-analysis");
   });
 });

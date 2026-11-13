@@ -22,4 +22,14 @@ export const cvAnalysisApi = {
   analysis: (applicationId, { signal } = {}) => api.get(`/applications/${applicationId}/cv-analysis/`, { signal }),
   previewThreshold: (jobId, threshold) => api.post(`/jobs/${jobId}/shortlist/apply-threshold/`, { threshold, dry_run: true }),
   applyThreshold: (jobId, threshold) => api.post(`/jobs/${jobId}/shortlist/apply-threshold/`, { threshold }),
+
+  /**
+   * Begin CV screening for a job. `missing` (the default) reads CVs never analysed or failed,
+   * `full` reads every CV again, `rescore` recomputes scores from what was already read.
+   * Answers 202 `{ mode, queued }`; 409 `no_applications` when the job has none yet.
+   */
+  run: (jobId, mode = "missing") => api.post(`/jobs/${jobId}/cv-screening/run/`, { mode }),
+
+  /** Analyse one CV again. 202 on success; 409 `analysis_in_progress` while it is already running. */
+  rerun: (applicationId) => api.post(`/applications/${applicationId}/cv-analysis/rerun/`, undefined),
 };

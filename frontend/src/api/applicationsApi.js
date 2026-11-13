@@ -16,13 +16,14 @@ export const applicationsApi = {
    * One page of applications. With `jobId` it is that job's list (which also carries `statusCounts`);
    * without it, every application of the company (no counts: use `counts`).
    */
-  async list({ jobId = "", status = "", educationLevel = "", submittedAfter = "", submittedBefore = "", search = "", ordering = "", page = 1, pageSize = 20 } = {}, { signal } = {}) {
+  async list({ jobId = "", status = "", educationLevel = "", submittedAfter = "", submittedBefore = "", search = "", minCvScore = "", ordering = "", page = 1, pageSize = 20 } = {}, { signal } = {}) {
     const params = {
       status,
       education_level: educationLevel,
       submitted_after: dateParam(submittedAfter),
       submitted_before: dateParam(submittedBefore),
       search: search.trim(),
+      min_cv_score: minCvScore,
       ordering,
       page,
       page_size: pageSize,
