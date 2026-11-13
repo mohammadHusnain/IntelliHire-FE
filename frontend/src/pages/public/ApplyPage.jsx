@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { AlertCircle, CheckCircle2, Clock, Loader2, SearchX, WifiOff } from "lucide-react";
 import BrandLogo from "@/components/shared/BrandLogo";
 import ApplicationFormFields from "@/components/jobs/ApplicationFormFields";
@@ -155,6 +155,7 @@ export default function ApplyPage() {
             Thank you. {done.company} has your application for <span className="font-semibold text-ink">{done.job_title}</span>. We emailed you a confirmation.
           </p>
           <p className="mt-5 inline-block rounded-xl bg-stone-50 px-4 py-2 text-[14px] text-stone-600">Your reference: <span className="font-semibold tabular-nums text-ink">{done.reference}</span></p>
+          <p className="mt-4 text-[13px] text-stone-500">Your confirmation email includes a private tracking link. <Link to="/track/request-link" className="font-semibold text-brand hover:underline">Recover it by email</Link>.</p>
         </Panel>
       </Shell>
     );

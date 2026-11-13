@@ -16,6 +16,8 @@ export const ROUTES = {
   ACCEPT_INVITE: "/accept-invite",
   RESUBMIT_COMPANY: "/resubmit-company",
   APPLY: "/apply/:slug",
+  TRACK: "/track/:token",
+  TRACKING_LINK_REQUEST: "/track/request-link",
   UNAUTHORIZED: "/unauthorized",
 
   // Candidate
@@ -26,6 +28,8 @@ export const ROUTES = {
     INTERVIEW_SETUP: "/candidate/interview/setup",
     INTERVIEW_ROOM: "/candidate/interview/room",
     REPORT: "/candidate/report/:id",
+    APPLICATIONS: "/candidate/applications",
+    APPLICATION: "/candidate/applications/:id",
   },
 
   // Company

@@ -1,4 +1,4 @@
-import { FileBarChart2, Globe2, LayoutDashboard, Mic, Settings, UserRound } from "lucide-react";
+import { BriefcaseBusiness, FileBarChart2, Globe2, LayoutDashboard, Mic, Settings, UserRound } from "lucide-react";
 
 export const CANDIDATE_NAV = [
   {
@@ -7,6 +7,7 @@ export const CANDIDATE_NAV = [
       { to: "/candidate/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { to: "/candidate/interview/setup", label: "Interviews", icon: Mic, match: "/candidate/interview" },
       { to: "/candidate/reports", label: "Reports", icon: FileBarChart2, match: ["/candidate/reports", "/candidate/report/"], badge: "reports" },
+      { to: "/candidate/applications", label: "Applications", icon: BriefcaseBusiness, match: "/candidate/applications" },
     ],
   },
   {
@@ -24,6 +25,7 @@ export const PAGE_META = [
   { match: "/candidate/interview/setup", title: "New interview", parent: { label: "Interviews", to: "/candidate/interview/setup" } },
   { match: "/candidate/reports", title: "Reports" },
   { match: "/candidate/report/", title: "Report", parent: { label: "Reports", to: "/candidate/reports" } },
+  { match: "/candidate/applications", title: "Applications" },
   { match: "/candidate/profile", title: "Profile" },
   { match: "/candidate/communities", title: "Communities" },
   { match: "/candidate/settings", title: "Settings" },

@@ -46,7 +46,7 @@ function linkSignal(controller, signal) {
   return () => signal.removeEventListener("abort", abort);
 }
 
-async function fetchTransport({ url, method, headers, body, signal, timeoutMs, responseType }) {
+async function fetchTransport({ url, method, headers, body, signal, timeoutMs, responseType, referrerPolicy }) {
   const controller = new AbortController();
   let timedOut = false;
   const timer = timeoutMs > 0
@@ -57,7 +57,7 @@ async function fetchTransport({ url, method, headers, body, signal, timeoutMs, r
     : null;
   const unlink = linkSignal(controller, signal);
   try {
-    const response = await fetch(url, { method, headers, body, signal: controller.signal });
+    const response = await fetch(url, { method, headers, body, signal: controller.signal, ...(referrerPolicy ? { referrerPolicy } : {}) });
     // error bodies are always text, even when a file was expected, so the server message is not lost
     const payload = responseType === "blob" && response.ok ? await response.blob() : await response.text();
     return { status: response.status, ok: response.ok, headers: response.headers, payload };
@@ -159,11 +159,11 @@ function buildBody(body, headers) {
 }
 
 async function send(endpoint, options, accessToken) {
-  const { method = "GET", body, headers: extra = {}, auth = true, signal, timeoutMs = DEFAULT_TIMEOUT_MS, onProgress, responseType = "text" } = options;
+  const { method = "GET", body, headers: extra = {}, auth = true, signal, timeoutMs = DEFAULT_TIMEOUT_MS, onProgress, responseType = "text", referrerPolicy } = options;
   const headers = { Accept: "application/json", ...extra };
   const payload = buildBody(body, headers);
   if (auth && accessToken) headers.Authorization = `Bearer ${accessToken}`;
-  const args = { url: `${BASE_URL}${endpoint}`, method, headers, body: payload, signal, timeoutMs, responseType, onProgress };
+  const args = { url: `${BASE_URL}${endpoint}`, method, headers, body: payload, signal, timeoutMs, responseType, onProgress, referrerPolicy };
   return onProgress ? xhrTransport(args) : fetchTransport(args);
 }
 

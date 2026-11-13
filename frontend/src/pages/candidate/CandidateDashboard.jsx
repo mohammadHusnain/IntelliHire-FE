@@ -13,6 +13,7 @@ import {
 import { DIMENSION_LABEL, verdictFor } from "@/lib/interview/evaluate";
 import { categoryOf } from "@/lib/interview/questionBank";
 import { useVisibleCommunities } from "@/store/communityStore";
+import CandidateApplicationOverview from "@/components/candidate/CandidateApplicationOverview";
 
 const FOCUS_TIPS = {
   communication: { title: "Tighten your delivery", text: "Aim for 60 to 120 seconds per answer: headline first, then detail.", type: "general" },
@@ -191,6 +192,8 @@ export default function CandidateDashboard() {
       </div>
 
       {!hasHistory && <Onboarding profile={profile} />}
+
+      <CandidateApplicationOverview />
 
       {hasHistory && (
         <>

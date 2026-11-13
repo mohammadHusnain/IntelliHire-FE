@@ -22,6 +22,7 @@ const ResetPasswordPage = lazy(() => import("@/pages/public/ResetPasswordPage"))
 const AcceptInvitePage = lazy(() => import("@/pages/public/AcceptInvitePage"));
 const ResubmitCompanyPage = lazy(() => import("@/pages/public/ResubmitCompanyPage"));
 const ApplyPage = lazy(() => import("@/pages/public/ApplyPage"));
+const TrackingPage = lazy(() => import("@/pages/public/TrackingPage"));
 const NotFoundPage = lazy(() => import("@/pages/public/NotFoundPage"));
 const UnauthorizedPage = lazy(() => import("@/pages/public/UnauthorizedPage"));
 
@@ -34,6 +35,7 @@ const InterviewRoom = lazy(() => import("@/pages/candidate/InterviewRoom"));
 const InterviewReport = lazy(() => import("@/pages/candidate/InterviewReport"));
 const CandidateCommunities = lazy(() => import("@/pages/candidate/CandidateCommunities"));
 const CandidateSettings = lazy(() => import("@/pages/candidate/CandidateSettings"));
+const CandidateApplications = lazy(() => import("@/pages/candidate/CandidateApplications"));
 
 // Company
 const CompanyPending = lazy(() => import("@/pages/company/CompanyPending"));
@@ -85,6 +87,8 @@ function App() {
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/accept-invite" element={<AcceptInvitePage />} />
             <Route path="/apply/:slug" element={<ApplyPage />} />
+            <Route path="/track/request-link" element={<TrackingPage />} />
+            <Route path="/track/:token" element={<TrackingPage />} />
             <Route path="/interview/:token" element={<InterviewRoom />} />
             <Route path="/resubmit-company" element={<GuestRoute><ResubmitCompanyPage /></GuestRoute>} />
             <Route path="/unauthorized" element={<UnauthorizedPage />} />
@@ -99,6 +103,8 @@ function App() {
                   <Route path="/candidate/reports" element={<CandidateReports />} />
                   <Route path="/candidate/interview/setup" element={<InterviewSetup />} />
                   <Route path="/candidate/report/:id" element={<InterviewReport />} />
+                  <Route path="/candidate/applications" element={<CandidateApplications />} />
+                  <Route path="/candidate/applications/:id" element={<CandidateApplications />} />
                   <Route path="/candidate/communities" element={<CandidateCommunities />} />
                   <Route path="/candidate/settings" element={<CandidateSettings />} />
                   <Route path="/candidate" element={<Navigate to="/candidate/dashboard" replace />} />
