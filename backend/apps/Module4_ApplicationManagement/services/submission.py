@@ -7,9 +7,12 @@ from rest_framework.exceptions import NotFound
 
 from apps.Module3_JobPosting.models import JobPosting, JobStatus
 from apps.Module3_JobPosting.services.form import CLOSED_MESSAGE
+from apps.common.choices import MemberRole, UserStatus
 from apps.common.errors import ApiError, violated_constraint
 from apps.common.storage import private_storage
 from apps.Module5_Foundation.events import log_event
+from apps.Module5_Foundation.notifications import notify_many, preference_enabled_user_ids
+from apps.Module2_CompanyManagement.models import CompanyMember
 
 from .. import emails
 from ..models import Application, ApplicationFile, ApplicationStatus, ApplicationStatusChange, StatusChangeSource
@@ -111,6 +114,21 @@ def _attempt(job_id, data, files, candidate, ip_address, user_agent, written):
             source=StatusChangeSource.SYSTEM,
         )  # fmt: skip
         application_submitted.send_robust(sender=Application, application=application)
+        company_user_ids = CompanyMember.objects.filter(
+            company_id=job.company_id,
+            is_active=True,
+            role__in=(MemberRole.ADMIN, MemberRole.HR_MANAGER, MemberRole.RECRUITER),
+            user__status=UserStatus.ACTIVE,
+        ).values_list("user_id", flat=True)
+        enabled_company_users = preference_enabled_user_ids(company_user_ids, "notify_applicants", default=True)
+        notify_many(
+            enabled_company_users,
+            "new_applicant",
+            f"New applicant: {job.title}",
+            f"{application.full_name} applied for {job.title}.",
+            link=f"/company/candidates/{application.pk}",
+            payload={"application_id": str(application.pk), "job_id": str(job.pk)},
+        )
         log_event(
             "application.submitted", company=job.company_id, target=application,
             summary=f"Application submitted for {job.title}", metadata={"reference": application.reference},

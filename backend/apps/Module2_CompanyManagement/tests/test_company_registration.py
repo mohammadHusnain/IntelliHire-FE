@@ -8,6 +8,7 @@ from apps.Module1_Authentication.models import User
 from apps.common.choices import CompanyStatus
 from apps.common.tests.helpers import link_in
 from apps.Module2_CompanyManagement.models import Company, CompanyMember
+from apps.Module5_Foundation.models import Notification
 
 pytestmark = pytest.mark.django_db
 URL = "/api/auth/register/company/"
@@ -55,6 +56,12 @@ def test_tc03_sign_up_creates_user_company_and_admin_member_and_sends_two_emails
     assert subjects == {"Verify your IntelliHire email", "IntelliHire registration received"}
     received = next(m for m in mail.outbox if "received" in m.subject)
     assert "Acme Software" in received.body
+
+
+def test_company_registration_notifies_active_platform_admins(api_client, platform_admin, django_capture_on_commit_callbacks):
+    register(api_client, django_capture_on_commit_callbacks)
+    notification = Notification.objects.get(user=platform_admin, kind="company_pending_approval")
+    assert notification.link == "/admin/companies" and "Acme Software" in notification.title
 
 
 def test_tc03_login_is_refused_until_the_email_is_verified_and_the_company_approved(api_client, django_capture_on_commit_callbacks):

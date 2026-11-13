@@ -8,7 +8,7 @@ from apps.common.choices import UserStatus
 from apps.common.errors import ApiError
 from apps.common.mail import send_email_on_commit
 from apps.Module5_Foundation.events import log_event
-from apps.Module5_Foundation.notifications import notify_many
+from apps.Module5_Foundation.notifications import notify_many, preference_enabled_user_ids
 
 from ..models import CommunityMembership, CommunityPost, MembershipStatus, NotifyState, PostResponse, PostStatus
 from . import core
@@ -62,12 +62,16 @@ def notify_next_batch(post_id):
             CommunityMembership.objects.filter(community=community, status=MembershipStatus.ACTIVE, pk__gt=post.notify_cursor).select_related("user").order_by("pk")[:BATCH_SIZE]
         )
         active = [m.user for m in batch if m.user.status == UserStatus.ACTIVE]
-        notify_many([u.pk for u in active], "community_post", f"New in {community.name}: {post.title}", post.body[:200], link=core.candidate_link(community), payload={"community_id": str(community.pk), "post_id": str(post.pk)})
+        active_ids = [u.pk for u in active]
+        notice_ids = preference_enabled_user_ids(active_ids, "in_app_communities", default=True)
+        email_ids = preference_enabled_user_ids(active_ids, "email_communities", default=False)
+        notify_many(notice_ids, "community_post", f"New in {community.name}: {post.title}", post.body[:200], link=core.candidate_link(community), payload={"community_id": str(community.pk), "post_id": str(post.pk)})
         for user in active:
-            send_email_on_commit(
-                to=user.email, subject=f"New in {community.name}: {post.title}",
-                body=f"Hello {user.full_name},\n\n{community.company.name} posted in {community.name}:\n\n{post.title}\n{post.body[:500]}\n\nOpen your communities to read more or respond.\n", kind="community_post",
-            )
+            if user.pk in email_ids:
+                send_email_on_commit(
+                    to=user.email, subject=f"New in {community.name}: {post.title}",
+                    body=f"Hello {user.full_name},\n\n{community.company.name} posted in {community.name}:\n\n{post.title}\n{post.body[:500]}\n\nOpen your communities to read more or respond.\n", kind="community_post",
+                )
         more = len(batch) == BATCH_SIZE
         CommunityPost.objects.filter(pk=post.pk).update(notify_cursor=batch[-1].pk if batch else post.notify_cursor, notify_state=NotifyState.PENDING if more else NotifyState.DONE)
     return more

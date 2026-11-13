@@ -11,7 +11,7 @@ from apps.common.errors import ApiError
 from apps.common.mail import send_email_on_commit
 from apps.Module2_CompanyManagement.models import CompanyMember
 from apps.Module5_Foundation.events import log_event
-from apps.Module5_Foundation.notifications import notify, notify_many
+from apps.Module5_Foundation.notifications import notify, notify_many, notify_platform_admins, preference_enabled_user_ids
 
 from ..models import (
     Community,
@@ -56,6 +56,14 @@ def recount(community):
     Community.objects.filter(pk=community.pk).update(member_count=count)
     community.member_count = count
     return count
+
+
+def _community_notice_ids(user_ids):
+    return preference_enabled_user_ids(user_ids, "in_app_communities", default=True)
+
+
+def _community_email_ids(user_ids):
+    return preference_enabled_user_ids(user_ids, "email_communities", default=False)
 
 
 # --- Communities -------------------------------------------------------------------------------------------------
@@ -108,12 +116,15 @@ def remove(community, user, reason):
         members = list(CommunityMembership.objects.filter(community=community, status=MembershipStatus.ACTIVE).select_related("user"))
         CommunityInvitation.objects.filter(community=community, status=InvitationStatus.PENDING).update(status=InvitationStatus.REVOKED, responded_at=timezone.now())
         CommunityJoinRequest.objects.filter(community=community, status="pending").update(status=RequestStatus.REJECTED, reviewed_at=timezone.now(), decision_reason="This community was removed.")
-        notify_many([m.user_id for m in members], "community_removed", f"{community.name} is no longer available", "", payload={"community_id": str(community.pk)})
+        member_ids = [m.user_id for m in members]
+        notify_many(_community_notice_ids(member_ids), "community_removed", f"{community.name} is no longer available", "", payload={"community_id": str(community.pk)})
+        email_ids = _community_email_ids(member_ids)
         for member in members:
-            send_email_on_commit(
-                to=member.user.email, subject=f"{community.name} is no longer available",
-                body=f"Hello {member.user.full_name},\n\nThe community {community.name} by {community.company.name} has been closed and is no longer available.\n", kind="community_removed",
-            )
+            if member.user_id in email_ids:
+                send_email_on_commit(
+                    to=member.user.email, subject=f"{community.name} is no longer available",
+                    body=f"Hello {member.user.full_name},\n\nThe community {community.name} by {community.company.name} has been closed and is no longer available.\n", kind="community_removed",
+                )
         log_event("community.removed", actor=user, company=community.company_id, target=community, summary="Community removed", metadata={"members": len(members)})
 
 
@@ -146,11 +157,13 @@ def remove_member(community, user_id, staff, reason):
         membership.status, membership.removed_by, membership.removed_at, membership.removed_reason = MembershipStatus.REMOVED, staff, timezone.now(), reason[:500]
         membership.save()
         recount(community)
-        notify(membership.user, "community_member_removed", f"You were removed from {community.name}", reason[:500], payload={"community_id": str(community.pk)})
-        send_email_on_commit(
-            to=membership.user.email, subject=f"You were removed from {community.name}",
-            body=f"Hello {membership.user.full_name},\n\nYou are no longer a member of {community.name} by {community.company.name}.\nReason: {reason}\n", kind="community_member_removed",
-        )
+        if membership.user_id in _community_notice_ids([membership.user_id]):
+            notify(membership.user, "community_member_removed", f"You were removed from {community.name}", reason[:500], payload={"community_id": str(community.pk)})
+        if membership.user_id in _community_email_ids([membership.user_id]):
+            send_email_on_commit(
+                to=membership.user.email, subject=f"You were removed from {community.name}",
+                body=f"Hello {membership.user.full_name},\n\nYou are no longer a member of {community.name} by {community.company.name}.\nReason: {reason}\n", kind="community_member_removed",
+            )
         log_event("community.member_removed", actor=staff, company=community.company_id, target=community, summary="Member removed")
 
 
@@ -185,6 +198,10 @@ def join(community, user, message=""):
     except IntegrityError:
         raise ApiError("You already have a request waiting for review.", "request_pending", 409) from None
     notify_many(staff_of(community), "community_join_request", f"New join request: {community.name}", f"{user.full_name} asked to join.", link=staff_link(community), payload={"community_id": str(community.pk)})
+    notify_platform_admins(
+        "community_join_request", f"New join request: {community.name}", f"{user.full_name} asked to join {community.name}.",
+        link="/admin/communities", payload={"community_id": str(community.pk), "request_id": str(request.pk)},
+    )
     return request, True
 
 
@@ -196,11 +213,13 @@ def approve(request, staff):
         community = request.community
         add_member(community, request.user, MembershipSource.REQUEST)
         CommunityJoinRequest.objects.filter(pk=request.pk).update(reviewed_by=staff)
-        notify(request.user, "community_join_approved", f"You joined {community.name}", link=candidate_link(community), payload={"community_id": str(community.pk)})
-        send_email_on_commit(
-            to=request.user.email, subject=f"Welcome to {community.name}",
-            body=f"Hello {request.user.full_name},\n\nYour request to join {community.name} by {community.company.name} was approved.\n", kind="community_join_approved",
-        )
+        if request.user_id in _community_notice_ids([request.user_id]):
+            notify(request.user, "community_join_approved", f"You joined {community.name}", link=candidate_link(community), payload={"community_id": str(community.pk)})
+        if request.user_id in _community_email_ids([request.user_id]):
+            send_email_on_commit(
+                to=request.user.email, subject=f"Welcome to {community.name}",
+                body=f"Hello {request.user.full_name},\n\nYour request to join {community.name} by {community.company.name} was approved.\n", kind="community_join_approved",
+            )
         log_event("community.request_approved", actor=staff, company=community.company_id, target=community, summary="Join request approved")
 
 
@@ -211,7 +230,8 @@ def reject(request, staff, reason):
     if not won:
         raise ApiError("This request was already decided.", "already_decided", 409)
     community = request.community
-    notify(request.user, "community_join_rejected", f"Your request to join {community.name} was not approved", reason[:500], payload={"community_id": str(community.pk)})
+    if request.user_id in _community_notice_ids([request.user_id]):
+        notify(request.user, "community_join_rejected", f"Your request to join {community.name} was not approved", reason[:500], payload={"community_id": str(community.pk)})
     log_event("community.request_rejected", actor=staff, company=community.company_id, target=community, summary="Join request rejected")
 
 
@@ -232,11 +252,13 @@ def invite(community, staff, user, message=""):
             )
     except IntegrityError:
         raise ApiError("This candidate already has a pending invitation.", "already_invited", 409) from None
-    notify(user, "community_invitation", f"You are invited to {community.name}", message[:500], link=candidate_link(community), payload={"community_id": str(community.pk), "invitation_id": str(invitation.pk)})
-    send_email_on_commit(
-        to=user.email, subject=f"You are invited to join {community.name}",
-        body=f"Hello {user.full_name},\n\n{community.company.name} invited you to join the community {community.name}.\n{message}\n\nThe invitation is valid for {INVITATION_DAYS} days.\n", kind="community_invitation",
-    )
+    if user.pk in _community_notice_ids([user.pk]):
+        notify(user, "community_invitation", f"You are invited to {community.name}", message[:500], link=candidate_link(community), payload={"community_id": str(community.pk), "invitation_id": str(invitation.pk)})
+    if user.pk in _community_email_ids([user.pk]):
+        send_email_on_commit(
+            to=user.email, subject=f"You are invited to join {community.name}",
+            body=f"Hello {user.full_name},\n\n{community.company.name} invited you to join the community {community.name}.\n{message}\n\nThe invitation is valid for {INVITATION_DAYS} days.\n", kind="community_invitation",
+        )
     log_event("community.invited", actor=staff, company=community.company_id, target=community, summary="Candidate invited")
     return invitation, check_eligibility(user, community)
 

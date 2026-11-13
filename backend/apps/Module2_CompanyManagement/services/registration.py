@@ -7,6 +7,7 @@ from apps.Module1_Authentication.services import authenticate_password, derive_s
 from apps.Module1_Authentication.validators import EMAIL_TAKEN
 from apps.common.choices import CompanyStatus, MemberRole, UserRole, UserStatus
 from apps.Module5_Foundation.events import log_event
+from apps.Module5_Foundation.notifications import notify_platform_admins
 from apps.common.errors import ApiError, violated_constraint
 
 from .. import emails
@@ -35,6 +36,10 @@ def register_company_admin(*, company_name, industry, official_email, admin_full
             )
             CompanyMember.objects.create(company=company, user=user, role=MemberRole.ADMIN)
             log_event("company.registered", actor=user, company=company, target=company, summary=f"Company registered: {company.name}")
+            notify_platform_admins(
+                "company_pending_approval", f"{company.name} is awaiting approval", f"Registered by {official_email}.",
+                link="/admin/companies", payload={"company_id": str(company.pk)},
+            )
             account_emails.send_verification_email(user)
             emails.send_registration_received_email(user, company)
             emails.send_new_company_to_platform_admins(company)
@@ -77,6 +82,10 @@ def resubmit_company(*, official_email, password, company_name, industry, admin_
             user.full_name = admin_full_name
             user.status = derive_status(user)
             user.save(update_fields=["full_name", "status"])
+            notify_platform_admins(
+                "company_pending_approval", f"{company.name} is awaiting approval", f"Registration resubmitted by {official_email}.",
+                link="/admin/companies", payload={"company_id": str(company.pk)},
+            )
             emails.send_company_resubmitted_to_platform_admins(company)
     except IntegrityError as exc:
         if "name" in violated_constraint(exc) or "slug" in violated_constraint(exc):

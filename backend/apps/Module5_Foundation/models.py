@@ -47,6 +47,20 @@ class Notification(models.Model):
         return f"{self.kind} -> {self.user_id}"
 
 
+class NotificationPreference(models.Model):
+    """Supported notification controls for one authenticated candidate or company user."""
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notification_preferences")
+    email_communities = models.BooleanField(default=False)
+    in_app_reminders = models.BooleanField(default=True)
+    in_app_communities = models.BooleanField(default=True)
+    notify_applicants = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Notification preferences for {self.user_id}"
+
+
 # --- Email outbox -----------------------------------------------------------------------------------------------
 class EmailStatus(models.TextChoices):
     QUEUED = "queued", "Queued"

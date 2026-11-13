@@ -14,6 +14,7 @@ from apps.common.tests.helpers import make_image
 from apps.Module3_JobPosting.models import JobPosting
 from apps.Module4_ApplicationManagement.models import Application, ApplicationFile, ApplicationStatusChange
 from apps.Module4_ApplicationManagement.services import submission
+from apps.Module5_Foundation.models import Notification, NotificationPreference
 
 from .conftest import full_answers
 from .helpers import app_url, apply_url, docx, form, pdf, stored_files
@@ -47,6 +48,15 @@ class TestTC17Submit:
     def test_no_account_is_needed(self, api_client, open_job):
         api_client.credentials()
         assert post(api_client, open_job).status_code == 201
+
+    def test_submission_notifies_active_recruiting_members_who_have_not_opted_out(self, api_client, open_job, team):
+        _, users = team
+        NotificationPreference.objects.create(user=users[MemberRole.ADMIN], notify_applicants=False)
+        assert post(api_client, open_job).status_code == 201
+        assert not Notification.objects.filter(user=users[MemberRole.ADMIN], kind="new_applicant").exists()
+        assert Notification.objects.filter(user=users[MemberRole.HR_MANAGER], kind="new_applicant").exists()
+        assert Notification.objects.filter(user=users[MemberRole.RECRUITER], kind="new_applicant").exists()
+        assert not Notification.objects.filter(user=users[MemberRole.VIEWER], kind="new_applicant").exists()
 
     def test_a_bad_bearer_token_does_not_break_a_public_submission(self, api_client, open_job):
         api_client.credentials(HTTP_AUTHORIZATION="Bearer garbage")

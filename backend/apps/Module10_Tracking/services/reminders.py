@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from apps.common.choices import CompanyStatus
 from apps.Module5_Foundation.events import log_event
-from apps.Module5_Foundation.notifications import notify
+from apps.Module5_Foundation.notifications import notify, preference_enabled_user_ids
 from apps.Module7_Interviews.models import InterviewSession, SessionStatus
 from apps.Module7_Interviews.services import links
 
@@ -43,7 +43,9 @@ def send_due():
             if not won:
                 continue
             emails.send_interview_reminder(session, raw)
-            if session.candidate_user_id:
+            if session.candidate_user_id and session.candidate_user_id in preference_enabled_user_ids(
+                [session.candidate_user_id], "in_app_reminders", default=True
+            ):
                 notify(session.candidate_user, "interview_reminder", f"Reminder: interview for {session.role_title}", "Your interview link expires soon. Check your email.")
             log_event(
                 "interview.reminded", company=session.application.job.company_id, target=session, summary="Interview reminder sent",

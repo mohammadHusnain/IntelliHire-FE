@@ -3,6 +3,7 @@ from django.core import mail
 
 from apps.common.choices import CompanyStatus, MemberRole, UserRole, UserStatus
 from apps.Module2_CompanyManagement.models import Company, CompanyMember
+from apps.Module5_Foundation.models import Notification
 
 pytestmark = pytest.mark.django_db
 URL = "/api/auth/register/company/resubmit/"
@@ -43,6 +44,7 @@ def test_resubmit_returns_company_to_pending_and_notifies_platform_admins(api_cl
     assert Company.objects.count() == 1 and CompanyMember.objects.count() == 1
     assert [m.to for m in mail.outbox] == [[platform_admin.email]]
     assert "resubmitted" in mail.outbox[0].subject.lower() and "/admin/companies" in mail.outbox[0].body
+    assert Notification.objects.filter(user=platform_admin, kind="company_pending_approval", link="/admin/companies").exists()
 
 
 def test_resubmitted_company_appears_in_review_queue_and_can_be_approved(api_client, auth_client, rejected, platform_admin):

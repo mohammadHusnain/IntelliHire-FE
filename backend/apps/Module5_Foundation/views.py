@@ -1,20 +1,24 @@
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, OpenApiResponse, extend_schema
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.generics import GenericAPIView, ListAPIView
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
 from apps.common.errors import ApiError
 
-from .models import Notification
-from .serializers import CountSerializer, ErrorSerializer, NotificationSerializer
+from apps.common.choices import UserRole
+
+from .models import Notification, NotificationPreference
+from .serializers import CountSerializer, ErrorSerializer, NotificationPreferenceSerializer, NotificationSerializer
 
 TRUE, FALSE = {"true", "1"}, {"false", "0"}
 
 UNAUTHORIZED = OpenApiResponse(ErrorSerializer, description="Missing, expired or invalid access token, or the account is not active.")
 THROTTLED = OpenApiResponse(ErrorSerializer, description="More than 120 requests per minute from this user.")
 NOT_FOUND = OpenApiResponse(ErrorSerializer, description="No such notification for this user. Another user's notification looks exactly the same.")
+FORBIDDEN = OpenApiResponse(ErrorSerializer, description="This account role cannot access notification preferences.")
 ROW_EXAMPLE = {
     "id": "0b1f6c1e-6a5e-4a54-9a64-3a7f3c3b5f10",
     "kind": "interview_invited",
@@ -119,3 +123,40 @@ class MarkAllReadView(_Mine, GenericAPIView):
     def post(self, request):
         count = self.get_queryset().filter(read_at__isnull=True).update(read_at=timezone.now())
         return Response({"count": count})
+
+
+class NotificationPreferencesView(GenericAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = NotificationPreferenceSerializer
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "notifications"
+
+    def get_object(self):
+        if self.request.user.role not in (UserRole.CANDIDATE, UserRole.COMPANY_ADMIN, UserRole.HR):
+            raise PermissionDenied("Notification preferences are available to candidates and company users only.")
+
+        preference, _ = NotificationPreference.objects.get_or_create(user=self.request.user)
+        return preference
+
+    @extend_schema(
+        summary="Read my supported notification preferences",
+        description="Candidates receive community email, reminder in-app and community in-app preferences. Company users receive the new-applicant preference.",
+        request=None,
+        responses={200: NotificationPreferenceSerializer, 401: UNAUTHORIZED, 403: FORBIDDEN, 429: THROTTLED},
+    )
+    def get(self, request):
+        preference = self.get_object()
+        return Response(self.get_serializer(preference).data)
+
+    @extend_schema(
+        summary="Update my supported notification preferences",
+        description="Candidates can update community email, reminder in-app and community in-app preferences. Company users can update new-applicant notifications. Fields for another role are rejected.",
+        request=NotificationPreferenceSerializer,
+        responses={200: NotificationPreferenceSerializer, 400: ErrorSerializer, 401: UNAUTHORIZED, 403: FORBIDDEN, 429: THROTTLED},
+    )
+    def patch(self, request):
+        preference = self.get_object()
+        serializer = self.get_serializer(preference, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)

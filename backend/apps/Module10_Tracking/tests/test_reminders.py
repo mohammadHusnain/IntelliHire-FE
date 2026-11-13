@@ -7,7 +7,7 @@ from django.db import connection
 from django.utils import timezone
 
 from apps.common.choices import CompanyStatus, MemberRole
-from apps.Module5_Foundation.models import ActivityEvent, Notification, OutboundEmail
+from apps.Module5_Foundation.models import ActivityEvent, Notification, NotificationPreference, OutboundEmail
 from apps.Module7_Interviews.models import InterviewSession
 from apps.Module7_Interviews.services import links
 
@@ -66,6 +66,14 @@ class TestReminders:
         reminders.send_due()
         notification = Notification.objects.get(user=candidate, kind="interview_reminder")
         assert session.raw_token not in notification.body and "interview/" not in notification.body + notification.link
+
+    def test_a_candidate_can_opt_out_of_in_app_reminders_but_still_receives_the_transactional_email(self, session_factory, application, user_factory):
+        candidate = user_factory()
+        NotificationPreference.objects.create(user=candidate, in_app_reminders=False)
+        session_factory(application, status="invited", expires_at=soon(10), candidate_user=candidate)
+        assert reminders.send_due() == 1
+        assert not Notification.objects.filter(user=candidate, kind="interview_reminder").exists()
+        assert OutboundEmail.objects.filter(kind="interview_reminder").exists()
 
     def test_technical_interviews_are_reminded_too(self, session_factory, application):
         session_factory(application, kind="technical", status="invited", expires_at=soon(10))

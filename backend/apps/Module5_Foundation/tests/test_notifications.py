@@ -3,7 +3,7 @@ import uuid
 import pytest
 from django.db import IntegrityError, transaction
 
-from apps.Module5_Foundation.models import Notification
+from apps.Module5_Foundation.models import Notification, NotificationPreference
 from apps.Module5_Foundation.notifications import notify, notify_many
 
 pytestmark = pytest.mark.django_db
@@ -157,3 +157,44 @@ class TestApi:
 
     def test_anonymous_callers_get_401(self, api_client):
         assert api_client.get(URL).status_code == 401
+
+
+class TestPreferencesApi:
+    url = f"{URL}preferences/"
+
+    def test_candidate_defaults_match_the_supported_settings(self, me):
+        response = me[1].get(self.url)
+        assert response.status_code == 200
+        assert response.json() == {"email_communities": False, "in_app_reminders": True, "in_app_communities": True}
+
+    def test_candidate_can_update_only_candidate_preferences(self, me):
+        response = me[1].patch(self.url, {"email_communities": True, "in_app_reminders": False}, format="json")
+        assert response.status_code == 200
+        assert response.json() == {"email_communities": True, "in_app_reminders": False, "in_app_communities": True}
+        assert NotificationPreference.objects.get(user=me[0]).email_communities is True
+
+    def test_wrong_role_fields_are_rejected_without_partial_update(self, me):
+        response = me[1].patch(self.url, {"in_app_communities": False, "notify_applicants": False}, format="json")
+        assert response.status_code == 400 and "notify_applicants" in response.json()
+        assert NotificationPreference.objects.get(user=me[0]).in_app_communities is True
+
+    def test_company_defaults_and_updates_are_scoped_to_the_company_user(self, member_factory, auth_client):
+        from apps.common.choices import MemberRole
+
+        user = member_factory(MemberRole.ADMIN)
+        client = auth_client(user)
+        assert client.get(self.url).json() == {"notify_applicants": True}
+        assert client.patch(self.url, {"notify_applicants": False}, format="json").json() == {"notify_applicants": False}
+        assert client.patch(self.url, {"email_communities": True}, format="json").status_code == 400
+
+    def test_preferences_are_private_and_platform_admins_cannot_access_them(self, me, user_factory, auth_client):
+        from apps.common.choices import UserRole
+
+        other = user_factory()
+        client = auth_client(other)
+        assert client.get(self.url).json() == {"email_communities": False, "in_app_reminders": True, "in_app_communities": True}
+        admin = auth_client(user_factory(role=UserRole.PLATFORM_ADMIN))
+        assert admin.get(self.url).status_code == 403
+
+    def test_anonymous_callers_get_401(self, api_client):
+        assert api_client.get(self.url).status_code == 401

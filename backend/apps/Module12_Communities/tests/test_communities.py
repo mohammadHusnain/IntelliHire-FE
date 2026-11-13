@@ -9,7 +9,7 @@ from django.db import connection
 from django.utils import timezone
 
 from apps.common.choices import CompanyStatus, MemberRole
-from apps.Module5_Foundation.models import ActivityEvent, Notification, OutboundEmail
+from apps.Module5_Foundation.models import ActivityEvent, Notification, NotificationPreference, OutboundEmail
 
 from .. import tasks
 from ..models import Community, CommunityInvitation, CommunityJoinRequest, CommunityMembership, CommunityPost
@@ -25,6 +25,10 @@ def join(client, community, **body):
 
 def make_member(community, user):
     return core.add_member(community, user, "request")
+
+
+def opt_into_community_emails(users):
+    NotificationPreference.objects.bulk_create([NotificationPreference(user=user, email_communities=True) for user in users])
 
 
 class TestEligibility:
@@ -137,6 +141,7 @@ class TestStaff:
 
     def test_removing_marks_it_removed_emails_each_member_once_and_deletes_nothing(self, clients, community, make_candidate):
         members = [make_candidate() for _ in range(2)]
+        opt_into_community_emails(members)
         for m in members:
             make_member(community, m)
         assert clients[MemberRole.ADMIN].delete(f"{STAFF}{community.pk}/", {"reason": "Closing the programme"}, format="json").status_code == 204
@@ -200,6 +205,12 @@ class TestJoin:
         assert Notification.objects.filter(kind="community_join_request").count() == 2  # admin and HR manager
         assert client.get(f"{CAND}communities/").json()["results"][0]["state"] == "pending_request"
 
+    def test_join_request_creates_a_platform_admin_notification(self, me, community, user_factory):
+        platform_admin = user_factory(role="platform_admin")
+        join(me[1], community)
+        notification = Notification.objects.get(user=platform_admin, kind="community_join_request")
+        assert notification.link == "/admin/communities" and str(community.pk) == notification.payload["community_id"]
+
     def test_an_ineligible_candidate_gets_200_and_the_stored_reasons(self, make_candidate, auth_client, community):
         client = auth_client(make_candidate(institution="Other"))
         response = join(client, community)
@@ -241,6 +252,7 @@ class TestReview:
 
     def test_approving_creates_the_membership_updates_the_count_and_tells_the_candidate(self, me, community, clients):
         request = self.pending(me, community)
+        NotificationPreference.objects.create(user=me[0], email_communities=True)
         response = clients[MemberRole.HR_MANAGER].post(f"{STAFF}{community.pk}/join-requests/{request.pk}/approve/")
         assert response.status_code == 200 and response.json()["status"] == "approved"
         community.refresh_from_db()
@@ -297,10 +309,18 @@ class TestInvitations:
 
     def test_inviting_notifies_emails_and_works_even_for_an_ineligible_candidate_with_a_warning(self, clients, community, make_candidate):
         user = make_candidate(institution="Other", skills=[])
+        NotificationPreference.objects.create(user=user, email_communities=True)
         response = self.invite(clients, community, user, message="Join us")
         assert response.status_code == 201 and response.json()["eligibility"]["eligible"] is False and response.json()["eligibility"]["reasons"]
         assert Notification.objects.filter(user=user, kind="community_invitation").exists() and OutboundEmail.objects.filter(kind="community_invitation", to_email=user.email).exists()
         assert 13 < (CommunityInvitation.objects.get().expires_at - timezone.now()).days + 1 <= 14
+
+    def test_a_candidate_can_opt_out_of_community_invitation_email_and_in_app_notifications(self, clients, community, make_candidate):
+        user = make_candidate()
+        NotificationPreference.objects.create(user=user, email_communities=False, in_app_communities=False)
+        assert self.invite(clients, community, user).status_code == 201
+        assert not Notification.objects.filter(user=user, kind="community_invitation").exists()
+        assert not OutboundEmail.objects.filter(kind="community_invitation", to_email=user.email).exists()
 
     def test_only_discoverable_verified_candidates_can_be_invited(self, clients, community, make_candidate):
         assert self.invite(clients, community, make_candidate(discoverable=False)).status_code == 404
@@ -377,6 +397,7 @@ class TestMembers:
 
     def test_removing_a_member_needs_a_reason_notifies_them_and_hides_the_posts(self, clients, community, make_candidate, auth_client):
         user = make_candidate()
+        NotificationPreference.objects.create(user=user, email_communities=True)
         make_member(community, user)
         posts.create(community, community.created_by, {"kind": "job", "title": "Role", "body": "Apply"})
         url = f"{STAFF}{community.pk}/members/{user.pk}/"
@@ -445,6 +466,7 @@ class TestPosts:
         batches = []
         original = posts.notify_next_batch
         monkeypatch.setattr(posts, "notify_next_batch", lambda pid: (batches.append(1), original(pid))[1])
+        opt_into_community_emails(members)
         with django_capture_on_commit_callbacks(execute=True):
             response = clients[MemberRole.ADMIN].post(f"{STAFF}{community.pk}/posts/", {**self.body, "notify_members": True}, format="json")
         assert response.status_code == 201
@@ -457,6 +479,14 @@ class TestPosts:
         make_member(community, make_candidate())
         clients[MemberRole.ADMIN].post(f"{STAFF}{community.pk}/posts/", self.body, format="json")
         assert not Notification.objects.filter(kind="community_post").exists()
+
+    def test_community_post_email_is_not_sent_without_opt_in(self, clients, community, make_candidate, django_capture_on_commit_callbacks):
+        member = make_candidate()
+        make_member(community, member)
+        with django_capture_on_commit_callbacks(execute=True):
+            clients[MemberRole.ADMIN].post(f"{STAFF}{community.pk}/posts/", {**self.body, "notify_members": True}, format="json")
+        assert Notification.objects.filter(user=member, kind="community_post").exists()
+        assert not OutboundEmail.objects.filter(kind="community_post", to_email=member.email).exists()
 
     def test_the_sweep_resumes_an_unfinished_notification(self, community, make_candidate, django_capture_on_commit_callbacks):
         make_member(community, make_candidate())
