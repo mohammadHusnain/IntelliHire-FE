@@ -15,6 +15,8 @@ import { speechRecognitionSupported } from "@/hooks/useSpeechRecognition";
 import { formatDate } from "@/lib/candidateStats";
 import { downloadFile } from "@/lib/csv";
 import { toast } from "@/store/toastStore";
+import { USE_MOCK_API } from "@/config/env";
+import LiveNotificationPreferences from "@/components/app/LiveNotificationPreferences";
 
 const TABS = [
   { id: "account", label: "Account", icon: UserRound },
@@ -196,18 +198,32 @@ export default function CandidateSettings() {
     notifications: (
       <Card className="p-6">
         <CardHeader icon={Bell} title="Notifications" subtitle="Choose what we tell you about, and where." action={<Saved tick={tick} />} />
-        <p className="mb-2 mt-6 text-[12px] font-semibold uppercase tracking-wide text-stone-400">Email</p>
-        <ul className="divide-y divide-[var(--line)] rounded-2xl border border-[var(--line)]">
-          <ToggleRow title="Report summaries" description="A summary each time you finish an interview." checked={n.emailReports} onChange={(v) => save("notifications", { emailReports: v })} />
-          <ToggleRow title="Weekly progress" description="Your scores and streak every Monday." checked={n.emailWeekly} onChange={(v) => save("notifications", { emailWeekly: v })} />
-          <ToggleRow title="Community digest" description="New roles and threads from your communities." checked={n.emailCommunities} onChange={(v) => save("notifications", { emailCommunities: v })} />
-        </ul>
-        <p className="mb-2 mt-6 text-[12px] font-semibold uppercase tracking-wide text-stone-400">In the app</p>
-        <ul className="divide-y divide-[var(--line)] rounded-2xl border border-[var(--line)]">
-          <ToggleRow title="Reports ready" description="When a new report is available." checked={n.inAppReports} onChange={(v) => save("notifications", { inAppReports: v })} />
-          <ToggleRow title="Practice reminders" description="A nudge when you're behind on your weekly goal." checked={n.inAppReminders} onChange={(v) => save("notifications", { inAppReminders: v })} />
-          <ToggleRow title="Community updates" description="Join request decisions and new roles." checked={n.inAppCommunities} onChange={(v) => save("notifications", { inAppCommunities: v })} />
-        </ul>
+        {USE_MOCK_API ? (
+          <>
+            <p className="mb-2 mt-6 text-[12px] font-semibold uppercase tracking-wide text-stone-400">Email</p>
+            <ul className="divide-y divide-[var(--line)] rounded-2xl border border-[var(--line)]">
+              <ToggleRow title="Report summaries" description="A summary each time you finish an interview." checked={n.emailReports} onChange={(v) => save("notifications", { emailReports: v })} />
+              <ToggleRow title="Weekly progress" description="Your scores and streak every Monday." checked={n.emailWeekly} onChange={(v) => save("notifications", { emailWeekly: v })} />
+              <ToggleRow title="Community digest" description="New roles and threads from your communities." checked={n.emailCommunities} onChange={(v) => save("notifications", { emailCommunities: v })} />
+            </ul>
+            <p className="mb-2 mt-6 text-[12px] font-semibold uppercase tracking-wide text-stone-400">In the app</p>
+            <ul className="divide-y divide-[var(--line)] rounded-2xl border border-[var(--line)]">
+              <ToggleRow title="Reports ready" description="When a new report is available." checked={n.inAppReports} onChange={(v) => save("notifications", { inAppReports: v })} />
+              <ToggleRow title="Practice reminders" description="A nudge when you're behind on your weekly goal." checked={n.inAppReminders} onChange={(v) => save("notifications", { inAppReminders: v })} />
+              <ToggleRow title="Community updates" description="Join request decisions and new roles." checked={n.inAppCommunities} onChange={(v) => save("notifications", { inAppCommunities: v })} />
+            </ul>
+          </>
+        ) : (
+          <div className="mt-6">
+            <LiveNotificationPreferences sections={[
+              { label: "Email", fields: [{ key: "emailCommunities", title: "Community email updates", description: "Community invitations, decisions and new posts." }] },
+              { label: "In the app", fields: [
+                { key: "inAppReminders", title: "Interview reminders", description: "A reminder when an invited interview is close to expiring." },
+                { key: "inAppCommunities", title: "Community notifications", description: "Invitations, join request decisions and new posts." },
+              ] },
+            ]} />
+          </div>
+        )}
       </Card>
     ),
     privacy: (

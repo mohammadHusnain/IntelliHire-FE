@@ -24,6 +24,7 @@ export const COMPANY_NAV = [
 export const COMPANY_PAGE_META = [
   { match: ROUTES.COMPANY.DASHBOARD, title: "Dashboard" },
   { match: "/company/jobs/create", title: "New role", parent: { label: "Roles", to: ROUTES.COMPANY.JOBS } },
+  { match: (pathname) => /^\/company\/jobs\/[^/]+\/cv-analysis(?:\/|$)/.test(pathname), title: "CV analysis", parent: { label: "Applicants", to: ROUTES.COMPANY.CANDIDATES } },
   { match: "/company/jobs/", title: "Role", parent: { label: "Roles", to: ROUTES.COMPANY.JOBS } },
   { match: ROUTES.COMPANY.JOBS, title: "Roles" },
   { match: "/company/candidates/", title: "Candidate", parent: { label: "Candidates", to: ROUTES.COMPANY.CANDIDATES } },

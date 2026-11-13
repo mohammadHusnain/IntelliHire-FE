@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowUpDown, Loader2, Search, X } from "lucide-react";
 import { Card } from "@/components/app/primitives";
@@ -167,6 +167,7 @@ export function Drawer({ title, subtitle, onClose, footer, children, accent }) {
 /** Centred dialog with an optional required reason. */
 export function ActionDialog({ title, message, confirmLabel, tone = "primary", requireReason, onConfirm, onClose, busy }) {
   const [reason, setReason] = useState("");
+  const titleId = useId();
   const tooShort = requireReason && reason.trim().length < 10;
 
   useEffect(() => {
@@ -176,10 +177,10 @@ export function ActionDialog({ title, message, confirmLabel, tone = "primary", r
   }, [onClose]);
 
   return createPortal(
-    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby={titleId}>
       <button type="button" aria-label="Close" onClick={onClose} className="animate-backdrop-in absolute inset-0 bg-ink/40 backdrop-blur-sm" />
       <div className="animate-modal-in relative w-full max-w-[460px] rounded-3xl bg-white p-6 shadow-[0_40px_80px_-30px_rgba(13,13,13,0.5)] sm:p-7">
-        <h2 className="display text-[24px]">{title}</h2>
+        <h2 id={titleId} className="display text-[24px]">{title}</h2>
         {message && <p className="mt-2 text-[14px] leading-relaxed text-stone-500">{message}</p>}
         {requireReason && (
           <div className="mt-5">

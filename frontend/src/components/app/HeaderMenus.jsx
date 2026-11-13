@@ -20,17 +20,31 @@ export function Avatar({ name, photo, size = 36, className = "", tone = "brand" 
 }
 
 /** list: [{ id, title, body, to, createdAt, read }] */
-export function NotificationsPopover({ list, onRead, onReadAll, emptyText = "You are all caught up." }) {
+export function NotificationsPopover({
+  list,
+  onRead,
+  onReadAll,
+  unreadCount,
+  onOpen,
+  loading = false,
+  loadingMore = false,
+  hasMore = false,
+  onLoadMore,
+  readAllBusy = false,
+  error = "",
+  onRetry,
+  emptyText = "You are all caught up.",
+}) {
   const [open, setOpen] = useState(false);
   const ref = useDismiss(open, () => setOpen(false));
   const navigate = useNavigate();
-  const unread = list.filter((n) => !n.read).length;
+  const unread = unreadCount ?? list.filter((n) => !n.read).length;
 
   return (
     <div ref={ref} className="relative">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen((v) => { const next = !v; if (next) onOpen?.(); return next; })}
         aria-label={`Notifications${unread ? `, ${unread} unread` : ""}`}
         aria-expanded={open}
         className="icon-btn relative flex h-10 w-10 items-center justify-center rounded-xl text-stone-600 hover:bg-stone-100 hover:text-ink"
@@ -50,13 +64,20 @@ export function NotificationsPopover({ list, onRead, onReadAll, emptyText = "You
               Notifications {unread > 0 && <span className="ml-1 rounded-full bg-brand-soft px-2 py-0.5 text-[11px] text-brand">{unread} new</span>}
             </p>
             {unread > 0 && onReadAll && (
-              <button type="button" onClick={onReadAll} className="inline-flex items-center gap-1 text-[12px] font-semibold text-stone-500 hover:text-brand">
+              <button type="button" onClick={onReadAll} disabled={readAllBusy} className="inline-flex items-center gap-1 text-[12px] font-semibold text-stone-500 hover:text-brand disabled:opacity-50">
                 <CheckCheck size={14} /> Mark all read
               </button>
             )}
           </div>
           <ul className="max-h-[360px] overflow-y-auto p-1.5">
-            {list.length === 0 && <li className="px-4 py-10 text-center text-[13px] text-stone-500">{emptyText}</li>}
+            {error && (
+              <li className="px-4 py-4 text-[13px] text-red-700" role="alert">
+                <p>{error}</p>
+                {onRetry && <button type="button" onClick={onRetry} className="mt-2 font-semibold underline">Retry</button>}
+              </li>
+            )}
+            {loading && list.length === 0 && <li className="px-4 py-10 text-center text-[13px] text-stone-500" role="status">Loading notifications…</li>}
+            {!loading && !error && list.length === 0 && <li className="px-4 py-10 text-center text-[13px] text-stone-500">{emptyText}</li>}
             {list.map((n) => (
               <li key={n.id}>
                 <button
@@ -73,6 +94,14 @@ export function NotificationsPopover({ list, onRead, onReadAll, emptyText = "You
                 </button>
               </li>
             ))}
+            {loading && list.length > 0 && <li className="px-4 py-3 text-center text-[12px] text-stone-500" role="status">Refreshing…</li>}
+            {hasMore && !error && (
+              <li className="px-3 py-2 text-center">
+                <button type="button" onClick={onLoadMore} disabled={loadingMore} className="text-[12px] font-semibold text-brand disabled:opacity-50">
+                  {loadingMore ? "Loading…" : "Load more"}
+                </button>
+              </li>
+            )}
           </ul>
         </div>
       )}

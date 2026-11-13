@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowRight, ChevronLeft, ChevronRight, Download, LayoutGrid, List, Loader2, SearchX, UserX, Users, WifiOff } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, Download, FileSearch, LayoutGrid, List, Loader2, SearchX, UserX, Users, WifiOff } from "lucide-react";
 import { Badge, Card, EmptyState, PageHeader, Segmented, StatTile } from "@/components/app/primitives";
 import { DataTable, SearchField, Tabs } from "@/components/admin/primitives";
 import { Avatar } from "@/components/app/HeaderMenus";
@@ -198,7 +198,7 @@ function Applicants({ routeJobId }) {
     return (
       <div>
         <PageHeader eyebrow={job ? job.title : "Candidates"} title={<>Your <em>candidates</em></>} subtitle="Everyone who has applied to your roles." />
-        <EmptyState icon={Users} title="No applicants yet" message="Share a role's application link and candidates will appear here." action={<Link to={ROUTES.COMPANY.JOBS} className="btn-primary">Go to roles <ArrowRight size={15} className="btn-arrow" /></Link>} />
+        <EmptyState icon={Users} title="No applicants yet" message="Share a role's application link and candidates will appear here." action={<div className="flex flex-wrap justify-center gap-2"><Link to={ROUTES.COMPANY.JOBS} className="btn-primary">Go to roles <ArrowRight size={15} className="btn-arrow" /></Link>{jobId && <Link to={ROUTES.COMPANY.JOB_CV_ANALYSIS.replace(":id", jobId)} className="btn-secondary"><FileSearch size={15} /> CV analysis</Link>}</div>} />
       </div>
     );
   }
@@ -214,9 +214,12 @@ function Applicants({ routeJobId }) {
         actions={
           <>
             {jobId && (
-              <button type="button" onClick={exportJob} disabled={exporting} className="btn-secondary disabled:opacity-50">
-                {exporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} Export CSV
-              </button>
+              <>
+                <Link to={ROUTES.COMPANY.JOB_CV_ANALYSIS.replace(":id", jobId)} className="btn-secondary"><FileSearch size={16} /> CV analysis</Link>
+                <button type="button" onClick={exportJob} disabled={exporting} className="btn-secondary disabled:opacity-50">
+                  {exporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} Export CSV
+                </button>
+              </>
             )}
             <Segmented ariaLabel="View" value={view} onChange={setView} options={[{ value: "board", label: "Board", icon: LayoutGrid }, { value: "list", label: "List", icon: List }]} />
           </>

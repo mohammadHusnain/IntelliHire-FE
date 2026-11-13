@@ -12,6 +12,8 @@ import { useCommunityStore } from "@/store/communityStore";
 import { usePlatformStore } from "@/store/platformStore";
 import { joinRequests, allAccounts } from "@/lib/adminStats";
 import { ROUTES } from "@/config/routes";
+import { USE_MOCK_API } from "@/config/env";
+import ServerNotifications from "@/components/app/ServerNotifications";
 
 export default function AdminLayout() {
   const navigate = useNavigate();
@@ -120,7 +122,9 @@ export default function AdminLayout() {
       )}
       headerActions={
         <>
-          <NotificationsPopover list={notifications} emptyText="Nothing needs your attention." />
+          {USE_MOCK_API
+            ? <NotificationsPopover list={notifications} emptyText="Nothing needs your attention." />
+            : <ServerNotifications emptyText="Nothing needs your attention." />}
           <UserMenu user={{ name: user?.name || "Super Admin", email: user?.email || "" }} tone="dark" onLogout={logout} />
         </>
       }

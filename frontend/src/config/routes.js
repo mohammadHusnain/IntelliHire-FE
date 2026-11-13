@@ -40,6 +40,7 @@ export const ROUTES = {
     JOB_PREVIEW: "/company/jobs/:id/preview",
     CANDIDATES: "/company/candidates",
     JOB_CANDIDATES: "/company/jobs/:id/candidates",
+    JOB_CV_ANALYSIS: "/company/jobs/:id/cv-analysis",
     CANDIDATE_PROFILE: "/company/candidates/:id",
     ANALYTICS: "/company/analytics",
     COMMUNITY: "/company/community",

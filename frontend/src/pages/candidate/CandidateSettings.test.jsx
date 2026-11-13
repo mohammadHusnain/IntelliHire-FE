@@ -95,3 +95,23 @@ describe("CandidateSettings: change password (real API)", () => {
     expect(getTokens()).not.toBeNull();
   });
 });
+
+describe("CandidateSettings: live notification preferences", () => {
+  it("shows only supported controls and saves them through the API", async () => {
+    let body;
+    server.use(
+      route.get("/notifications/preferences/", () => json({ email_communities: false, in_app_reminders: true, in_app_communities: true })),
+      route.patch("/notifications/preferences/", async ({ request }) => ((body = await request.json()), json({ email_communities: false, in_app_reminders: false, in_app_communities: true }))),
+    );
+    mount();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /notifications/i }));
+    const reminders = await screen.findByRole("switch", { name: "Interview reminders" });
+    expect(screen.getByRole("switch", { name: "Community email updates" })).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Community notifications" })).toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: /report summaries|weekly progress|reports ready/i })).not.toBeInTheDocument();
+    await user.click(reminders);
+    await waitFor(() => expect(body).toEqual({ in_app_reminders: false }));
+    expect(reminders).toHaveAttribute("aria-checked", "false");
+  });
+});

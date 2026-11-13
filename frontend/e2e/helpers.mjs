@@ -87,13 +87,18 @@ export async function addMember(adminToken, email, role, password = PASSWORD) {
 }
 
 /** Create and publish a job through the API (deadline `days` ahead), with custom fields; returns { id, slug }. */
-export async function createPublishedJob(token, { title, department = "Engineering", fields = [], days = 30 }) {
+/** `autoAnalyse: false` switches the role's automatic CV screening off, so applications stay `submitted` until a person moves them. */
+export async function createPublishedJob(token, { title, department = "Engineering", fields = [], days = 30, autoAnalyse = true }) {
   const created = await api("/jobs/", {
     method: "POST",
     token,
     body: { title, department, description: "Build things.", required_skills: ["Python"], employment_type: "full_time", work_mode: "remote", deadline: new Date(Date.now() + days * 86400000).toISOString() },
   });
   if (created.status !== 201) throw new Error(`job ${created.status} ${JSON.stringify(created.data)}`);
+  if (!autoAnalyse) {
+    const c = await api(`/jobs/${created.data.id}/screening-config/`, { method: "PUT", token, body: { auto_analyse: false } });
+    if (c.status !== 200) throw new Error(`screening-config ${c.status} ${JSON.stringify(c.data)}`);
+  }
   for (const field of fields) {
     const r = await api(`/jobs/${created.data.id}/fields/`, { method: "POST", token, body: field });
     if (r.status !== 201) throw new Error(`field ${r.status} ${JSON.stringify(r.data)}`);

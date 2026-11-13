@@ -4,6 +4,7 @@ import { Briefcase, Loader2, Plus, Users, WifiOff } from "lucide-react";
 import AppShell, { SidebarUserCard } from "@/components/app/AppShell";
 import Palette from "@/components/app/CommandPalette";
 import { Avatar, UserMenu } from "@/components/app/HeaderMenus";
+import ServerNotifications from "@/components/app/ServerNotifications";
 import AnnouncementBanner from "@/components/app/AnnouncementBanner";
 import { COMPANY_NAV, COMPANY_PAGE_META } from "./nav";
 import { useLogout } from "@/hooks/useLogout";
@@ -143,11 +144,14 @@ export default function CompanyLayout() {
       }
       headerActions={
         p && (
-          <UserMenu
-            user={{ name: p.ownerName, email: USE_MOCK_API ? p.email : account?.email || p.email }}
-            links={[{ icon: Briefcase, label: "Company settings", to: ROUTES.COMPANY.SETTINGS }]}
-            onLogout={logout}
-          />
+          <>
+            {!USE_MOCK_API && <ServerNotifications emptyText="You are all caught up." />}
+            <UserMenu
+              user={{ name: p.ownerName, email: USE_MOCK_API ? p.email : account?.email || p.email }}
+              links={[{ icon: Briefcase, label: "Company settings", to: ROUTES.COMPANY.SETTINGS }]}
+              onLogout={logout}
+            />
+          </>
         )
       }
       renderPalette={(close) => <Palette items={paletteItems} onClose={close} placeholder="Search roles, candidates or pages…" />}

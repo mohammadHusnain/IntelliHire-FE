@@ -13,11 +13,12 @@ import { toast } from "@/store/toastStore";
 import { USE_MOCK_API } from "@/config/env";
 import { companyApi, mapCompanyFieldErrors } from "@/api/companyApi";
 import { COMPANY_SIZES, DESCRIPTION_MAX, LOGO_MAX_BYTES, LOGO_TYPES, changedCompanyFields, isCompanyAdmin, memberRoleLabel } from "@/lib/companyMap";
+import LiveNotificationPreferences from "@/components/app/LiveNotificationPreferences";
 
-// Notifications and data export have no backend yet, so the real build does not show them.
+// Data export remains demo-only; notification preferences are server-backed in live mode.
 const TABS = [
   { id: "company", label: "Company", icon: Building2 },
-  { id: "notifications", label: "Notifications", icon: Bell, demoOnly: true },
+  { id: "notifications", label: "Notifications", icon: Bell },
   { id: "security", label: "Security", icon: ShieldCheck },
   { id: "data", label: "Your data", icon: Database, demoOnly: true },
 ].filter((t) => USE_MOCK_API || !t.demoOnly);
@@ -243,21 +244,27 @@ export default function CompanySettings() {
     notifications: (
       <Card className="p-6">
         <CardHeader icon={Bell} title="Notifications" subtitle="What we tell you about" action={<Saved tick={tick} />} />
-        <ul className="mt-6 divide-y divide-[var(--line)] rounded-2xl border border-[var(--line)]">
-          {[
-            { key: "notifyApplicants", title: "New applicants", desc: "A notification each time someone applies to one of your roles." },
-            { key: "notifyWeekly", title: "Weekly hiring summary", desc: "Pipeline movement and new applicants every Monday." },
-            { key: "autoAdvance", title: "Auto-advance strong matches", desc: "Move candidates scoring 80+ straight to Screened." },
-          ].map((row) => (
-            <li key={row.key} className="flex items-center justify-between gap-4 px-4 py-4 sm:px-5">
-              <div className="min-w-0">
-                <p className="text-[14px] font-semibold text-ink">{row.title}</p>
-                <p className="mt-0.5 text-[13px] text-stone-500">{row.desc}</p>
-              </div>
-              <Toggle checked={p[row.key]} onChange={(v) => savePref({ [row.key]: v })} label={row.title} />
-            </li>
-          ))}
-        </ul>
+        {USE_MOCK_API ? (
+          <ul className="mt-6 divide-y divide-[var(--line)] rounded-2xl border border-[var(--line)]">
+            {[
+              { key: "notifyApplicants", title: "New applicants", desc: "A notification each time someone applies to one of your roles." },
+              { key: "notifyWeekly", title: "Weekly hiring summary", desc: "Pipeline movement and new applicants every Monday." },
+              { key: "autoAdvance", title: "Auto-advance strong matches", desc: "Move candidates scoring 80+ straight to Screened." },
+            ].map((row) => (
+              <li key={row.key} className="flex items-center justify-between gap-4 px-4 py-4 sm:px-5">
+                <div className="min-w-0">
+                  <p className="text-[14px] font-semibold text-ink">{row.title}</p>
+                  <p className="mt-0.5 text-[13px] text-stone-500">{row.desc}</p>
+                </div>
+                <Toggle checked={p[row.key]} onChange={(v) => savePref({ [row.key]: v })} label={row.title} />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="mt-6">
+            <LiveNotificationPreferences fields={[{ key: "notifyApplicants", title: "New applicants", description: "Notify your recruiting team when someone applies to one of your roles." }]} />
+          </div>
+        )}
       </Card>
     ),
     security: (
@@ -309,7 +316,7 @@ export default function CompanySettings() {
 
   return (
     <div>
-      <PageHeader eyebrow="Settings" title={<>Company <em>settings</em></>} subtitle={USE_MOCK_API ? "Your public profile, notifications and account." : "Your public profile and account."} />
+      <PageHeader eyebrow="Settings" title={<>Company <em>settings</em></>} subtitle="Your public profile, notifications and account." />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
         <Reveal className="min-w-0">
           <nav aria-label="Settings sections" className="lg:sticky lg:top-24">

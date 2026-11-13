@@ -45,6 +45,7 @@ const CompanyJobCreate = lazy(() => (DEMO ? import("@/pages/company/CompanyJobCr
 const CompanyJobPreview = lazy(() => (DEMO ? import("@/pages/company/CompanyJobPreview") : import("@/pages/company/CompanyJobPreviewLive")));
 const CompanyCandidates = lazy(() => (DEMO ? import("@/pages/company/CompanyCandidates") : import("@/pages/company/CompanyApplicantsLive")));
 const CompanyAllCandidates = lazy(() => (DEMO ? import("@/pages/company/CompanyAllCandidates") : import("@/pages/company/CompanyApplicantsLive")));
+const CompanyCVAnalysis = lazy(() => import("@/pages/company/CompanyCVAnalysis"));
 const CompanyCandidateProfile = lazy(() => (DEMO ? import("@/pages/company/CompanyCandidateProfile") : import("@/pages/company/CompanyApplicantLive")));
 const CompanyAnalytics = lazy(() => (DEMO ? import("@/pages/company/CompanyAnalytics") : import("@/pages/company/CompanyAnalyticsLive")));
 const CompanyCommunity = lazy(() => import("@/pages/company/CompanyCommunity"));
@@ -83,6 +84,7 @@ function App() {
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/accept-invite" element={<AcceptInvitePage />} />
             <Route path="/apply/:slug" element={<ApplyPage />} />
+            <Route path="/interview/:token" element={<InterviewRoom />} />
             <Route path="/resubmit-company" element={<GuestRoute><ResubmitCompanyPage /></GuestRoute>} />
             <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
@@ -117,6 +119,7 @@ function App() {
                   <Route path="/company/jobs/:id/preview" element={<CompanyJobPreview />} />
                   <Route path="/company/candidates" element={<CompanyAllCandidates />} />
                   <Route path="/company/jobs/:id/candidates" element={<CompanyCandidates />} />
+                  <Route path="/company/jobs/:id/cv-analysis" element={<CompanyCVAnalysis />} />
                   <Route path="/company/candidates/:id" element={<CompanyCandidateProfile />} />
                   <Route path="/company/analytics" element={<CompanyAnalytics />} />
                   <Route path="/company/community" element={<CompanyCommunity />} />

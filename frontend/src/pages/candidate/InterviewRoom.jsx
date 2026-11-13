@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate, useParams } from "react-router-dom";
 import {
-  ArrowLeft, ArrowRight, Check, CheckCircle2, Keyboard, Loader2, Mic, RotateCcw, SkipForward,
+  AlertCircle, ArrowLeft, ArrowRight, Check, CheckCircle2, Keyboard, Loader2, Mic, RefreshCw, RotateCcw, SkipForward,
   Sparkles, Square, Trash2, Volume2, X,
 } from "lucide-react";
 import logo from "@/assets/logo/logo.png";
@@ -14,6 +14,7 @@ import { evaluateAnswer, summarise } from "@/lib/interview/evaluate";
 import { skillsForRole } from "@/lib/interview/questionBank";
 import { TYPE_LABEL } from "@/lib/candidateStats";
 import { toast } from "@/store/toastStore";
+import { interviewsApi } from "@/api/interviewsApi";
 
 const KIND_LABEL = { general: "Behavioural", technical: "Technical", "role-specific": "Role scenario" };
 const ttsSupported = typeof window !== "undefined" && "speechSynthesis" in window;
@@ -96,7 +97,124 @@ function Analysing({ step }) {
   );
 }
 
+function publicInterviewError(error) {
+  if (error.code === "ai_unavailable" || error.status === 503) return "The interview service is temporarily unavailable. Your saved progress is safe; try again shortly.";
+  if (error.status === 410) return "This interview link has expired, been completed, or is no longer available.";
+  return error.message;
+}
+
+function InvitedInterviewRoom({ token }) {
+  const [summary, setSummary] = useState(null);
+  const [turn, setTurn] = useState(null);
+  const [answer, setAnswer] = useState("");
+  const [answeredCount, setAnsweredCount] = useState(0);
+  const [questionCount, setQuestionCount] = useState(0);
+  const [completed, setCompleted] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const controller = new AbortController();
+    interviewsApi.publicSummary(token, { signal: controller.signal }).then((data) => {
+      setSummary(data);
+      setTurn(data.current_turn);
+      setAnsweredCount(data.answered_count);
+      setQuestionCount(data.question_count);
+      setCompleted(["completed", "evaluated", "incomplete"].includes(data.status));
+    }).catch((cause) => {
+      if (cause.code !== "aborted") setError(publicInterviewError(cause));
+    }).finally(() => setLoading(false));
+    return () => controller.abort();
+  }, [token]);
+
+  const start = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const progress = await interviewsApi.startPublic(token);
+      setTurn(progress.turn);
+      setAnsweredCount(progress.answered_count);
+      setQuestionCount(progress.question_count);
+      setCompleted(progress.done);
+    } catch (cause) {
+      setError(publicInterviewError(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submit = async (event) => {
+    event.preventDefault();
+    const text = answer.trim();
+    if (!text || !turn || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const progress = await interviewsApi.answerPublic(token, turn.index, text);
+      setTurn(progress.turn);
+      setAnsweredCount(progress.answered_count);
+      setQuestionCount(progress.question_count);
+      setAnswer("");
+      setCompleted(progress.done);
+    } catch (cause) {
+      setError(publicInterviewError(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const finishEarly = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await interviewsApi.finishPublic(token);
+      setCompleted(true);
+      setTurn(null);
+    } catch (cause) {
+      setError(publicInterviewError(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const inviteError = error.includes("temporarily unavailable");
+  const percent = questionCount ? Math.round((answeredCount / questionCount) * 100) : 0;
+
+  return (
+    <div className="flex min-h-dvh flex-col bg-[#FAFAF9] font-sans text-stone-700 antialiased">
+      <header className="sticky top-0 z-30 border-b border-[var(--line)] bg-[#FAFAF9]/90 backdrop-blur-xl">
+        <div className="mx-auto flex min-h-16 max-w-5xl items-center justify-between gap-4 px-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-2.5"><img src={logo} alt="IntelliHire" width={900} height={268} className="h-7 w-auto shrink-0" /><div className="min-w-0"><p className="truncate text-[13.5px] font-semibold text-ink">{summary?.role_title || "Interview"}</p><p className="text-[12px] text-stone-500">{summary?.company_name || "Candidate interview"} · {summary?.kind === "technical" ? "Technical interview" : "Screening interview"}</p></div></div>
+          {summary && !completed && <div className="w-28 shrink-0 sm:w-44"><div className="flex justify-between text-[11px] text-stone-500"><span>Progress</span><span>{answeredCount}/{questionCount}</span></div><div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-stone-200"><div className="h-full bg-brand transition-[width]" style={{ width: `${percent}%` }} /></div></div>}
+        </div>
+      </header>
+
+      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-4 py-8 sm:px-6">
+        {loading ? <div className="flex justify-center py-20"><Loader2 size={26} className="animate-spin text-brand" aria-label="Loading interview" /></div> : error && !summary ? (
+          <section className="rounded-2xl border border-[var(--line)] bg-white p-6 text-center sm:p-9"><AlertCircle className="mx-auto text-amber-600" size={28} /><h1 className="display mt-4 text-[25px]">Interview link unavailable</h1><p role="alert" className="mt-2 text-[14px] text-stone-600">{error}</p><button type="button" onClick={() => window.location.reload()} className="btn-secondary mt-5"><RefreshCw size={15} /> Try again</button></section>
+        ) : completed ? (
+          <section className="rounded-2xl border border-[var(--line)] bg-white p-6 text-center sm:p-9"><CheckCircle2 className="mx-auto text-emerald-600" size={34} /><h1 className="display mt-4 text-[26px]">Interview submitted</h1><p className="mx-auto mt-2 max-w-lg text-[14px] leading-relaxed text-stone-600">Your responses have been sent to {summary?.company_name || "the hiring team"}. They will review them as part of your application.</p><p className="mt-4 text-[12px] text-stone-500">{summary?.ai_disclaimer}</p></section>
+        ) : !turn ? (
+          <section className="rounded-2xl border border-[var(--line)] bg-white p-6 sm:p-9"><div className="mx-auto max-w-xl text-center"><Orb state="idle" level={0} /><p className="mt-5 text-[13px] font-semibold text-ink">{summary?.company_name}</p><h1 className="display mt-1 text-[26px]">{summary?.role_title}</h1><p className="mt-2 text-[14px] text-stone-600">{summary?.kind === "technical" ? "Technical interview" : "Screening interview"} · about {summary?.estimated_minutes} minutes · {questionCount} questions</p><p className="mt-5 text-left text-[13.5px] leading-relaxed text-stone-600">{summary?.instructions}</p><p className="mt-4 text-left text-[12px] leading-relaxed text-stone-500">{summary?.ai_disclaimer}</p>{summary?.expires_at && <p className="mt-3 text-[12px] text-stone-400">Link expires {new Date(summary.expires_at).toLocaleString()}</p>}<button type="button" disabled={busy} onClick={start} className="btn-primary mt-6 min-w-44">{busy ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />} {answeredCount ? "Resume interview" : "Begin interview"}</button></div></section>
+        ) : (
+          <div className="space-y-5">
+            <section className="rounded-2xl border border-[var(--line)] bg-white p-6 text-center shadow-[0_1px_2px_rgba(13,13,13,0.03)] sm:p-8"><Orb state="idle" level={0} /><p className="mt-5 text-[13px] font-semibold text-ink">{turn.is_follow_up ? "Follow-up question" : "Question"} {turn.index}</p><h1 className="display mt-4 text-[24px] leading-[1.3] sm:text-[28px]">{turn.question_text}</h1></section>
+            <form onSubmit={submit} className="rounded-2xl border border-[var(--line)] bg-white p-5 shadow-[0_1px_2px_rgba(13,13,13,0.03)] sm:p-7"><div className="flex items-center justify-between gap-3"><h2 className="text-[15px] font-semibold text-ink">Your answer</h2><span className="text-[12px] text-stone-400">Typed response</span></div><textarea autoFocus rows={8} maxLength={10000} value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="Write your answer here..." className="field mt-4 !h-auto min-h-48 resize-y py-3.5 leading-relaxed" aria-label="Your answer" /><p className="mt-2 text-right text-[11.5px] text-stone-400">{answer.length}/10,000</p>{error && <p role="alert" className={`mt-2 rounded-lg px-3 py-2.5 text-[13px] ${inviteError ? "bg-amber-50 text-amber-800" : "bg-red-50 text-red-700"}`}>{error}</p>}<div className="mt-4 flex flex-col-reverse gap-2 border-t border-[var(--line)] pt-4 sm:flex-row sm:justify-between"><button type="button" onClick={finishEarly} disabled={busy || answeredCount < 3} className="btn-secondary disabled:opacity-50">Finish interview</button><button type="submit" disabled={busy || !answer.trim()} className="btn-primary sm:min-w-40">{busy ? <Loader2 size={15} className="animate-spin" /> : <ArrowRight size={16} />} Submit answer</button></div></form>
+          </div>
+        )}
+        {error && summary && !completed && !turn && <p role="alert" className="mt-3 rounded-lg bg-amber-50 px-3 py-2.5 text-[13px] text-amber-800">{error}</p>}
+      </main>
+    </div>
+  );
+}
+
 export default function InterviewRoom() {
+  const { token } = useParams();
+  return token ? <InvitedInterviewRoom token={token} /> : <PracticeInterviewRoom />;
+}
+
+function PracticeInterviewRoom() {
   const navigate = useNavigate();
   const { profile } = useCandidateRecord();
   const { saveSession } = useCandidateActions();

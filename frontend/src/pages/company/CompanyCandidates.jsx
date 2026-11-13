@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowRight, ChevronRight, Download, LayoutGrid, List, SearchX, Users } from "lucide-react";
+import { ArrowRight, ChevronRight, Download, FileSearch, LayoutGrid, List, SearchX, Users } from "lucide-react";
 import { Badge, Card, EmptyState, PageHeader, Segmented, StatTile } from "@/components/app/primitives";
 import { DataTable, SearchField, SelectField, Tabs } from "@/components/admin/primitives";
 import { Avatar } from "@/components/app/HeaderMenus";
@@ -136,6 +136,7 @@ export default function CompanyCandidates() {
         subtitle={`${base.length} shown · ${stats.needsReview} awaiting first review`}
         actions={
           <>
+            {jobFilter !== "all" && <Link to={ROUTES.COMPANY.JOB_CV_ANALYSIS.replace(":id", jobFilter)} className="btn-secondary"><FileSearch size={16} /> CV analysis</Link>}
             <button type="button" onClick={exportCsv} className="btn-secondary">
               <Download size={16} /> Export CSV
             </button>

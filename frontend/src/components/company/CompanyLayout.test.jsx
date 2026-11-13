@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { server } from "@/test/server";
-import { apiJobRow, detail, paged, route } from "@/test/fixtures";
+import { apiJobRow, detail, json, paged, route } from "@/test/fixtures";
 import { Where } from "@/test/utils";
 import { useAuthStore } from "@/store/authStore";
 import { useCompanyStore } from "@/store/companyStore";
@@ -16,7 +16,10 @@ describe("CompanyLayout command palette (real roles)", () => {
     const account = { id: "u1", role: "company", status: "active", name: "Ali", email: "ali@acme.example", memberRole: "admin", companyStatus: "approved" };
     useAuthStore.setState({ isAuthenticated: true, isInitialized: true, user: account });
     useCompanyStore.getState().actions.hydrateProfile(account, { companyName: "Acme", ownerName: "Ali", email: "o@acme.example" });
-    server.use(route.get("/jobs/", () => paged([apiJobRow({ id: "j1", title: "Backend Engineer" }), apiJobRow({ id: "j2", title: "Expired One", days_left: 0 })])));
+    server.use(
+      route.get("/jobs/", () => paged([apiJobRow({ id: "j1", title: "Backend Engineer" }), apiJobRow({ id: "j2", title: "Expired One", days_left: 0 })])),
+      route.get("/notifications/unread-count/", () => json({ count: 0 })),
+    );
     render(
       <MemoryRouter initialEntries={["/company/dashboard"]}>
         <Routes>
@@ -29,6 +32,7 @@ describe("CompanyLayout command palette (real roles)", () => {
     );
     const user = userEvent.setup();
     await screen.findByText("DASH");
+    expect(screen.getByRole("button", { name: "Notifications" })).toBeInTheDocument();
     await user.keyboard("{Control>}k{/Control}");
     const item = await screen.findByText("Backend Engineer");
     expect(screen.queryByText("Expired One")).not.toBeInTheDocument();
@@ -43,7 +47,7 @@ describe("CompanyLayout: who is offered 'Post a role'", () => {
     const account = { id: "u1", role: "company", status: "active", name: "Ali", email: "ali@acme.example", memberRole, companyStatus: "approved" };
     useAuthStore.setState({ isAuthenticated: true, isInitialized: true, user: account });
     useCompanyStore.getState().actions.hydrateProfile(account, { companyName: "Acme", ownerName: "Ali", email: "o@acme.example" });
-    server.use(route.get("/jobs/", () => paged([])));
+    server.use(route.get("/jobs/", () => paged([])), route.get("/notifications/unread-count/", () => json({ count: 0 })));
     render(
       <MemoryRouter initialEntries={["/company/dashboard"]}>
         <Routes>
@@ -74,7 +78,7 @@ describe("CompanyLayout: the sidebar review badge", () => {
     const account = { id: "u1", role: "company", status: "active", name: "Ali", email: "ali@acme.example", memberRole: "admin", companyStatus: "approved" };
     useAuthStore.setState({ isAuthenticated: true, isInitialized: true, user: account });
     useCompanyStore.getState().actions.hydrateProfile(account, { companyName: "Acme", ownerName: "Ali", email: "o@acme.example" });
-    server.use(route.get("/jobs/", () => paged([])), handler);
+    server.use(route.get("/jobs/", () => paged([])), route.get("/notifications/unread-count/", () => json({ count: 0 })), handler);
     render(
       <MemoryRouter initialEntries={["/company/dashboard"]}>
         <Routes>

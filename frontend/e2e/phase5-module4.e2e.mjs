@@ -51,6 +51,7 @@ async function main() {
   const title = `Backend Engineer ${run}`;
   const job = await createPublishedJob(company.token, {
     title,
+    autoAnalyse: false, // since Phase 2 Module 6 a scored CV moves an application to under review by itself; this run drives every status by hand
     fields: [
       { label: "LinkedIn profile", field_type: "url" },
       { label: "Notice period", field_type: "single_choice", options: ["Now", "1 month", "3 months"], required: true },

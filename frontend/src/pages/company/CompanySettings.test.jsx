@@ -105,10 +105,25 @@ describe("CompanySettings: company profile (real API)", () => {
     expect(screen.getByText(/January.*2026|2026.*January/)).toBeInTheDocument();
   });
 
-  it("hides the tabs that have no backend (notifications, your data)", () => {
+  it("shows supported notifications and hides settings that have no backend", () => {
     mountProfile();
-    expect(screen.queryByRole("button", { name: /notifications/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /notifications/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /your data/i })).not.toBeInTheDocument();
+  });
+
+  it("loads and saves the new-applicant notification preference", async () => {
+    let body;
+    mountProfile({ handlers: [
+      route.get("/notifications/preferences/", () => json({ notify_applicants: true })),
+      route.patch("/notifications/preferences/", async ({ request }) => ((body = await request.json()), json({ notify_applicants: false }))),
+    ] });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /notifications/i }));
+    const toggle = await screen.findByRole("switch", { name: "New applicants" });
+    expect(toggle).toHaveAttribute("aria-checked", "true");
+    await user.click(toggle);
+    await waitFor(() => expect(body).toEqual({ notify_applicants: false }));
+    expect(toggle).toHaveAttribute("aria-checked", "false");
   });
 
   it("sends only the changed field", async () => {
