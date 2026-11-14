@@ -199,10 +199,6 @@ class TestOutage:
         assert go(api_client, session, "start/").status_code == 200
         assert session.turns.get().question_meta["from_bank"] is True
 
-    def test_a_screening_interview_keeps_falling_back_to_the_bank_on_an_outage(self, api_client, session_factory, application, monkeypatch):
-        monkeypatch.setattr(ai_hooks, "next_question", lambda s, t, h: (_ for _ in ()).throw(ai_hooks.AIUnavailable()))
-        session = session_factory(application, kind="screening")
-        assert go(api_client, session, "start/").status_code == 200
 
 
 class TestEvaluationAndReport:

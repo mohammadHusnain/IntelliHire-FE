@@ -203,9 +203,12 @@ class TestCancel:
         assert clients[MemberRole.RECRUITER].post(sid(session) + "cancel/").status_code == 409
 
     def test_cancelling_works_mid_interview(self, clients, session, api_client):
-        api_client.post(f"{PUBLIC}{session.raw_token}/start/")
+        from ..live.session import begin_live
+
+        begin_live(session)  # the candidate is in the call
         assert clients[MemberRole.RECRUITER].post(sid(session) + "cancel/").status_code == 200
-        assert api_client.post(f"{PUBLIC}{session.raw_token}/answer/", {"turn_index": 1, "answer_text": "hi"}, format="json").status_code == 410
+        # the link itself is dead, so the candidate cannot rejoin the call
+        assert api_client.get(f"{PUBLIC}{session.raw_token}/").status_code == 410
 
 
 class TestReevaluate:

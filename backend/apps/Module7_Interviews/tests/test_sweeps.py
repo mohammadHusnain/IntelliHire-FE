@@ -14,6 +14,17 @@ from .conftest import answer_turns
 pytestmark = pytest.mark.django_db
 BASE = "/api/public/interviews/"
 
+@pytest.fixture
+def session(application, session_factory):
+    """The typed turn-by-turn engine over the public link.
+
+    Screening and technical are live voice calls now (Module 7 `live/`), so the public link refuses
+    the typed path for them. The engine itself is unchanged and still serves Module 11's practice
+    interviews, so these tests drive it as a non-live kind.
+    """
+    return session_factory(application, kind="mock")
+
+
 
 def minutes_ago(n):
     return timezone.now() - timedelta(minutes=n)

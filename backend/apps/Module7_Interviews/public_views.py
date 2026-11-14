@@ -9,6 +9,8 @@ from apps.Module1_Authentication.views import PublicAPIView
 from apps.Module5_Foundation.serializers import ErrorSerializer
 
 from .serializers import AnswerSerializer, PublicProgressSerializer, PublicSummarySerializer
+from apps.common.errors import ApiError
+
 from .services import engine
 from .throttles import LinkRateThrottle
 
@@ -33,6 +35,19 @@ class _LinkView(PublicAPIView):
 
     def session(self, token):
         return engine.session_for_token(token)
+
+    def typed_session(self, token):
+        """A session whose kind still answers over REST. A live kind is refused, so a candidate can
+        never be half-way through a spoken call and a typed one at the same time."""
+        from .services.kinds import rules_for
+
+        session = engine.session_for_token(token)
+        if getattr(rules_for(session.kind), "live", False):
+            raise ApiError(
+                "This interview is a live voice call. Open the interview link and start the call there.",
+                "use_live_channel", 409,
+            )
+        return session
 
 
 class PublicInterviewView(_LinkView):
@@ -62,7 +77,7 @@ class PublicInterviewStartView(_LinkView):
         responses={200: PublicProgressSerializer, 404: NOT_FOUND, 410: GONE, 429: TOO_MANY, 503: NO_QUESTION},
     )
     def post(self, request, token):
-        return Response(engine.start(self.session(token)))
+        return Response(engine.start(self.typed_session(token)))
 
 
 class PublicInterviewAnswerView(_LinkView):
@@ -92,7 +107,7 @@ class PublicInterviewAnswerView(_LinkView):
         data = AnswerSerializer(data=request.data)
         data.is_valid(raise_exception=True)
         values = data.validated_data
-        return Response(engine.answer(self.session(token), values["turn_index"], values.get("answer_text"), values.get("audio")))
+        return Response(engine.answer(self.typed_session(token), values["turn_index"], values.get("answer_text"), values.get("audio")))
 
 
 class PublicInterviewFinishView(_LinkView):

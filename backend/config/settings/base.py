@@ -14,6 +14,7 @@ DEBUG = env.bool("DEBUG", default=False)
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
 
 INSTALLED_APPS = [
+    "channels",  # websockets for the live interview; no channel layer is needed (no group fan-out)
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -238,12 +239,24 @@ EMAIL_ROW_RETENTION_DAYS = 90
 EMAIL_MAX_BODY_CHARS = 200_000
 
 # --- AI services (see Module5_Foundation.ai) --------------------------------------------------------------------
-AI_PROVIDER = env("AI_PROVIDER", default="fake")  # openai | fake
+AI_PROVIDER = env("AI_PROVIDER", default="fake")  # openai | gemini | fake
 AI_FALLBACK_PROVIDER = env("AI_FALLBACK_PROVIDER", default="")
 OPENAI_API_KEY = env("OPENAI_API_KEY", default="")
 AI_CHAT_MODEL = env("AI_CHAT_MODEL", default="gpt-4o-mini")
 AI_EVAL_MODEL = env("AI_EVAL_MODEL", default="gpt-4o")
 AI_EMBED_MODEL = env("AI_EMBED_MODEL", default="text-embedding-3-small")
+
+# --- Live voice interview (Module 7, Gemini Live API) -----------------------------------------------------------
+# The live call is a bidirectional audio stream, so it cannot go through `ai.llm.generate_json`.
+# `Module7_Interviews/live/gemini.py` is the only other place an AI SDK is imported; it logs to AIRequestLog.
+GEMINI_API_KEY = env("GEMINI_API_KEY", default="")
+GEMINI_LIVE_MODEL = env("GEMINI_LIVE_MODEL", default="gemini-3.8-live")
+GEMINI_CHAT_MODEL = env("GEMINI_CHAT_MODEL", default="gemini-2.5-flash")
+# A ceiling no kind may exceed, however its rules are configured.
+LIVE_INTERVIEW_MAX_SECONDS = env.int("LIVE_INTERVIEW_MAX_SECONDS", default=900)
+# Audio formats the browser and Gemini agree on; changing these means changing the worklet too.
+LIVE_INPUT_SAMPLE_RATE = 16000
+LIVE_OUTPUT_SAMPLE_RATE = 24000
 AI_STT_MODEL = env("AI_STT_MODEL", default="whisper-1")
 AI_ALLOWED_MODELS = env.list(
     "AI_ALLOWED_MODELS",
@@ -315,3 +328,5 @@ LOGGING = {
         "django.server": {"handlers": ["console"], "level": "INFO", "propagate": False},
     },
 }
+
+ASGI_APPLICATION = "config.asgi.application"

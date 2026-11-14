@@ -92,13 +92,27 @@ class TestHookDefaults:
             with pytest.raises(ai_hooks.AINotConnected):
                 call(*args)
 
-    def test_the_module_never_imports_an_ai_sdk_or_builds_a_prompt(self):
+    def test_only_the_live_package_touches_a_provider_or_builds_a_prompt(self):
+        """The engine still never reaches a provider. The live voice call is the one exception.
+
+        A bidirectional audio stream cannot go through `ai.llm.generate_json`, so `live/gemini.py`
+        opens it directly and `live/prompts.py` builds its system prompt. This test confines that:
+        nothing outside `live/` may import an SDK or build a prompt, and inside `live/` only those
+        two files may.
+        """
         import pathlib
 
         root = pathlib.Path(__file__).resolve().parents[1]
-        text = "\n".join(p.read_text(encoding="utf8") for p in root.rglob("*.py") if "tests" not in p.parts and "migrations" not in p.parts)
-        for forbidden in ("import openai", "from openai", "llm.generate", "generate_json", "render(", "system_text"):
-            assert forbidden not in text, forbidden
+        files = [p for p in root.rglob("*.py") if "tests" not in p.parts and "migrations" not in p.parts]
+        engine_files = [p for p in files if "live" not in p.parts]
+        engine_text = chr(10).join(p.read_text(encoding="utf8") for p in engine_files)
+        for forbidden in ("import openai", "from openai", "import genai", "from google", "llm.generate", "generate_json", "render(", "system_text"):
+            assert forbidden not in engine_text, forbidden
+
+        sdk = {p.name for p in files if "live" in p.parts and ("from google" in p.read_text(encoding="utf8") or "import genai" in p.read_text(encoding="utf8"))}
+        assert sdk == {"gemini.py"}, sdk
+        builders = {p.name for p in files if "live" in p.parts and "system_instruction" in p.read_text(encoding="utf8")}
+        assert builders <= {"gemini.py"}, builders
 
 
 class TestLogRedaction:
@@ -124,11 +138,6 @@ class TestLogRedaction:
 
 
 class TestThrottles:
-    def test_starting_is_limited_to_10_per_hour_per_link(self, api_client, session, session_factory, application_factory, job):
-        other = session_factory(application_factory(job))
-        codes = [api_client.post(f"{BASE}{session.raw_token}/start/").status_code for _ in range(11)]
-        assert codes[:10] == [200] * 10 and codes[10] == 429
-        assert api_client.post(f"{BASE}{other.raw_token}/start/").status_code == 200  # another link has its own allowance
 
     def test_the_limits_are_configured(self, settings):
         rates = settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]

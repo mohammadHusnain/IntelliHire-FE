@@ -17,6 +17,11 @@ class KindRules:
     kind = ""
     invitable = False
     allow_voice = True
+    # A live kind is a spoken call over the websocket (Module 7 `live/`): the model runs the whole
+    # conversation and the transcript becomes the turns afterwards, so the typed REST flow is refused.
+    live = False
+    live_seconds = 180
+    prompt_framing = ""
     outage_uses_bank = True  # when the question hook is down, keep going with bank questions
     report_needs_text = False  # when no report hook is connected, still store the computed numbers
 
@@ -50,6 +55,13 @@ class KindRules:
 class ScreeningRules(KindRules):
     kind = "screening"
     invitable = True
+    live = True
+    live_seconds = 180  # FR: a 3-minute screening call
+    prompt_framing = (
+        "This is a short screening call. Cover motivation for this role, the experience most relevant "
+        "to the required skills, and one practical example of their work. Keep it broad rather than deep: "
+        "you are judging fit and communication, not testing them."
+    )
 
     def check_invite(self, application, user, override, note):
         from apps.Module4_ApplicationManagement.models import ApplicationStatus
