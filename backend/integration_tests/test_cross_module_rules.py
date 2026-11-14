@@ -5,7 +5,7 @@ import pytest
 from django.utils import timezone
 
 from apps.common.choices import MemberRole
-from apps.common.tests.helpers import link_in
+from apps.common.tests.helpers import code_in, link_in
 from apps.Module3_JobPosting.models import JobPosting
 from apps.Module4_ApplicationManagement.models import Application
 
@@ -122,8 +122,8 @@ class TestRejectedCompanyJourney:
                 "admin_phone": "+92 300 1234567", "password": "Sunny-Day-4711", "confirm_password": "Sunny-Day-4711"}
         with django_capture_on_commit_callbacks(execute=True):
             assert api_client.post("/api/auth/register/company/", body, format="json").status_code == 201
-        verify = next(m for m in mail.outbox if "Verify" in m.subject)
-        assert api_client.post("/api/auth/verify-email/", {"token": link_in(verify)[1]["token"]}, format="json").status_code == 200
+        verify = next(m for m in mail.outbox if "verification code" in m.subject)
+        assert api_client.post("/api/auth/verify-email/", {"email": "owner@journey.example", "code": code_in(verify)}, format="json").status_code == 200
         company_id = admin_client.get("/api/platform-admin/companies/").json()["results"][0]["id"]
         admin_client.post(f"/api/platform-admin/companies/{company_id}/reject/", {"reason": "Details could not be verified."}, format="json")
         login = {"email": "owner@journey.example", "password": "Sunny-Day-4711"}

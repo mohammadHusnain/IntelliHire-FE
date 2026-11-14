@@ -6,7 +6,7 @@ from django.db import DatabaseError
 from rest_framework import status
 
 from apps.Module1_Authentication.models import CandidateProfile, User
-from apps.common.tests.helpers import link_in
+from apps.common.tests.helpers import code_in
 
 pytestmark = pytest.mark.django_db
 URL = "/api/auth/register/candidate/"
@@ -24,7 +24,7 @@ def payload(**overrides):
     return data
 
 
-def test_tc01_sign_up_creates_a_pending_candidate_and_emails_a_verify_link(api_client, django_capture_on_commit_callbacks):
+def test_tc01_sign_up_creates_a_pending_candidate_and_emails_a_verify_code(api_client, django_capture_on_commit_callbacks):
     with django_capture_on_commit_callbacks(execute=True):
         response = api_client.post(URL, payload(), format="json")
 
@@ -37,10 +37,9 @@ def test_tc01_sign_up_creates_a_pending_candidate_and_emails_a_verify_link(api_c
     assert CandidateProfile.objects.filter(user=user).exists()
 
     assert len(mail.outbox) == 1 and mail.outbox[0].to == ["ayesha@example.com"]
-    url, query = link_in(mail.outbox[0])
-    assert url.startswith("http://localhost:5173/verify-email?token=")
+    code = code_in(mail.outbox[0])
 
-    verified = api_client.post(VERIFY_URL, {"token": query["token"]}, format="json")
+    verified = api_client.post(VERIFY_URL, {"email": "ayesha@example.com", "code": code}, format="json")
     assert verified.status_code == 200 and verified.json()["status"] == "active"
     user.refresh_from_db()
     assert user.status == User.Status.ACTIVE and user.email_verified is True

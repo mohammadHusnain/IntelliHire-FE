@@ -75,12 +75,13 @@ class CandidateRegisterView(PublicAPIView):
 @sensitive
 class VerifyEmailView(PublicAPIView):
     serializer_class = VerifyEmailSerializer
+    throttle_scope = "verify_email"
 
     @extend_schema(responses={200: VerifyEmailResponseSerializer})
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user, changed = services.verify_email(serializer.validated_data["token"])
+        user, changed = services.verify_email(serializer.validated_data["email"], serializer.validated_data["code"])
         message = "Email verified." if changed else "Email already verified."
         return Response({"detail": message, "status": user.status})
 

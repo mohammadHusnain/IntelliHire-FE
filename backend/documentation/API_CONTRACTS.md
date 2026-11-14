@@ -30,7 +30,7 @@ Source: Doc §1.7. Implemented and tested on `backend/module-01`; deviations and
 |---|---|---|---|---|---|---|
 | POST | /api/auth/register/candidate/ | Public | full_name, email, password, confirm_password; optional target_role, skills, linkedin_url, github_url, resume (JSON, or multipart when a CV is attached; D-073) | 201 email, status | 400 field errors (duplicate email, weak password, mismatch, bad CV or URL); 413; 429 | implemented |
 | POST | /api/auth/register/company/ | Public | company_name, industry, official_email, admin_full_name, admin_phone, password, confirm_password | 201 email, status | 400 field errors | implemented |
-| POST | /api/auth/verify-email/ | Public | token | 200 detail, status | 400 expired or invalid | implemented |
+| POST | /api/auth/verify-email/ | Public | email, code (6 digits) | 200 detail, status | 400 `expired`, `invalid_code`, `too_many_attempts`; 429 throttled | implemented |
 | POST | /api/auth/resend-verification/ | Public | email | 200 always | 429 throttled | implemented |
 | POST | /api/auth/login/ | Public | email, password | 200 access, refresh, user | 401 invalid credentials; 403 with code; 429 | implemented |
 | POST | /api/auth/token/refresh/ | Public | refresh | 200 access, refresh | 401 invalid or blacklisted | implemented |
@@ -86,7 +86,7 @@ Source: Doc §1.7. Implemented and tested on `backend/module-01`; deviations and
 | 413 | `request_too_large` | Multipart body over 12 MB |
 | 429 | `throttled` | Rate limit |
 
-**Throttle scopes**: login 5/min (also used per user by change-password); registration 10/hour (candidate and company share it); resend-verification 3/hour; forgot-password 3/hour; reset-password 10/hour. Limits are per client IP (`NUM_PROXIES` controls how the IP is read).
+**Throttle scopes**: login 5/min (also used per user by change-password); registration 10/hour (candidate and company share it); resend-verification 3/hour; verify-email 20/hour (on top of 5 wrong tries per code); forgot-password 3/hour; reset-password 10/hour. Limits are per client IP (`NUM_PROXIES` controls how the IP is read).
 
 **Frontend field mapping for the candidate profile (for Phase 5)**
 

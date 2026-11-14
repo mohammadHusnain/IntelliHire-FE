@@ -86,21 +86,25 @@ def _discard_files(names):
         storage.delete(name)
 
 
-def verify_email(token):
-    payload = tokens.read_verification_token(token)
+def verify_email(email, code):
+    # Outside any atomic block on purpose: check_verification_otp must commit a wrong attempt even
+    # though it then raises, and a raise out of a transaction nested in this one would undo that.
+    user = User.objects.filter(email=normalize_email(email)).first()
+    if user is None:
+        raise ApiError("Invalid or expired code.", "invalid_code")
+    if user.email_verified:
+        return user, False
+    tokens.check_verification_otp(user, code)  # raises on a wrong, expired or exhausted code
     with transaction.atomic():
-        try:
-            user = User.objects.select_for_update().get(pk=payload["uid"], email=payload["email"])
-        except (User.DoesNotExist, KeyError, ValueError):
-            raise ApiError("Invalid verification link.", "invalid_token")
-        if not user.email_verified:
-            user.email_verified = True
-            if user.status == UserStatus.PENDING_VERIFICATION:
-                user.status = derive_status(user)
-            user.save(update_fields=["email_verified", "status"])
-            email_verified.send_robust(sender=User, user=user)
-            return user, True
-    return user, False
+        user = User.objects.select_for_update().get(pk=user.pk)
+        if user.email_verified:
+            return user, False
+        user.email_verified = True
+        if user.status == UserStatus.PENDING_VERIFICATION:
+            user.status = derive_status(user)
+        user.save(update_fields=["email_verified", "status"])
+    email_verified.send_robust(sender=User, user=user)
+    return user, True
 
 
 def resend_verification(email):

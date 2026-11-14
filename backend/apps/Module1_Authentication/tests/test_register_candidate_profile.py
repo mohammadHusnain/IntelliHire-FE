@@ -11,7 +11,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DatabaseError
 
 from apps.Module1_Authentication.models import CandidateProfile, User
-from apps.common.tests.helpers import link_in, make_docx, make_image, make_pdf
+from apps.common.tests.helpers import code_in, make_docx, make_image, make_pdf
 
 pytestmark = pytest.mark.django_db
 URL = "/api/auth/register/candidate/"
@@ -165,8 +165,8 @@ def test_the_data_is_there_after_verification_and_login(api_client, django_captu
     with django_capture_on_commit_callbacks(execute=True):
         response = api_client.post(URL, {**payload(target_role="QA Engineer", linkedin_url="https://linkedin.com/in/a"), "skills": ["Testing", "Python"], "resume": pdf("a.pdf", "qa resume")}, format="multipart")
     assert response.status_code == 201
-    token = link_in(mail.outbox[-1])[1]["token"]
-    assert api_client.post("/api/auth/verify-email/", {"token": token}, format="json").status_code == 200
+    code = code_in(mail.outbox[-1])
+    assert api_client.post("/api/auth/verify-email/", {"email": "ayesha@example.com", "code": code}, format="json").status_code == 200
     login = api_client.post("/api/auth/login/", {"email": "ayesha@example.com", "password": PASSWORD}, format="json")
     api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {login.json()['access']}")
     profile = api_client.get("/api/auth/profile/").json()

@@ -153,7 +153,7 @@ class TestLinkingOnVerification:
         user = self.candidate(user_factory, "late@example.com")
         mine = application_factory(job, email="late@example.com")
         session = session_factory(mine, status="invited")
-        auth_services.verify_email(tokens.make_verification_token(user))
+        auth_services.verify_email(user.email, tokens.make_verification_otp(user))
         mine.refresh_from_db()
         session.refresh_from_db()
         assert mine.candidate_user == user and session.candidate_user == user
@@ -161,7 +161,7 @@ class TestLinkingOnVerification:
     def test_an_application_already_tied_to_another_account_is_left_alone(self, application_factory, job, user_factory):
         user, other = self.candidate(user_factory, "late@example.com"), user_factory(email="other@example.com")
         taken = application_factory(job, email="late@example.com", candidate_user=other)
-        auth_services.verify_email(tokens.make_verification_token(user))
+        auth_services.verify_email(user.email, tokens.make_verification_otp(user))
         taken.refresh_from_db()
         assert taken.candidate_user == other
 
@@ -173,7 +173,7 @@ class TestLinkingOnVerification:
     def test_a_failing_listener_never_blocks_verification(self, user_factory, monkeypatch):
         monkeypatch.setattr(linking, "link_applications", lambda user: 1 / 0)
         user = self.candidate(user_factory, "late@example.com")
-        _, changed = auth_services.verify_email(tokens.make_verification_token(user))
+        _, changed = auth_services.verify_email(user.email, tokens.make_verification_otp(user))
         assert changed is True and User.objects.get(pk=user.pk).email_verified
 
     def test_the_one_time_backfill_links_existing_accounts(self, application_factory, job, user_factory):

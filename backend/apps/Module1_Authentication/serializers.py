@@ -118,7 +118,8 @@ class RegistrationResponseSerializer(serializers.Serializer):
 
 
 class VerifyEmailSerializer(serializers.Serializer):
-    token = serializers.CharField(max_length=2000)
+    email = serializers.CharField(max_length=254)
+    code = serializers.RegexField(r"^\d{6}$", error_messages={"invalid": "Enter the 6-digit code."})
 
 
 class VerifyEmailResponseSerializer(serializers.Serializer):

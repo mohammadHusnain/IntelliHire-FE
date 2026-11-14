@@ -6,7 +6,7 @@ from django.db import DatabaseError
 
 from apps.Module1_Authentication.models import User
 from apps.common.choices import CompanyStatus
-from apps.common.tests.helpers import link_in
+from apps.common.tests.helpers import code_in
 from apps.Module2_CompanyManagement.models import Company, CompanyMember
 from apps.Module5_Foundation.models import Notification
 
@@ -53,7 +53,7 @@ def test_tc03_sign_up_creates_user_company_and_admin_member_and_sends_two_emails
 
     assert len(mail.outbox) == 2 and all(m.to == ["hr@acme.example"] for m in mail.outbox)
     subjects = {m.subject for m in mail.outbox}
-    assert subjects == {"Verify your IntelliHire email", "IntelliHire registration received"}
+    assert subjects == {"Your IntelliHire verification code", "IntelliHire registration received"}
     received = next(m for m in mail.outbox if "received" in m.subject)
     assert "Acme Software" in received.body
 
@@ -72,8 +72,8 @@ def test_tc03_login_is_refused_until_the_email_is_verified_and_the_company_appro
 
     assert login().json()["code"] == "pending_verification"
 
-    _, query = link_in(next(m for m in mail.outbox if "Verify" in m.subject))
-    assert api_client.post(VERIFY, {"token": query["token"]}, format="json").json()["status"] == "pending_approval"
+    code = code_in(next(m for m in mail.outbox if "verification code" in m.subject))
+    assert api_client.post(VERIFY, {"email": "hr@acme.example", "code": code}, format="json").json()["status"] == "pending_approval"
     blocked = login()
     assert blocked.status_code == 403
     assert blocked.json() == {"detail": "Your company account is awaiting administrator approval.", "code": "pending_approval"}
@@ -82,8 +82,8 @@ def test_tc03_login_is_refused_until_the_email_is_verified_and_the_company_appro
 def test_verifying_after_the_company_was_approved_activates_the_admin_directly(api_client, django_capture_on_commit_callbacks):
     register(api_client, django_capture_on_commit_callbacks)
     Company.objects.update(status=CompanyStatus.APPROVED)
-    _, query = link_in(next(m for m in mail.outbox if "Verify" in m.subject))
-    assert api_client.post(VERIFY, {"token": query["token"]}, format="json").json()["status"] == "active"
+    code = code_in(next(m for m in mail.outbox if "verification code" in m.subject))
+    assert api_client.post(VERIFY, {"email": "hr@acme.example", "code": code}, format="json").json()["status"] == "active"
     login = api_client.post(LOGIN, {"email": "hr@acme.example", "password": PASSWORD}, format="json")
     assert login.status_code == 200
     assert login.json()["user"]["company"]["member_role"] == "admin"

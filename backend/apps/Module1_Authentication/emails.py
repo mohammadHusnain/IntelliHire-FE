@@ -12,14 +12,16 @@ def _frontend_link(path, **params):
 
 
 def send_verification_email(user):
-    link = _frontend_link("/verify-email", token=tokens.make_verification_token(user))
+    code = tokens.make_verification_otp(user)
+    minutes = settings.EMAIL_OTP_MAX_AGE_SECONDS // 60
     send_email_on_commit(
         to=user.email,
-        subject="Verify your IntelliHire email",
+        subject="Your IntelliHire verification code",
         body=(
             f"Hello {user.full_name},\n\n"
-            f"Confirm your email address to continue with your IntelliHire account:\n{link}\n\n"
-            "This link expires in 24 hours. If you did not create an account, ignore this email.\n"
+            f"Your verification code is:\n\n    {code}\n\n"
+            f"Enter it on the verification page to activate your account. It expires in {minutes} minutes "
+            "and works once. If you did not create an account, ignore this email.\n"
         ),
         kind="email_verification",
         sensitive=True,

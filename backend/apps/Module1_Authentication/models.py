@@ -140,3 +140,22 @@ class Experience(models.Model):
     def __str__(self):
         return f"{self.position}, {self.company}"
 
+
+
+class EmailOTP(models.Model):
+    """A one-time code emailed to prove the user controls the address. Only its hash is stored.
+
+    Generating a new code (register again before verifying, or resend) deletes any unconsumed one
+    for the same user and purpose, so only the latest code ever works.
+    """
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="email_otps")
+    purpose = models.CharField(max_length=30, default="email_verification")
+    code_hash = models.CharField(max_length=64)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    expires_at = models.DateTimeField()
+    consumed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["user", "purpose", "consumed_at"], name="email_otp_lookup_idx")]

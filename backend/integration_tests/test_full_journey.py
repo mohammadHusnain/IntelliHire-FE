@@ -8,7 +8,7 @@ from django.core import mail
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.common.tests.helpers import link_in
+from apps.common.tests.helpers import code_in, link_in
 from apps.Module4_ApplicationManagement.tests.helpers import form, pdf
 
 pytestmark = pytest.mark.django_db
@@ -44,7 +44,7 @@ def test_the_whole_platform_end_to_end(auth_client, user_factory, django_capture
     assert duplicate.status_code == 400 and "Email already registered." in str(duplicate.json())  # TC-02
     before_verification = candidate.post("/api/auth/login/", {"email": "sara@example.com", "password": PASSWORD}, format="json")
     assert before_verification.status_code == 403 and before_verification.json()["code"] == "pending_verification"
-    assert candidate.post("/api/auth/verify-email/", {"token": link_in(last_mail("Verify"))[1]["token"]}, format="json").status_code == 200
+    assert candidate.post("/api/auth/verify-email/", {"email": "sara@example.com", "code": code_in(last_mail("verification code"))}, format="json").status_code == 200
     session = sign_in(candidate, "sara@example.com")
     assert session["user"]["role"] == "candidate" and session["user"]["status"] == "active"
     assert candidate.patch("/api/auth/profile/", {"headline": "Backend engineer", "skills": ["Python", "SQL"]}, format="json").status_code == 200
@@ -56,7 +56,7 @@ def test_the_whole_platform_end_to_end(auth_client, user_factory, django_capture
                     "admin_phone": "+92 300 1234567", "password": PASSWORD, "confirm_password": PASSWORD}
     with capture():
         assert boss.post("/api/auth/register/company/", registration, format="json").status_code == 201
-    assert boss.post("/api/auth/verify-email/", {"token": link_in(last_mail("Verify"))[1]["token"]}, format="json").status_code == 200
+    assert boss.post("/api/auth/verify-email/", {"email": "hr@acme.example", "code": code_in(last_mail("verification code"))}, format="json").status_code == 200
     pending = boss.post("/api/auth/login/", {"email": "hr@acme.example", "password": PASSWORD}, format="json")
     assert pending.status_code == 403 and pending.json()["code"] == "pending_approval"
     queue = platform.get("/api/platform-admin/companies/").json()["results"]
@@ -131,7 +131,7 @@ def test_the_whole_platform_end_to_end(auth_client, user_factory, django_capture
     rival = actor()
     with capture():
         rival.post("/api/auth/register/company/", {**registration, "company_name": "Rival Co", "official_email": "hr@rival.example"}, format="json")
-    rival.post("/api/auth/verify-email/", {"token": link_in(last_mail("Verify"))[1]["token"]}, format="json")
+    rival.post("/api/auth/verify-email/", {"email": "hr@rival.example", "code": code_in(last_mail("verification code"))}, format="json")
     rival_id = next(c["id"] for c in platform.get("/api/platform-admin/companies/").json()["results"] if c["name"] == "Rival Co")
     platform.post(f"/api/platform-admin/companies/{rival_id}/approve/")
     sign_in(rival, "hr@rival.example")

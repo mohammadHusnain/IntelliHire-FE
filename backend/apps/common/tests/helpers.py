@@ -11,6 +11,11 @@ def link_in(message):
     return url, {key: values[0] for key, values in parse_qs(urlparse(url).query).items()}
 
 
+def code_in(message):
+    """The 6-digit verification code in an email body (there is no link to parse for this one)."""
+    return re.search(r"\b\d{6}\b", message.body).group(0)
+
+
 def make_pdf(text="Hello resume"):
     stream = f"BT /F1 12 Tf 72 720 Td ({text}) Tj ET".encode()
     objects = [

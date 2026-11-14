@@ -92,7 +92,8 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 PASSWORD_RESET_TIMEOUT = 60 * 60
-EMAIL_VERIFICATION_MAX_AGE = 24 * 60 * 60
+EMAIL_OTP_MAX_AGE_SECONDS = 15 * 60  # how long a verification code is valid
+EMAIL_OTP_MAX_ATTEMPTS = 5  # wrong guesses before the code is locked out and a new one is needed
 STAFF_INVITE_EXPIRY_DAYS = 7
 COMPANY_EMAIL_BLOCKED_DOMAINS = [d.lower() for d in env.list("COMPANY_EMAIL_BLOCKED_DOMAINS", default=[])]
 
@@ -149,6 +150,7 @@ REST_FRAMEWORK = {
         "password_reset": "3/hour",
         "password_reset_confirm": "10/hour",
         "resend_verification": "3/hour",
+        "verify_email": "20/hour",  # on top of the 5-attempt-per-code lockout below
         "public_apply": "10/hour",
         "notifications": "120/min",
         "interview_open": "120/min",

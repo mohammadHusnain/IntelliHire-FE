@@ -1,3 +1,5 @@
+import re
+
 import pytest
 from django.core import mail
 
@@ -14,8 +16,12 @@ def unverified(user_factory, **overrides):
     return user_factory(email_verified=False, status=User.Status.PENDING_VERIFICATION, **overrides)
 
 
-def verify(client, user):
-    return client.post(VERIFY, {"token": tokens.make_verification_token(user)}, format="json")
+def code_for(user):
+    return tokens.make_verification_otp(user)
+
+
+def verify(client, user, code=None):
+    return client.post(VERIFY, {"email": user.email, "code": code or code_for(user)}, format="json")
 
 
 def test_verifying_activates_a_candidate(api_client, user_factory):
@@ -29,8 +35,9 @@ def test_verifying_activates_a_candidate(api_client, user_factory):
 
 def test_verifying_twice_is_harmless(api_client, user_factory):
     user = unverified(user_factory)
-    verify(api_client, user)
-    again = verify(api_client, user)
+    code = code_for(user)
+    api_client.post(VERIFY, {"email": user.email, "code": code}, format="json")
+    again = api_client.post(VERIFY, {"email": user.email, "code": code}, format="json")
     assert again.status_code == 200
     assert again.json() == {"detail": "Email already verified.", "status": "active"}
 
@@ -57,54 +64,84 @@ def test_verifying_never_overrides_a_decision_made_by_an_administrator(api_clien
     assert user.email_verified is True and user.status == status
 
 
-def test_expired_link_returns_the_expired_code(api_client, user_factory, settings):
+def test_expired_code_is_rejected(api_client, user_factory, settings):
     user = unverified(user_factory)
-    token = tokens.make_verification_token(user)
-    settings.EMAIL_VERIFICATION_MAX_AGE = -1
-    response = api_client.post(VERIFY, {"token": token}, format="json")
+    settings.EMAIL_OTP_MAX_AGE_SECONDS = -1
+    code = code_for(user)
+    response = api_client.post(VERIFY, {"email": user.email, "code": code}, format="json")
     assert response.status_code == 400
-    assert response.json() == {"detail": "Verification link has expired.", "code": "expired"}
+    assert response.json() == {"detail": "This code has expired. Request a new one.", "code": "expired"}
 
 
-@pytest.mark.parametrize("mangle", [lambda t: t[:-3] + "xyz", lambda t: "garbage", lambda t: t + "A"])
-def test_tampered_link_is_invalid(api_client, user_factory, mangle):
-    token = mangle(tokens.make_verification_token(unverified(user_factory)))
-    response = api_client.post(VERIFY, {"token": token}, format="json")
+def test_a_wrong_code_counts_against_the_five_attempt_limit(api_client, user_factory):
+    user = unverified(user_factory)
+    code_for(user)  # the real code, never sent
+    for left in (4, 3, 2, 1):
+        response = api_client.post(VERIFY, {"email": user.email, "code": "000000"}, format="json")
+        assert response.status_code == 400
+        assert response.json()["code"] == "invalid_code"
+        assert f"{left} attempt" in response.json()["detail"]
+    locked = api_client.post(VERIFY, {"email": user.email, "code": "000000"}, format="json")
+    assert locked.json() == {"detail": "Too many incorrect attempts. Request a new code.", "code": "too_many_attempts"}
+    user.refresh_from_db()
+    assert user.email_verified is False
+
+
+def test_a_code_that_was_never_issued_is_invalid(api_client, user_factory):
+    user = unverified(user_factory)
+    response = api_client.post(VERIFY, {"email": user.email, "code": "123456"}, format="json")
     assert response.status_code == 400
-    assert response.json() == {"detail": "Invalid verification link.", "code": "invalid_token"}
+    assert response.json()["code"] == "expired"  # no active row exists for this user
 
 
-def test_link_for_a_changed_email_or_deleted_user_is_invalid(api_client, user_factory):
+def test_a_code_for_a_deleted_or_unknown_user_is_invalid(api_client):
+    response = api_client.post(VERIFY, {"email": "nobody@example.com", "code": "123456"}, format="json")
+    assert response.status_code == 400
+    assert response.json()["code"] == "invalid_code"
+
+
+def test_a_malformed_code_is_a_field_error(api_client, user_factory):
     user = unverified(user_factory)
-    token = tokens.make_verification_token(user)
-    User.objects.filter(pk=user.pk).update(email="changed@example.com")
-    assert api_client.post(VERIFY, {"token": token}, format="json").json()["code"] == "invalid_token"
-    user.delete()
-    assert api_client.post(VERIFY, {"token": token}, format="json").json()["code"] == "invalid_token"
+    response = api_client.post(VERIFY, {"email": user.email, "code": "12AB56"}, format="json")
+    assert response.status_code == 400 and "code" in response.json()
 
 
-def test_a_token_signed_for_another_purpose_is_rejected(api_client, user_factory):
-    from django.core import signing
+def test_missing_fields_are_a_field_error(api_client):
+    assert api_client.post(VERIFY, {}, format="json").json() == {
+        "email": ["This field is required."],
+        "code": ["This field is required."],
+    }
 
+
+def test_resending_invalidates_the_previous_code(api_client, user_factory):
     user = unverified(user_factory)
-    forged = signing.dumps({"uid": str(user.pk), "email": user.email}, salt="some.other.salt")
-    assert api_client.post(VERIFY, {"token": forged}, format="json").json()["code"] == "invalid_token"
+    old = code_for(user)
+    new = code_for(user)
+    assert old != new
+    stale = api_client.post(VERIFY, {"email": user.email, "code": old}, format="json")
+    assert stale.json()["code"] == "invalid_code"  # the old row is gone; this checks against the new one
+    assert api_client.post(VERIFY, {"email": user.email, "code": new}, format="json").status_code == 200
 
 
-def test_missing_token_is_a_field_error(api_client):
-    assert api_client.post(VERIFY, {}, format="json").json() == {"token": ["This field is required."]}
+def test_verify_is_throttled_on_top_of_the_per_code_lockout(api_client, user_factory, settings):
+    settings.EMAIL_OTP_MAX_ATTEMPTS = 1000  # isolate the request throttle from the per-code attempt cap
+    user = unverified(user_factory)
+    code_for(user)
+    codes = [api_client.post(VERIFY, {"email": user.email, "code": "000000"}, format="json").status_code for _ in range(21)]
+    assert codes[-1] == 429
 
 
 GENERIC = {"detail": "If that email needs verification, a new link has been sent."}
 
 
-def test_resend_sends_a_fresh_link_to_an_unverified_account(api_client, user_factory, django_capture_on_commit_callbacks):
+def test_resend_sends_a_fresh_code_to_an_unverified_account(api_client, user_factory, django_capture_on_commit_callbacks):
     user = unverified(user_factory, email="me@example.com")
     with django_capture_on_commit_callbacks(execute=True):
         response = api_client.post(RESEND, {"email": "ME@example.com"}, format="json")
     assert response.status_code == 200 and response.json() == GENERIC
     assert [m.to for m in mail.outbox] == [["me@example.com"]]
-    assert "/verify-email?token=" in mail.outbox[0].body
+    assert re.search(r"\b\d{6}\b", mail.outbox[0].body)
+    assert "http://" not in mail.outbox[0].body and "https://" not in mail.outbox[0].body
     assert user.pk
 
 
@@ -122,8 +159,18 @@ def test_resend_is_throttled_to_3_per_hour(api_client):
     assert codes == [200, 200, 200, 429]
 
 
-def test_the_email_uses_the_configured_frontend_url(user_factory, settings, django_capture_on_commit_callbacks):
-    settings.FRONTEND_URL = "https://app.example.com"
+def test_the_code_is_hashed_in_the_database_never_stored_plain(user_factory):
+    from apps.Module1_Authentication.models import EmailOTP
+
+    user = unverified(user_factory)
+    code = code_for(user)
+    row = EmailOTP.objects.get(user=user, consumed_at__isnull=True)
+    assert row.code_hash != code
+    assert code not in row.code_hash
+
+
+def test_the_email_body_mentions_the_expiry_window(user_factory, settings, django_capture_on_commit_callbacks):
+    settings.EMAIL_OTP_MAX_AGE_SECONDS = 600
     with django_capture_on_commit_callbacks(execute=True):
         emails.send_verification_email(unverified(user_factory))
-    assert "https://app.example.com/verify-email?token=" in mail.outbox[0].body
+    assert "10 minutes" in mail.outbox[0].body
