@@ -4,6 +4,7 @@ import { AlertCircle, CheckCircle2, Clock, Loader2, SearchX, WifiOff } from "luc
 import BrandLogo from "@/components/shared/BrandLogo";
 import ApplicationFormFields from "@/components/jobs/ApplicationFormFields";
 import JobSummary from "@/components/jobs/JobSummary";
+import ReportButton from "@/components/admin/ReportButton";
 import { publicJobsApi } from "@/api/publicJobsApi";
 import { useCountdown } from "@/hooks/useCountdown";
 import { formatDeadline } from "@/lib/jobMap";
@@ -193,6 +194,11 @@ export default function ApplyPage() {
             </button>
           </form>
         </Panel>
+      )}
+      {schema?.job && (
+        <div className="mt-6 flex justify-center">
+          <ReportButton formSlug={slug} variant="link" label="Report this job posting" />
+        </div>
       )}
     </Shell>
   );

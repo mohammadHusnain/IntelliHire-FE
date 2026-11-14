@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { server } from "@/test/server";
-import { apiAdminCompany, detail, json, paged, route } from "@/test/fixtures";
+import { apiAdminCompany, apiAdminDashboard, apiAlert, apiHealth, detail, json, paged, route } from "@/test/fixtures";
 import { useAuthStore } from "@/store/authStore";
 import { useToastStore } from "@/store/toastStore";
 import AdminDashboardLive from "./AdminDashboardLive";
@@ -14,6 +14,9 @@ function mount({ pending = [apiAdminCompany()], handlers = [] } = {}) {
   useAuthStore.setState({ isAuthenticated: true, isInitialized: true, user: { id: "admin", role: "admin", status: "active", name: "Admin" } });
   server.use(
     ...handlers,
+    route.get("/platform-admin/dashboard/", () => json(apiAdminDashboard())),
+    route.get("/platform-admin/health/", () => json(apiHealth())),
+    route.get("/platform-admin/alerts/", () => paged([])),
     route.get("/platform-admin/companies/", ({ request }) => {
       const q = new URL(request.url).searchParams;
       if (q.get("page_size") === "1") return paged([], { count: { pending: pending.length, approved: 6, rejected: 1, suspended: 2 }[q.get("status")] });
@@ -28,22 +31,49 @@ function mount({ pending = [apiAdminCompany()], handlers = [] } = {}) {
 }
 
 describe("AdminDashboardLive", () => {
-  it("shows the live totals", async () => {
+  it("shows every metric block from the server's dashboard endpoint", async () => {
     mount();
     expect(await screen.findByText("1 company needs", { exact: false })).toBeInTheDocument();
-    // (the big tile numbers count up only when scrolled into view, so check the plain-text figures)
-    expect(screen.getByText("6 active")).toBeInTheDocument(); // companies by status come from the counts
-    const health = (label) => screen.getAllByText(label).map((e) => e.closest("a")).find(Boolean);
-    expect(health("Companies awaiting approval")).toHaveTextContent("1");
-    expect(health("Suspended accounts")).toHaveTextContent("3"); // users status_counts
-    expect(health("Suspended companies")).toHaveTextContent("2");
+    // Counts come straight from /platform-admin/dashboard/, keyed by the server's own enums.
+    // The label and the number are separate nodes, so read the badge's whole text.
+    const badge = (text) => screen.getByText((_, el) => el?.tagName === "SPAN" && el.textContent === text);
+    expect(await screen.findByText("People")).toBeInTheDocument();
+    expect(badge("Candidates: 30")).toBeInTheDocument();
+    expect(badge("Approved: 6")).toBeInTheDocument();
+    expect(badge("Screening: 6")).toBeInTheDocument();
+    expect(screen.getByText("52")).toBeInTheDocument();      // applications, all time
+    expect(screen.getByText("840 ms")).toBeInTheDocument();  // AI average latency
   });
 
-  it("says 'not connected yet' for blocks with no backend instead of showing numbers", async () => {
+  it("no longer claims any block is 'not connected yet'", async () => {
     mount();
     await screen.findByText("1 company needs", { exact: false });
-    expect(screen.getAllByText(/not connected yet/i).length).toBeGreaterThanOrEqual(3);
-    expect(screen.queryByText(/average score/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/not connected yet/i)).not.toBeInTheDocument();
+  });
+
+  it("reports system health, including a failing check and a missing backup", async () => {
+    mount({ handlers: [route.get("/platform-admin/health/", () => json(apiHealth({
+      broker: { ok: false, detail: "ConnectionError" },
+      resources: { cpu_percent: null, memory_percent: null, disk_percent: null },
+      backup: { last_successful_at: null, size_bytes: 0, warning: "No successful backup in the last 26 hours." },
+    })))] });
+    expect(await screen.findByText("No successful backup in the last 26 hours.")).toBeInTheDocument();
+    expect(screen.getByText("ConnectionError")).toBeInTheDocument();
+    expect(screen.getByText("The server could not read its own resource usage.")).toBeInTheDocument();
+    expect(screen.getAllByText("Unreachable").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("acknowledges an active alert and says it can come back", async () => {
+    let acknowledged = false;
+    mount({ handlers: [
+      route.get("/platform-admin/alerts/", () => paged([apiAlert()])),
+      route.post("/platform-admin/alerts/alert-1/acknowledge/", () => (acknowledged = true, json({}))),
+    ] });
+    const banner = await screen.findByRole("region", { name: "Active alerts" });
+    expect(banner).toHaveTextContent("No worker heartbeat in 10 minutes.");
+    await userEvent.setup().click(within(banner).getByRole("button", { name: /acknowledge/i }));
+    await waitFor(() => expect(acknowledged).toBe(true));
+    await waitFor(() => expect(toasts()).toContain("Alert acknowledged"));
   });
 
   it("approves a pending company from the queue", async () => {

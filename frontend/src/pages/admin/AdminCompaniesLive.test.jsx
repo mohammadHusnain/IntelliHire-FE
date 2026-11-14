@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { HttpResponse } from "msw";
 import { server } from "@/test/server";
-import { apiAdminCompany, detail, json, paged, route } from "@/test/fixtures";
+import { apiAdminCompany, apiCompanyOnboarding, detail, json, paged, route } from "@/test/fixtures";
 import { useAuthStore } from "@/store/authStore";
 import { useToastStore } from "@/store/toastStore";
 import AdminCompaniesLive from "./AdminCompaniesLive";
@@ -20,6 +20,7 @@ function mount({ rows = {}, handlers = [] } = {}) {
   useAuthStore.setState({ isAuthenticated: true, isInitialized: true, user: { id: "admin", role: "admin", status: "active", name: "Admin" } });
   const asked = [];
   server.use(
+    route.get("/platform-admin/companies/:id/onboarding/", () => json(apiCompanyOnboarding())),
     ...handlers,
     route.get("/platform-admin/companies/", ({ request }) => {
       const q = new URL(request.url).searchParams;

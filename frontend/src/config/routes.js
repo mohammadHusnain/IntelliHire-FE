@@ -58,6 +58,7 @@ export const ROUTES = {
     USERS: "/admin/users",
     COMPANIES: "/admin/companies",
     COMMUNITIES: "/admin/communities",
+    MODERATION: "/admin/moderation",
     REPORTS: "/admin/reports",
     SETTINGS: "/admin/settings",
     MANAGEMENT: "/admin/management",

@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { server } from "@/test/server";
-import { apiUser, companyUser, detail, json, route } from "@/test/fixtures";
+import { apiUser, apiUserDetail, companyUser, detail, json, route } from "@/test/fixtures";
 import { useAuthStore } from "@/store/authStore";
 import { useToastStore } from "@/store/toastStore";
 import AdminUsers from "./AdminUsers";
@@ -14,7 +14,7 @@ const page = (results, extra = {}) => json({ count: results.length, next: null, 
 
 function mount(handlers = []) {
   useAuthStore.setState({ isAuthenticated: true, isInitialized: true, user: { id: "admin", role: "admin", status: "active", name: "Admin" } });
-  server.use(...handlers);
+  server.use(...handlers, route.get("/platform-admin/users/:id/detail/", () => json(apiUserDetail())));
   return render(
     <MemoryRouter>
       <AdminUsers />

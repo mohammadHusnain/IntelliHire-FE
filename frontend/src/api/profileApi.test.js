@@ -20,6 +20,7 @@ describe("mapProfile", () => {
       targetRole: "Backend Developer", experience: "mid", skills: ["Python"],
       links: { linkedin: "https://linkedin.com/in/s", github: "https://github.com/s", portfolio: "https://s.dev" },
       cv: { name: "Sara CV.pdf" }, photo: "http://x/media/a.jpg", education: [{ id: 1, institution: "FAST" }], experienceRows: [{ id: 2, company: "Acme" }],
+      discoverable: false,
     });
   });
 

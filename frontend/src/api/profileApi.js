@@ -21,6 +21,8 @@ export function mapProfile(data, user) {
     photo: data.avatar || null,
     education: Array.isArray(data.education) ? data.education : [],
     experienceRows: Array.isArray(data.experience) ? data.experience : [],
+    // Module 12: may companies find this candidate when inviting to a community (P2-9). Off by default.
+    discoverable: Boolean(data.discoverable),
   };
 }
 

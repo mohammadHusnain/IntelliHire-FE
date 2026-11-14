@@ -9,6 +9,10 @@ import { Avatar } from "@/components/app/HeaderMenus";
 import Reveal from "@/components/shared/Reveal";
 import { accountsApi } from "@/api/authApi";
 import { usersApi } from "@/api/usersApi";
+import { platformAdminApi } from "@/api/platformAdminApi";
+import { InlineError, Loading, OpenFlags } from "@/components/admin/platformParts";
+import { useRemote } from "@/hooks/useRemote";
+import { eventTypeLabel } from "@/lib/platformMap";
 import { USE_MOCK_API } from "@/config/env";
 import { useAdminAccounts } from "@/hooks/useAdminAccounts";
 import { ACCOUNT_STATUS, practiceSummaryFor } from "@/lib/adminStats";
@@ -351,6 +355,7 @@ export default function AdminUsers() {
             </>
           )}
           <Field label="Registered">{formatDate(open.createdAt, { day: "numeric", month: "long", year: "numeric" })}</Field>
+          {!USE_MOCK_API && <ServerUserDetail userId={open.id} />}
           {open.role === "company" && (
             <Link to="/admin/companies" className="btn-secondary mt-4 w-full">
               Manage in Companies
@@ -371,6 +376,62 @@ export default function AdminUsers() {
           onClose={() => setDialog(null)}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * Module 13's user detail: counts, the company membership, recent activity and open flags.
+ * Phase 1's list gives the rest; this adds what only the platform-admin detail endpoint knows.
+ */
+function ServerUserDetail({ userId }) {
+  const detail = useRemote((o) => platformAdminApi.userDetail(userId, o), [userId]);
+  const d = detail.data;
+
+  if (detail.status === "loading" && !d) return <Loading label="Loading platform detail" />;
+  if (detail.status === "error") {
+    return detail.error.status === 404 ? null : <InlineError message={detail.error.message} onRetry={detail.reload} />;
+  }
+  if (!d) return null;
+
+  const counts = Object.entries(d.counts || {});
+  return (
+    <div className="mt-5 space-y-4 border-t border-[var(--line)] pt-4">
+      <Field label="Last sign-in">{d.last_login ? relativeTime(d.last_login) : "never"}</Field>
+      <Field label="Email verified">{d.email_verified ? "Yes" : "No"}</Field>
+      {d.company && (
+        <Field label="Company membership">
+          {d.company.name} · {d.company.role}{d.company.is_active ? "" : " (deactivated)"}
+        </Field>
+      )}
+      {counts.length > 0 && (
+        <div>
+          <p className="text-[12px] font-semibold uppercase tracking-wide text-stone-400">Counts</p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {counts.map(([key, value]) => <Badge key={key} tone="neutral">{key.replaceAll("_", " ")}: {value}</Badge>)}
+          </div>
+        </div>
+      )}
+      <div>
+        <p className="text-[12px] font-semibold uppercase tracking-wide text-stone-400">Open flags</p>
+        <div className="mt-1.5"><OpenFlags flags={d.open_flags} /></div>
+      </div>
+      <div>
+        <p className="text-[12px] font-semibold uppercase tracking-wide text-stone-400">Recent activity</p>
+        {(d.recent_activity || []).length === 0 ? (
+          <p className="mt-1.5 text-[12.5px] text-stone-500">Nothing recorded for this account yet.</p>
+        ) : (
+          <ul className="mt-1.5 space-y-1.5">
+            {d.recent_activity.map((event) => (
+              <li key={event.id} className="rounded-lg border border-[var(--line)] px-3 py-2 text-[12px]">
+                <p className="font-semibold text-ink">{eventTypeLabel(event.event_type)}</p>
+                <p className="text-stone-500">{event.summary}</p>
+                <p className="text-[11px] text-stone-400">{relativeTime(event.created_at)}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

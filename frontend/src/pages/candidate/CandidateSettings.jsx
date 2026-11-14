@@ -8,6 +8,7 @@ import { Badge, Card, CardHeader, PageHeader, Segmented, Toggle } from "@/compon
 import Reveal from "@/components/shared/Reveal";
 import AuthField from "@/components/shared/AuthField";
 import { useLogout } from "@/hooks/useLogout";
+import { profileApi } from "@/api/profileApi";
 import { useCandidateActions, useCandidateRecord } from "@/store/candidateStore";
 import { useAuthStore } from "@/store/authStore";
 import { DIFFICULTIES, INTERVIEW_TYPES, LENGTHS } from "@/lib/interview/questionBank";
@@ -58,7 +59,9 @@ function deviceLabel() {
 export default function CandidateSettings() {
   const record = useCandidateRecord();
   const { profile, prefs, sessions } = record;
-  const { updatePrefs, resetPractice } = useCandidateActions();
+  const { updatePrefs, resetPractice, updateProfile } = useCandidateActions();
+  const [discoverableBusy, setDiscoverableBusy] = useState(false);
+  const [discoverableError, setDiscoverableError] = useState("");
   const logout = useLogout();
   const navigate = useNavigate();
   const changePasswordAction = useAuthStore((s) => s.changePassword);
@@ -73,6 +76,20 @@ export default function CandidateSettings() {
   const save = (section, changes) => {
     updatePrefs(section, changes);
     setTick((t) => t + 1);
+  };
+
+  /** Module 12: the only privacy switch the server actually stores (`discoverable`, off by default). */
+  const saveDiscoverable = async (value) => {
+    setDiscoverableBusy(true);
+    setDiscoverableError("");
+    try {
+      updateProfile({ discoverable: (await profileApi.save({ discoverable: value }, { name: profile.fullName, email: profile.email })).discoverable });
+      setTick((t) => t + 1);
+    } catch (problem) {
+      setDiscoverableError(problem.message);
+    } finally {
+      setDiscoverableBusy(false);
+    }
   };
 
   const changePassword = async (e) => {
@@ -230,11 +247,28 @@ export default function CandidateSettings() {
       <Card className="p-6">
         <CardHeader icon={Eye} title="Privacy" subtitle="Control what companies and communities can see." action={<Saved tick={tick} />} />
         <ul className="mt-6 divide-y divide-[var(--line)] rounded-2xl border border-[var(--line)]">
-          <ToggleRow title="Visible to companies" description="Let hiring companies find your profile." checked={p.profileVisible} onChange={(v) => save("privacy", { profileVisible: v })} />
-          <ToggleRow title="Share my CV" description="Allow companies you apply to download your CV." checked={p.cvVisible} onChange={(v) => save("privacy", { cvVisible: v })} />
-          <ToggleRow title="Show practice scores" description="Display your best interview score on your profile." checked={p.showScores} onChange={(v) => save("privacy", { showScores: v })} />
-          <ToggleRow title="Recruiter contact" description="Allow recruiters from your communities to message you." checked={p.recruiterContact} onChange={(v) => save("privacy", { recruiterContact: v })} />
+          <ToggleRow
+            title="Allow companies to find me for communities"
+            description="Companies can then search for you by name, headline, institution, degree or skill when inviting people to a talent community. They never see your email, phone number or CV."
+            checked={Boolean(profile.discoverable)}
+            onChange={saveDiscoverable}
+            disabled={discoverableBusy}
+          />
+          {USE_MOCK_API && (
+            <>
+              <ToggleRow title="Visible to companies" description="Let hiring companies find your profile." checked={p.profileVisible} onChange={(v) => save("privacy", { profileVisible: v })} />
+              <ToggleRow title="Share my CV" description="Allow companies you apply to download your CV." checked={p.cvVisible} onChange={(v) => save("privacy", { cvVisible: v })} />
+              <ToggleRow title="Show practice scores" description="Display your best interview score on your profile." checked={p.showScores} onChange={(v) => save("privacy", { showScores: v })} />
+              <ToggleRow title="Recruiter contact" description="Allow recruiters from your communities to message you." checked={p.recruiterContact} onChange={(v) => save("privacy", { recruiterContact: v })} />
+            </>
+          )}
         </ul>
+        {discoverableError && <p role="alert" className="mt-3 text-[12.5px] text-red-700">{discoverableError}</p>}
+        {!USE_MOCK_API && (
+          <p className="mt-3 text-[12px] leading-relaxed text-stone-500">
+            This is the only privacy switch the server stores today. It is off until you turn it on.
+          </p>
+        )}
       </Card>
     ),
     security: (

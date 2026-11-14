@@ -1,10 +1,12 @@
 import { useCallback, useState } from "react";
 import { Building2, CheckCircle2, ChevronLeft, ChevronRight, Download, ExternalLink, Globe, Loader2, Mail, PauseCircle, SearchX, ShieldX, WifiOff } from "lucide-react";
-import { Badge, Card, EmptyState, PageHeader, StatTile } from "@/components/app/primitives";
+import { Badge, Card, EmptyState, PageHeader, ProgressBar, StatTile } from "@/components/app/primitives";
 import { ActionDialog, DataTable, Drawer, Field, SearchField, Tabs } from "@/components/admin/primitives";
 import { CompanyActions, CompanyLogo, StatusBadge } from "@/components/admin/companyParts";
 import Reveal from "@/components/shared/Reveal";
 import { platformCompaniesApi } from "@/api/platformCompaniesApi";
+import { platformAdminApi } from "@/api/platformAdminApi";
+import { CountRow, InlineError, Loading, OpenFlags } from "@/components/admin/platformParts";
 import { useDebounced } from "@/hooks/useDebounced";
 import { useRemote } from "@/hooks/useRemote";
 import { ACCOUNT_STATUS } from "@/lib/accountStatus";
@@ -64,7 +66,61 @@ function Detail({ company }) {
       </Field>
       <Field label="About">{c.description}</Field>
       <Field label="Registered">{formatDate(c.createdAt, { day: "numeric", month: "long", year: "numeric" })}</Field>
+      <Onboarding companyId={c.id} />
     </>
+  );
+}
+
+/** Module 13's onboarding view: how far this company has got, its staff and its open flags. */
+function Onboarding({ companyId }) {
+  const remote = useRemote((o) => platformAdminApi.companyOnboarding(companyId, o), [companyId]);
+  const d = remote.data;
+
+  if (remote.status === "loading" && !d) return <Loading label="Loading onboarding progress" />;
+  if (remote.status === "error") return remote.error.status === 404 ? null : <InlineError message={remote.error.message} onRetry={remote.reload} />;
+  if (!d) return null;
+
+  return (
+    <div className="mt-5 space-y-4 border-t border-[var(--line)] pt-4">
+      <div>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[12px] font-semibold uppercase tracking-wide text-stone-400">Profile completeness</p>
+          <span className="text-[12.5px] font-semibold tabular-nums text-ink">{Math.round(d.profile_completion ?? 0)}%</span>
+        </div>
+        <ProgressBar value={d.profile_completion ?? 0} className="mt-2" />
+      </div>
+      <CountRow title="Members by role" counts={d.members_by_role} />
+      <CountRow title="Jobs by status" counts={d.jobs_by_status} />
+      <div className="flex flex-wrap gap-1.5">
+        <Badge tone="neutral">Applications: {d.applications_total ?? 0}</Badge>
+        <Badge tone="neutral">Communities: {d.communities ?? 0}</Badge>
+      </div>
+      <div>
+        <p className="text-[12px] font-semibold uppercase tracking-wide text-stone-400">Staff accounts</p>
+        {(d.staff || []).length === 0 ? (
+          <p className="mt-1.5 text-[12.5px] text-stone-500">No staff accounts yet.</p>
+        ) : (
+          <ul className="mt-1.5 space-y-1.5">
+            {d.staff.map((member) => (
+              <li key={member.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--line)] px-3 py-2 text-[12.5px]">
+                <span className="min-w-0">
+                  <span className="font-semibold text-ink">{member.full_name}</span>
+                  <span className="block truncate text-[11.5px] text-stone-500">{member.email}</span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Badge tone="neutral">{member.role}</Badge>
+                  {!member.is_active && <Badge tone="warning">Deactivated</Badge>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <div>
+        <p className="text-[12px] font-semibold uppercase tracking-wide text-stone-400">Open flags</p>
+        <div className="mt-1.5"><OpenFlags flags={d.open_flags} /></div>
+      </div>
+    </div>
   );
 }
 

@@ -33,7 +33,7 @@ const CandidateReports = lazy(() => import("@/pages/candidate/CandidateReports")
 const InterviewSetup = lazy(() => import("@/pages/candidate/InterviewSetup"));
 const InterviewRoom = lazy(() => import("@/pages/candidate/InterviewRoom"));
 const InterviewReport = lazy(() => import("@/pages/candidate/InterviewReport"));
-const CandidateCommunities = lazy(() => import("@/pages/candidate/CandidateCommunities"));
+const CandidateCommunities = lazy(() => (DEMO ? import("@/pages/candidate/CandidateCommunities") : import("@/pages/candidate/CandidateCommunitiesLive")));
 const CandidateSettings = lazy(() => import("@/pages/candidate/CandidateSettings"));
 const CandidateApplications = lazy(() => import("@/pages/candidate/CandidateApplications"));
 
@@ -51,17 +51,18 @@ const CompanyCVAnalysis = lazy(() => import("@/pages/company/CompanyCVAnalysis")
 const CompanyEvaluation = lazy(() => import("@/pages/company/CompanyEvaluation"));
 const CompanyCandidateProfile = lazy(() => (DEMO ? import("@/pages/company/CompanyCandidateProfile") : import("@/pages/company/CompanyApplicantLive")));
 const CompanyAnalytics = lazy(() => (DEMO ? import("@/pages/company/CompanyAnalytics") : import("@/pages/company/CompanyAnalyticsLive")));
-const CompanyCommunity = lazy(() => import("@/pages/company/CompanyCommunity"));
+const CompanyCommunity = lazy(() => (DEMO ? import("@/pages/company/CompanyCommunity") : import("@/pages/company/CompanyCommunityLive")));
 const CompanySettings = lazy(() => import("@/pages/company/CompanySettings"));
 
 // Admin
 const AdminDashboard = lazy(() => (DEMO ? import("@/pages/admin/AdminDashboard") : import("@/pages/admin/AdminDashboardLive")));
 const AdminUsers = lazy(() => import("@/pages/admin/AdminUsers"));
 const AdminCompanies = lazy(() => (DEMO ? import("@/pages/admin/AdminCompanies") : import("@/pages/admin/AdminCompaniesLive")));
-const AdminCommunities = lazy(() => import("@/pages/admin/AdminCommunities"));
-const AdminReports = lazy(() => import("@/pages/admin/AdminReports"));
-const AdminSettings = lazy(() => import("@/pages/admin/AdminSettings"));
-const AdminManagement = lazy(() => import("@/pages/admin/AdminManagement"));
+const AdminCommunities = lazy(() => (DEMO ? import("@/pages/admin/AdminCommunities") : import("@/pages/admin/AdminCommunitiesLive")));
+const AdminModeration = lazy(() => import("@/pages/admin/AdminModeration"));
+const AdminReports = lazy(() => (DEMO ? import("@/pages/admin/AdminReports") : import("@/pages/admin/AdminReportsLive")));
+const AdminSettings = lazy(() => (DEMO ? import("@/pages/admin/AdminSettings") : import("@/pages/admin/AdminSettingsLive")));
+const AdminManagement = lazy(() => (DEMO ? import("@/pages/admin/AdminManagement") : import("@/pages/admin/AdminManagementLive")));
 
 // ─── Suspense Fallback ──────────────────────────────────────────────────────
 function PageLoader() {
@@ -144,6 +145,7 @@ function App() {
                 <Route path="/admin/users" element={<AdminUsers />} />
                 <Route path="/admin/companies" element={<AdminCompanies />} />
                 <Route path="/admin/communities" element={<AdminCommunities />} />
+                <Route path="/admin/moderation" element={<AdminModeration />} />
                 <Route path="/admin/reports" element={<AdminReports />} />
                 <Route path="/admin/settings" element={<AdminSettings />} />
                 <Route path="/admin/management" element={<AdminManagement />} />

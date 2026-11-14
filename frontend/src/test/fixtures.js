@@ -267,6 +267,143 @@ export const apiNote = (overrides = {}) => ({ id: 1, text: "Spoke on the phone",
 
 export const statusCounts = (overrides = {}) => ({ submitted: 0, under_review: 0, shortlisted: 0, interview: 0, selected: 0, rejected: 0, on_hold: 0, total: 0, ...overrides });
 
+// ── Module 12 (talent communities) ───────────────────────────────────────────
+export const apiCommunityFilters = (overrides = {}) => ({
+  universities: ["NUST"], degrees: ["Computer Science"], grad_year_from: 2025, grad_year_to: 2026,
+  skills: ["Python"], skill_mode: "any", ...overrides,
+});
+
+export const apiCommunity = (overrides = {}) => ({
+  id: "com-1",
+  name: "NUST Computer Science 2026",
+  slug: "nust-cs-2026",
+  description: "Graduate roles for this cohort.",
+  mission: "Internships and graduate roles",
+  join_mode: "request",
+  status: "active",
+  member_count: 3,
+  filters: apiCommunityFilters(),
+  created_at: "2026-05-01T09:00:00Z",
+  ...overrides,
+});
+
+/** A candidate discovery row: a community plus the company, my eligibility and my state. */
+export const apiDiscoveryRow = ({ eligible = true, reasons = [], state = "none", ...overrides } = {}) => ({
+  ...apiCommunity(overrides),
+  company: { id: "c0", name: "Acme" },
+  eligibility: { eligible, reasons },
+  state,
+});
+
+/** `profile_summary`: never an email, a phone number or a CV (P2-9). */
+export const apiCandidateSummary = (overrides = {}) => ({
+  id: "u-cand-1", full_name: "Sara Malik", headline: "Backend engineer",
+  institution: "NUST", degree: "Computer Science", skills: ["Python", "Django"], ...overrides,
+});
+
+export const apiCommunityMember = (overrides = {}) => ({ ...apiCandidateSummary(), joined_at: "2026-05-10T09:00:00Z", source: "request", skill_match: 1, ...overrides });
+export const apiCommunityInvitation = (overrides = {}) => ({
+  id: "inv-1", user_id: "u-cand-1", full_name: "Sara Malik", message: "Join us",
+  status: "pending", created_at: "2026-05-11T09:00:00Z", expires_at: "2026-05-25T09:00:00Z", ...overrides,
+});
+export const apiCandidateInvitation = (overrides = {}) => ({
+  id: "inv-1", message: "Join us", created_at: "2026-05-11T09:00:00Z", expires_at: "2026-05-25T09:00:00Z",
+  community: apiDiscoveryRow({ state: "invited" }), ...overrides,
+});
+export const apiJoinRequest = ({ eligible = true, reasons = [], ...overrides } = {}) => ({
+  id: "req-1", candidate: apiCandidateSummary(), message: "I would like to join", status: "pending",
+  eligibility: { eligible, reasons }, created_at: "2026-05-12T09:00:00Z", reviewed_at: null, decision_reason: "", ...overrides,
+});
+export const apiCommunityPost = (overrides = {}) => ({
+  id: "post-1", community_id: "com-1", kind: "job", title: "Graduate backend engineer",
+  body: "We are hiring from this cohort.", job_id: null, apply_url: "", closes_at: null,
+  closed: false, status: "published", created_at: "2026-05-13T09:00:00Z", responses: 0, ...overrides,
+});
+export const apiPostResponse = (overrides = {}) => ({ candidate: apiCandidateSummary(), message: "Interested", created_at: "2026-05-14T09:00:00Z", ...overrides });
+
+// ── Module 13 (platform admin) ───────────────────────────────────────────────
+export const apiAdminDashboard = (overrides = {}) => ({
+  users: { by_role: { candidate: 30, company_admin: 5, hr: 4, admin: 1 }, by_status: { active: 38, suspended: 2 }, total: 40 },
+  companies: { by_status: { approved: 6, pending: 1, suspended: 2 }, pending_review: 1 },
+  jobs: { open: 7, by_status: { draft: 2, open: 7, closed: 3 } },
+  applications: { last_7_days: 4, last_30_days: 18, total: 52 },
+  interviews_30_days: { screening: 6, technical: 2, mock: 9 },
+  communities: { total: 3 },
+  moderation: { open_flags: 2 },
+  alerts: { active: 0 },
+  ai_24h: { calls: 120, failures: 3, average_latency_ms: 840, prompt_tokens: 9000, completion_tokens: 3000 },
+  ...overrides,
+});
+
+export const apiHealth = (overrides = {}) => ({
+  database: { ok: true, detail: "" },
+  storage: { ok: true, detail: "" },
+  broker: { ok: true, detail: "" },
+  worker: { ok: true, last_heartbeat: "2026-06-01T09:00:00Z", seconds_since: 12 },
+  email: { queued: 1, failed: 0 },
+  ai_last_hour: { calls: 10, failures: 0, failure_rate: 0, last_successful_at: "2026-06-01T08:55:00Z" },
+  resources: { cpu_percent: 21, memory_percent: 48, disk_percent: 63 },
+  alerts: { active: 0 },
+  backup: { last_successful_at: "2026-06-01T02:00:00Z", size_bytes: 1024, warning: "" },
+  checked_at: "2026-06-01T09:00:00Z",
+  ...overrides,
+});
+
+export const apiAlert = (overrides = {}) => ({
+  id: "alert-1", kind: "worker.down", severity: "critical", message: "No worker heartbeat in 10 minutes.",
+  is_active: true, created_at: "2026-06-01T08:00:00Z", acknowledged_at: null, resolved_at: null, ...overrides,
+});
+
+export const apiFlag = (overrides = {}) => ({
+  id: "flag-1", target_type: "community", target_id: "com-1", target: { label: "NUST Computer Science 2026" },
+  reason: "Looks like spam", source: "reported", status: "open", reported_by: "Sara Malik",
+  resolution_note: "", action_taken: "none", resolved_by: "", created_at: "2026-06-01T07:00:00Z", resolved_at: null, ...overrides,
+});
+
+export const apiActivityEvent = (overrides = {}) => ({
+  id: "evt-1", event_type: "company.approved", summary: "Acme was approved",
+  actor: { id: "admin", full_name: "Admin" }, company_id: "c0", target_type: "company", target_id: "c0",
+  metadata: { reason: "" }, created_at: "2026-06-01T06:00:00Z", ...overrides,
+});
+
+export const apiAiSettings = (overrides = {}) => ({
+  provider: "fake", chat_model: "gpt-4o-mini", eval_model: "gpt-4o-mini", embed_model: "text-embedding-3-small",
+  stt_model: "whisper-1", fallback_provider: "", fallback_chat_model: "",
+  temperature_questions: 0.7, temperature_evaluation: 0.2, max_tokens: 1200, timeout_seconds: 30,
+  screening_min_score: 60, screening_questions: 6, technical_questions: 8, mock_questions: 6,
+  updated_at: "2026-06-01T09:00:00Z", ...overrides,
+});
+
+export const apiPromptVersion = (overrides = {}) => ({
+  key: "cv_extract", version: 2, model_role: "chat", system_text: "You extract CV fields.",
+  user_text: "CV: {cv_text}", output_schema: {}, is_active: true, created_by: "Admin",
+  created_at: "2026-06-01T09:00:00Z", ...overrides,
+});
+
+export const apiAiUsageRow = (overrides = {}) => ({
+  day: "2026-06-01", feature: "cv_extract", calls: 12, failures: 1,
+  prompt_tokens: 800, completion_tokens: 200, average_latency_ms: 910, ...overrides,
+});
+
+export const apiUserDetail = (overrides = {}) => ({
+  id: "u-1", full_name: "Sara Malik", email: "sara@example.com", role: "candidate", status: "active",
+  email_verified: true, date_joined: "2026-01-01T09:00:00Z", last_login: "2026-06-01T08:00:00Z",
+  company: null, counts: { applications: 4 },
+  recent_activity: [{ id: "evt-1", event_type: "application.submitted", summary: "Applied to Django Engineer", created_at: "2026-05-30T09:00:00Z" }],
+  open_flags: [], ...overrides,
+});
+
+export const apiCompanyOnboarding = (overrides = {}) => ({
+  profile_completion: 80,
+  members_by_role: { admin: 1, hr_manager: 2 },
+  jobs_by_status: { open: 3, closed: 1 },
+  applications_total: 24,
+  communities: 2,
+  staff: [{ id: "u-2", full_name: "Ali Khan", email: "ali@acme.example", role: "admin", status: "active", is_active: true, joined_at: "2026-02-01T09:00:00Z" }],
+  open_flags: [],
+  ...overrides,
+});
+
 // ── Module 6 (CV analysis and shortlisting) ──────────────────────────────────
 export const apiScreeningConfig = (overrides = {}) => ({
   auto_analyse: true,
