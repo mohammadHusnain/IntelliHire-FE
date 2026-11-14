@@ -159,15 +159,31 @@ describe("History", () => {
     expect(screen.getByText("Needs 4 scored sessions")).toBeInTheDocument();
   });
 
+  it("asks before deleting, and does nothing if that is declined", async () => {
+    const seen = [];
+    mount("/candidate/reports", [
+      route.get("/mock-interviews/", () => paged([session({ status: "completed" })])),
+      route.get("/mock-interviews/progress/", () => json({ scored_sessions: 0, scores_over_time: [], dimension_averages: {}, best_score: null, latest_score: null, trend: null })),
+      route.delete("/mock-interviews/s1/", () => (seen.push(1), new Response(null, { status: 204 }))),
+    ]);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Delete session" }));
+    expect(await screen.findByText("Delete this practice session?")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByText("Delete this practice session?")).not.toBeInTheDocument();
+    expect(seen).toEqual([]);
+  });
+
   it("says when there are no sessions, and deletes one after confirming", async () => {
     let deleted = false;
-    window.confirm = () => true;
     mount("/candidate/reports", [
       route.get("/mock-interviews/", () => paged(deleted ? [] : [session({ status: "completed" })])),
       route.get("/mock-interviews/progress/", () => json({ scored_sessions: 0, scores_over_time: [], dimension_averages: {}, best_score: null, latest_score: null, trend: null })),
       route.delete("/mock-interviews/s1/", () => (deleted = true, new Response(null, { status: 204 }))),
     ]);
-    await userEvent.setup().click(await screen.findByRole("button", { name: "Delete session" }));
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Delete session" }));
+    await user.click(await screen.findByRole("button", { name: "Delete" }));
     await waitFor(() => expect(deleted).toBe(true));
     expect(await screen.findByText("No practice sessions yet")).toBeInTheDocument();
   });

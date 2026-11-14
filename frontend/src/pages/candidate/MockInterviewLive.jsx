@@ -6,6 +6,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { Loader2, Play, RefreshCw, Send, Trash2 } from "lucide-react";
 import { Badge, Card, CardHeader, EmptyState, PageHeader, StatTile } from "@/components/app/primitives";
 import { SearchField } from "@/components/admin/primitives";
+import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import { mockInterviewApi as api } from "@/api/mockInterviewApi";
 import { useDebounced } from "@/hooks/useDebounced";
 import { useRemote } from "@/hooks/useRemote";
@@ -256,16 +257,19 @@ export function Report() {
 export function History() {
   const [version, setVersion] = useState(0);
   const [busy, setBusy] = useState("");
+  const [toDelete, setToDelete] = useState(null);
   const list = useRemote((o) => api.list({}, o), [version]);
   const progress = useRemote((o) => api.progress(o), [version]);
   const rows = list.data?.results || [];
   const p = progress.data;
 
-  const remove = async (row) => {
-    if (!window.confirm("Delete this practice session and its transcript for good?")) return;
+  const confirmRemove = async () => {
+    const row = toDelete;
+    if (!row) return;
     setBusy(row.id);
     try {
       await api.remove(row.id);
+      setToDelete(null);
       toast({ title: "Session deleted" });
       setVersion((v) => v + 1);
     } catch (e) {
@@ -302,12 +306,22 @@ export function History() {
               </div>
               <Badge tone={FEEDBACK_TONE[row.feedback_status]}>{row.overall_score != null ? `${row.overall_score}` : row.feedback_status}</Badge>
               <Link to={OPEN.includes(row.status) ? `/candidate/interview/room?s=${row.id}` : `/candidate/report/${row.id}`} className="btn-secondary !h-8 !px-3 text-[12px]">{OPEN.includes(row.status) ? "Resume" : "Open"}</Link>
-              <button type="button" disabled={busy === row.id} onClick={() => remove(row)} aria-label="Delete session" className="icon-btn flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--line)] text-red-600"><Trash2 size={14} /></button>
+              <button type="button" disabled={busy === row.id} onClick={() => setToDelete(row)} aria-label="Delete session" className="icon-btn flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--line)] text-red-600"><Trash2 size={14} /></button>
             </Card>
           ))}
         </div>
       )}
       {list.status === "error" && <Err message={list.error.message} onRetry={list.reload} />}
+      <ConfirmDialog
+        open={!!toDelete}
+        title="Delete this practice session?"
+        message="Its transcript and feedback are deleted for good. This cannot be undone."
+        confirmLabel="Delete"
+        danger
+        busy={busy === toDelete?.id}
+        onConfirm={confirmRemove}
+        onClose={() => setToDelete(null)}
+      />
     </div>
   );
 }

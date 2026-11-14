@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { AlertCircle, CalendarClock, CheckCircle2, ChevronDown, ChevronUp, Clock3, Eye, Loader2, RefreshCw, Send, X } from "lucide-react";
 import { Badge, Card, CardHeader } from "@/components/app/primitives";
+import ConfirmDialog from "@/components/shared/ConfirmDialog";
 import { interviewsApi } from "@/api/interviewsApi";
 import { useRemote } from "@/hooks/useRemote";
 
@@ -70,6 +71,7 @@ export default function TechnicalInterviewPanel({ applicationId, memberRole }) {
   const [warning, setWarning] = useState("");
   const [expandedId, setExpandedId] = useState("");
   const [detail, setDetail] = useState(null);
+  const [toCancel, setToCancel] = useState("");
   const [extendId, setExtendId] = useState("");
   const [extendDays, setExtendDays] = useState(7);
 
@@ -205,7 +207,7 @@ export default function TechnicalInterviewPanel({ applicationId, memberRole }) {
                     {canManage && open && <>
                       <button type="button" disabled={busy} onClick={() => runAction(session.id, () => interviewsApi.resend(session.id), "A fresh invitation link has been emailed.")} className="btn-secondary !h-8 !px-3 text-[12px]">Resend link</button>
                       <button type="button" disabled={busy} onClick={() => setExtendId(extendId === session.id ? "" : session.id)} className="btn-secondary !h-8 !px-3 text-[12px]"><Clock3 size={13} /> Extend</button>
-                      <button type="button" disabled={busy} onClick={() => { if (window.confirm("Cancel this technical interview? Its candidate link will stop working.")) runAction(session.id, () => interviewsApi.cancel(session.id), "Technical interview cancelled."); }} aria-label="Cancel technical interview" className="icon-btn !h-8 !w-8 text-red-600" title="Cancel interview"><X size={15} /></button>
+                      <button type="button" disabled={busy} onClick={() => setToCancel(session.id)} aria-label="Cancel technical interview" className="icon-btn !h-8 !w-8 text-red-600" title="Cancel interview"><X size={15} /></button>
                     </>}
                     {canReevaluate && FINISHED_STATUSES.includes(session.status) && <button type="button" disabled={busy} onClick={() => runAction(session.id, () => interviewsApi.reevaluate(session.id), "Evaluation queued. Scores and report remain unavailable until the AI hooks are connected.")} className="btn-secondary !h-8 !px-3 text-[12px]">Re-evaluate</button>}
                   </div>
@@ -218,6 +220,20 @@ export default function TechnicalInterviewPanel({ applicationId, memberRole }) {
         </ol>
       )}
       {loading && sessions.length > 0 && <div className="mt-2 flex justify-end text-[12px] text-stone-400"><ChevronDown size={14} className="mr-1" /> Updating</div>}
+      <ConfirmDialog
+        open={!!toCancel}
+        title="Cancel this technical interview?"
+        message="Its candidate link will stop working right away."
+        confirmLabel="Cancel interview"
+        danger
+        busy={!!toCancel && actionBusy.startsWith(`${toCancel}:`)}
+        onConfirm={async () => {
+          const id = toCancel;
+          await runAction(id, () => interviewsApi.cancel(id), "Technical interview cancelled.");
+          setToCancel("");
+        }}
+        onClose={() => setToCancel("")}
+      />
     </Card>
   );
 }
