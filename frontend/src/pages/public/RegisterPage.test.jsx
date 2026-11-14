@@ -6,7 +6,7 @@ import { detail, json, route } from "@/test/fixtures";
 import { renderRoutes } from "@/test/utils";
 import RegisterPage from "./RegisterPage";
 
-const routes = { "/register": <RegisterPage />, "/login": <div>LOGIN PAGE</div> };
+const routes = { "/register": <RegisterPage />, "/verify-email": <div>VERIFY PAGE</div> };
 const cont = () => screen.getByRole("button", { name: /continue|create account/i });
 
 // jsdom has no scrolling
@@ -43,14 +43,14 @@ describe("RegisterPage", () => {
     expect(screen.getByText("Full name is required")).toBeInTheDocument();
   });
 
-  it("registers a candidate with the profile answers and the CV, then goes to log in", async () => {
+  it("registers a candidate with the profile answers and the CV, then goes to verify their email", async () => {
     let form;
     server.use(route.post("/auth/register/candidate/", async ({ request }) => ((form = await request.formData()), json({ detail: "ok" }, 201))));
     renderRoutes(routes, "/register");
     const user = userEvent.setup();
     await candidateSteps(user);
     await user.click(screen.getByRole("button", { name: /create account/i }));
-    expect(await screen.findByText("LOGIN PAGE")).toBeInTheDocument();
+    expect(await screen.findByText("VERIFY PAGE")).toBeInTheDocument();
     expect(form.get("full_name")).toBe("Sara Malik");
     expect(form.get("email")).toBe("sara@example.com");
     expect(form.get("linkedin_url")).toBe("https://linkedin.com/in/sara");
@@ -103,7 +103,7 @@ describe("RegisterPage", () => {
     await user.selectOptions(screen.getByLabelText("Industry"), screen.getAllByRole("option")[1]);
     await user.type(screen.getByLabelText("Your phone number"), "+92 300 1234567");
     await user.click(cont());
-    expect(await screen.findByText("LOGIN PAGE")).toBeInTheDocument();
+    expect(await screen.findByText("VERIFY PAGE")).toBeInTheDocument();
     expect(body).toMatchObject({ company_name: "Acme Inc.", official_email: "sara@example.com", admin_full_name: "Sara Malik", admin_phone: "+92 300 1234567" });
   });
 });

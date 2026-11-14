@@ -59,8 +59,9 @@ export const errors = {
   tokenInvalid: () => detail(401, "Given token not valid for any token type", "token_not_valid"),
   throttled: (seconds = 58) => detail(429, `Request was throttled. Expected available in ${seconds} seconds.`, "throttled"),
   denied: () => detail(403, "Unauthorized access.", "permission_denied"),
-  expired: () => detail(400, "This verification link has expired.", "expired"),
-  invalidLink: () => detail(400, "Invalid verification link.", "invalid_token"),
+  codeExpired: () => detail(400, "This code has expired. Request a new one.", "expired"),
+  codeInvalid: (left = 4) => detail(400, `Incorrect code. ${left} attempts left.`, "invalid_code"),
+  codeLocked: () => detail(400, "Too many incorrect attempts. Request a new code.", "too_many_attempts"),
   tooLarge: () => detail(413, "The request is too large.", "request_too_large"),
 };
 

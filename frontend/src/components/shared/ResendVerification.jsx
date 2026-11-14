@@ -36,10 +36,10 @@ export default function ResendVerification({ email, className = "" }) {
         className="link-brand inline-flex items-center gap-1.5 text-[13px] font-semibold disabled:cursor-not-allowed disabled:opacity-60"
       >
         {state.busy ? <Loader2 size={14} className="animate-spin" /> : <MailCheck size={14} />}
-        {cooldown > 0 ? `Resend available in ${cooldown}s` : "Resend verification email"}
+        {cooldown > 0 ? `Resend available in ${cooldown}s` : "Resend verification code"}
       </button>
       <p aria-live="polite" className="mt-1 text-[12.5px]">
-        {state.sent && <span className="text-emerald-700">If that address needs verifying, a new link is on its way.</span>}
+        {state.sent && <span className="text-emerald-700">If that address needs verifying, a new code is on its way.</span>}
         {state.error && <span className="text-red-600">{state.error}</span>}
       </p>
     </div>

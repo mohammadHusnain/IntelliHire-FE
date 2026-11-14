@@ -52,7 +52,7 @@ const realAuthApi = {
       { auth: false },
     ),
 
-  verifyEmail: (token) => api.post("/auth/verify-email/", { token }, { auth: false }),
+  verifyEmail: (email, code) => api.post("/auth/verify-email/", { email, code }, { auth: false }),
   resendVerification: (email) => api.post("/auth/resend-verification/", { email }, { auth: false }),
   forgotPassword: (email) => api.post("/auth/password/forgot/", { email }, { auth: false }),
 

@@ -66,7 +66,7 @@ export const useAuthStore = create((set, get) => {
     registerCandidate: (form) => guarded(async () => ({ ...(await authApi.registerCandidate(form)) }), { loading: true }),
     registerCompany: (form) => guarded(async () => ({ ...(await authApi.registerCompany(form)) }), { loading: true }),
 
-    verifyEmail: (token) => guarded(async () => ({ ...(await authApi.verifyEmail(token)) })),
+    verifyEmail: (email, code) => guarded(async () => ({ ...(await authApi.verifyEmail(email, code)) })),
     resendVerification: (email) => guarded(async () => ({ ...(await authApi.resendVerification(email)) })),
     forgotPassword: (email) => guarded(async () => ({ ...(await authApi.forgotPassword(email)) })),
 

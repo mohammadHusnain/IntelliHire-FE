@@ -223,7 +223,7 @@ describe("other actions", () => {
       route.post("/auth/resend-verification/", () => errors.throttled(5)),
       route.post("/auth/password/forgot/", () => HttpResponse.error()),
     );
-    expect(await store().verifyEmail("t")).toMatchObject({ success: true, status: "active" });
+    expect(await store().verifyEmail("a@b.co", "123456")).toMatchObject({ success: true, status: "active" });
     expect(await store().resendVerification("a@b.co")).toMatchObject({ success: false, retryAfterSeconds: 5 });
     expect(await store().forgotPassword("a@b.co")).toMatchObject({ success: false, isNetwork: true });
   });

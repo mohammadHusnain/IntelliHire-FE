@@ -81,10 +81,14 @@ describe("email and password flows", () => {
       route.post("/auth/resend-verification/", async ({ request }) => ((seen.resend = await request.json()), json({ detail: "sent" }))),
       route.post("/auth/password/forgot/", async ({ request }) => ((seen.forgot = [await request.json(), request.headers.get("authorization")]), json({ detail: "sent" }))),
     );
-    await auth.verifyEmail("tok:en");
+    await auth.verifyEmail("sara@example.com", "123456");
     await auth.resendVerification("a@b.co");
     await auth.forgotPassword("a@b.co");
-    expect(seen).toEqual({ verify: { token: "tok:en" }, resend: { email: "a@b.co" }, forgot: [{ email: "a@b.co" }, null] });
+    expect(seen).toEqual({
+      verify: { email: "sara@example.com", code: "123456" },
+      resend: { email: "a@b.co" },
+      forgot: [{ email: "a@b.co" }, null],
+    });
   });
 
   it("reset maps to new_password / confirm_password", async () => {

@@ -1,100 +1,136 @@
-import { useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import { AlertCircle, CheckCircle2, Loader2, Mail, MailWarning, WifiOff } from "lucide-react";
+import { useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { CheckCircle2, Loader2, Mail, ShieldAlert } from "lucide-react";
 import AuthLayout from "@/components/layout/AuthLayout";
 import AuthField from "@/components/shared/AuthField";
 import ResendVerification from "@/components/shared/ResendVerification";
 import { useAuthStore } from "@/store/authStore";
 
+const EMAIL_KEY = "intellihire.verify-email.address";
+const REDIRECT_DELAY_MS = 1200;
 const SUCCESS_TEXT = {
   pending_approval: "Your email is verified. Your company account is now waiting for administrator approval, and we will email you the decision.",
 };
 
-/** /verify-email?token=...  Verifies exactly once, then removes the token from the address bar. */
+/** /verify-email  Takes the email from registration (or a refreshed page via sessionStorage) and a
+ * 6-digit code typed by the candidate; no credential ever sits in the URL or browser history. */
 export default function VerifyEmailPage() {
-  const [params, setParams] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const verifyEmail = useAuthStore((s) => s.verifyEmail);
-  // Captured once: the token leaves the URL after the first attempt, and re-renders must not verify again.
-  const [token] = useState(() => params.get("token") || "");
-  const [attempt, setAttempt] = useState(0);
-  const [state, setState] = useState({ phase: token ? "verifying" : "missing", message: "", status: "" });
-  const [email, setEmail] = useState("");
-  // One request per attempt. React StrictMode runs effects twice in development, so the request is kept here
-  // and each effect run only attaches its own (cancellable) result handler to it.
-  const request = useRef({ attempt: null, promise: null });
 
-  useEffect(() => {
-    if (!token) return;
-    if (request.current.attempt !== attempt) {
-      request.current = { attempt, promise: verifyEmail(token) };
+  const [email, setEmail] = useState(() => {
+    const fromRegister = location.state?.email || "";
+    if (fromRegister) {
+      try {
+        sessionStorage.setItem(EMAIL_KEY, fromRegister);
+      } catch {
+        /* private browsing or storage disabled: the field still works, just not across a refresh */
+      }
+      return fromRegister;
     }
-    let live = true;
-    request.current.promise.then((result) => {
-      if (!live) return;
-      if (result.success) setState({ phase: "success", message: "", status: result.status });
-      else if (result.isNetwork || result.status >= 500) setState({ phase: "network", message: result.error, status: "" });
-      else setState({ phase: result.code === "expired" ? "expired" : "invalid", message: result.error, status: "" });
-      // Remove the token from the address bar and the history entry (it is a credential).
-      setParams({}, { replace: true });
-    });
-    return () => {
-      live = false;
-    };
-  }, [token, attempt, verifyEmail, setParams]);
+    try {
+      return sessionStorage.getItem(EMAIL_KEY) || "";
+    } catch {
+      return "";
+    }
+  });
+  const [code, setCode] = useState("");
+  const [state, setState] = useState({ phase: "idle", message: "", status: "" });
+  const submittedCode = useRef("");
 
-  const retry = () => {
+  const submit = async (candidateCode) => {
+    if (state.phase === "verifying" || state.phase === "success" || !email) return;
+    submittedCode.current = candidateCode;
     setState({ phase: "verifying", message: "", status: "" });
-    setAttempt((n) => n + 1);
+    const result = await verifyEmail(email, candidateCode);
+    if (submittedCode.current !== candidateCode) return; // a later attempt already replaced this one
+    if (result.success) {
+      setState({ phase: "success", message: "", status: result.status });
+      try {
+        sessionStorage.removeItem(EMAIL_KEY);
+      } catch {
+        /* nothing to clean up */
+      }
+      setTimeout(() => navigate("/login", { replace: true }), REDIRECT_DELAY_MS);
+    } else {
+      setState({ phase: "error", message: result.error, status: "" });
+      setCode("");
+    }
+  };
+
+  const onCodeChange = (e) => {
+    const digits = e.target.value.replace(/\D/g, "").slice(0, 6);
+    setCode(digits);
+    if (digits.length === 6) submit(digits);
+  };
+
+  const onSubmit = (e) => {
+    e.preventDefault();
+    if (code.length === 6) submit(code);
   };
 
   const { phase, message, status } = state;
+  const locked = phase === "error" && message.toLowerCase().includes("too many");
 
   return (
     <AuthLayout
       headline={<>One quick step to <em className="!text-white/90">get started.</em></>}
-      points={["Confirm your email address", "Then log in to your workspace", "Companies are reviewed before they go live"]}
+      points={["Check your inbox for the code", "Enter it below to confirm your email", "Companies are reviewed before they go live"]}
     >
       <div aria-live="polite">
-        {phase === "verifying" && (
-          <div className="py-10 text-center">
-            <Loader2 className="mx-auto animate-spin text-brand" size={30} />
-            <p className="mt-4 text-[15px] text-stone-600">Verifying your email…</p>
-          </div>
-        )}
-
-        {phase === "success" && (
+        {phase === "success" ? (
           <div className="py-4">
             <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600"><CheckCircle2 size={26} /></span>
             <h1 className="display mt-5 text-[32px]">Email verified</h1>
             <p className="mt-2 text-[15px] leading-relaxed text-stone-600">
-              {SUCCESS_TEXT[status] || "Your email is verified. You can log in now."}
+              {SUCCESS_TEXT[status] || "Your email is verified. Taking you to log in…"}
             </p>
-            <Link to="/login" className="btn-primary btn-lg mt-7 w-full">Go to log in</Link>
           </div>
-        )}
-
-        {(phase === "expired" || phase === "invalid" || phase === "missing") && (
+        ) : (
           <div className="py-4">
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600"><MailWarning size={26} /></span>
-            <h1 className="display mt-5 text-[32px]">
-              {phase === "expired" ? "This link has expired" : phase === "missing" ? "Verification link needed" : "This link isn't valid"}
-            </h1>
-            <p role="alert" className="mt-2 text-[15px] leading-relaxed text-stone-600">
-              {phase === "missing" ? "Open the link from the verification email we sent you." : message}
+            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/10 text-brand"><Mail size={26} /></span>
+            <h1 className="display mt-5 text-[32px]">Enter your code</h1>
+            <p className="mt-2 text-[15px] leading-relaxed text-stone-600">
+              We emailed a 6-digit code to confirm your address. Enter it below.
             </p>
-            <p className="mt-6 text-[14px] text-stone-600">Enter your email and we will send a new link.</p>
-            <AuthField className="mt-3" label="Email" icon={Mail} type="email" autoComplete="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} />
-            <ResendVerification email={email.trim()} className="mt-3" />
+
+            <form onSubmit={onSubmit} className="mt-6">
+              <AuthField
+                label="Email"
+                icon={Mail}
+                type="email"
+                autoComplete="email"
+                placeholder="you@company.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value.trim())}
+              />
+              <AuthField
+                className="mt-3"
+                label="Verification code"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="123456"
+                maxLength={6}
+                value={code}
+                onChange={onCodeChange}
+                disabled={phase === "verifying" || locked}
+                autoFocus
+              />
+              {phase === "error" && (
+                <p role="alert" className="mt-2 flex items-start gap-2 text-[13.5px] text-red-600">
+                  <ShieldAlert size={16} className="mt-0.5 shrink-0" />{message}
+                </p>
+              )}
+              <button type="submit" disabled={phase === "verifying" || code.length !== 6 || !email} className="btn-primary btn-lg mt-5 w-full">
+                {phase === "verifying" ? <Loader2 className="mx-auto animate-spin" size={20} /> : "Verify"}
+              </button>
+            </form>
+
+            <p className="mt-6 text-[14px] text-stone-600">Didn&apos;t get it, or did the code expire?</p>
+            <ResendVerification email={email.trim()} className="mt-2" />
             <Link to="/login" className="link-brand mt-6 inline-block text-[14px]">Back to log in</Link>
-          </div>
-        )}
-
-        {phase === "network" && (
-          <div className="py-4">
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-100 text-stone-500"><WifiOff size={26} /></span>
-            <h1 className="display mt-5 text-[32px]">We couldn&apos;t verify it yet</h1>
-            <p role="alert" className="mt-2 flex items-start gap-2 text-[15px] text-stone-600"><AlertCircle size={18} className="mt-0.5 shrink-0" />{message}</p>
-            <button type="button" onClick={retry} className="btn-primary btn-lg mt-7 w-full">Try again</button>
           </div>
         )}
       </div>

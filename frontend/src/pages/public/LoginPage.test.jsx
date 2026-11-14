@@ -90,8 +90,8 @@ describe("LoginPage", () => {
     renderRoutes(routes, "/login");
     const user = await logIn();
     expect(await screen.findByText("Please verify your email before logging in.")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /resend verification email/i }));
-    expect(await screen.findByText(/new link is on its way/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /resend verification code/i }));
+    expect(await screen.findByText(/new code is on its way/i)).toBeInTheDocument();
     expect(resent).toEqual({ email: "sara@example.com" });
   });
 
@@ -99,7 +99,7 @@ describe("LoginPage", () => {
     server.use(route.post("/auth/login/", () => errors.pendingVerification()), route.post("/auth/resend-verification/", () => errors.throttled(1800)));
     renderRoutes(routes, "/login");
     const user = await logIn();
-    await user.click(await screen.findByRole("button", { name: /resend verification email/i }));
+    await user.click(await screen.findByRole("button", { name: /resend verification code/i }));
     expect(await screen.findByText(/try again in 30 minutes/i)).toBeInTheDocument();
   });
 

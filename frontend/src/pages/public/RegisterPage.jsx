@@ -238,7 +238,7 @@ export default function RegisterPage() {
               cvFile: form.cvFile,
             });
       if (result.success) {
-        navigate("/login", { replace: true, state: { registered: true, email: account.email } });
+        navigate("/verify-email", { replace: true, state: { email: account.email } });
         return;
       }
       // Show the server's message on the right input, and go back to the step that holds it.
