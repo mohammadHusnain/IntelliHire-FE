@@ -38,5 +38,12 @@ EMAIL_TIMEOUT = 10
 # Background tasks need a real broker and worker; scores must come from a real provider, never the fake one.
 if CELERY_TASK_ALWAYS_EAGER:  # noqa: F405
     raise RuntimeError("CELERY_TASK_ALWAYS_EAGER must be false in production.")
-if AI_PROVIDER == "fake" or (AI_PROVIDER == "openai" and not OPENAI_API_KEY):  # noqa: F405
-    raise RuntimeError("Set AI_PROVIDER=openai and OPENAI_API_KEY in production (the fake provider is for tests).")
+if AI_PROVIDER == "fake":  # noqa: F405
+    raise RuntimeError("Set AI_PROVIDER to a real provider in production (the fake provider is for tests).")
+_PROVIDER_KEY = {"openai": "OPENAI_API_KEY", "gemini": "GEMINI_API_KEY"}.get(AI_PROVIDER)  # noqa: F405
+if _PROVIDER_KEY and not globals().get(_PROVIDER_KEY):
+    raise RuntimeError(f"AI_PROVIDER={AI_PROVIDER} needs {_PROVIDER_KEY} in production.")  # noqa: F405
+
+# The live interview talks to Gemini directly, whatever the scoring provider is, so it needs its own key.
+if not GEMINI_API_KEY:  # noqa: F405
+    raise RuntimeError("GEMINI_API_KEY must be set in production: the live screening and technical interviews need it.")

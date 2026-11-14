@@ -8,6 +8,30 @@ from apps.Module2_CompanyManagement.models import Company
 
 
 @pytest.fixture(autouse=True)
+def _interview_hooks_unconnected(request, monkeypatch):
+    """The interview scoring hooks start unconnected in every test, and a test that wants them
+    connected says so with `@pytest.mark.connected_hooks`.
+
+    `evaluate_answer` and `evaluate_session` now call a real provider. Under the fake provider they
+    would score every interview in the suite, which would silently change what dozens of tests
+    assert. Pinning the default here keeps each test's intent explicit: `hooks.install()` installs
+    fixed fakes, and the tests of the hooks themselves patch the provider instead.
+    """
+    if "connected_hooks" in request.keywords:
+        return
+    from apps.Module7_Interviews import ai_hooks
+
+    def unconnected(name):
+        def hook(*args, **kwargs):
+            raise ai_hooks.AINotConnected(f"{name} is not connected in this test")
+
+        return hook
+
+    for name in ("evaluate_answer", "evaluate_session"):
+        monkeypatch.setattr(ai_hooks, name, unconnected(name))
+
+
+@pytest.fixture(autouse=True)
 def _clear_cache():
     cache.clear()
     yield

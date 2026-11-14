@@ -242,6 +242,7 @@ EMAIL_MAX_BODY_CHARS = 200_000
 AI_PROVIDER = env("AI_PROVIDER", default="fake")  # openai | gemini | fake
 AI_FALLBACK_PROVIDER = env("AI_FALLBACK_PROVIDER", default="")
 OPENAI_API_KEY = env("OPENAI_API_KEY", default="")
+# With AI_PROVIDER=gemini these three hold Gemini model names (see AI_ALLOWED_MODELS below).
 AI_CHAT_MODEL = env("AI_CHAT_MODEL", default="gpt-4o-mini")
 AI_EVAL_MODEL = env("AI_EVAL_MODEL", default="gpt-4o")
 AI_EMBED_MODEL = env("AI_EMBED_MODEL", default="text-embedding-3-small")
@@ -251,7 +252,6 @@ AI_EMBED_MODEL = env("AI_EMBED_MODEL", default="text-embedding-3-small")
 # `Module7_Interviews/live/gemini.py` is the only other place an AI SDK is imported; it logs to AIRequestLog.
 GEMINI_API_KEY = env("GEMINI_API_KEY", default="")
 GEMINI_LIVE_MODEL = env("GEMINI_LIVE_MODEL", default="gemini-3.8-live")
-GEMINI_CHAT_MODEL = env("GEMINI_CHAT_MODEL", default="gemini-2.5-flash")
 # A ceiling no kind may exceed, however its rules are configured.
 LIVE_INTERVIEW_MAX_SECONDS = env.int("LIVE_INTERVIEW_MAX_SECONDS", default=900)
 # Audio formats the browser and Gemini agree on; changing these means changing the worklet too.
@@ -260,7 +260,11 @@ LIVE_OUTPUT_SAMPLE_RATE = 24000
 AI_STT_MODEL = env("AI_STT_MODEL", default="whisper-1")
 AI_ALLOWED_MODELS = env.list(
     "AI_ALLOWED_MODELS",
-    default=["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1", "text-embedding-3-small", "text-embedding-3-large", "whisper-1"],
+    default=[
+        "gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1", "text-embedding-3-small", "text-embedding-3-large", "whisper-1",
+        # Gemini, for the interview scoring and reports (the live call's model is GEMINI_LIVE_MODEL, set apart).
+        "gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash", "text-embedding-004",
+    ],
 )
 AI_TIMEOUT_SECONDS = 30
 AI_RETRY_DELAY_SECONDS = 10

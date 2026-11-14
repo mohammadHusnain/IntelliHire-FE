@@ -92,27 +92,33 @@ class TestHookDefaults:
             with pytest.raises(ai_hooks.AINotConnected):
                 call(*args)
 
-    def test_only_the_live_package_touches_a_provider_or_builds_a_prompt(self):
-        """The engine still never reaches a provider. The live voice call is the one exception.
+    def test_a_provider_is_reached_only_through_the_wrapper_or_the_live_stream(self):
+        """Two doors to a model, and no third one.
 
-        A bidirectional audio stream cannot go through `ai.llm.generate_json`, so `live/gemini.py`
-        opens it directly and `live/prompts.py` builds its system prompt. This test confines that:
-        nothing outside `live/` may import an SDK or build a prompt, and inside `live/` only those
-        two files may.
+        Scoring and reports go through `ai.llm.generate_json`, which fills a seeded template and
+        validates the reply. The live call cannot: a bidirectional audio stream has no JSON to
+        validate, so `live/gemini.py` holds the SDK directly. Nothing else may import an SDK, and
+        prompt text lives only in the two files that own it.
         """
         import pathlib
 
         root = pathlib.Path(__file__).resolve().parents[1]
         files = [p for p in root.rglob("*.py") if "tests" not in p.parts and "migrations" not in p.parts]
-        engine_files = [p for p in files if "live" not in p.parts]
-        engine_text = chr(10).join(p.read_text(encoding="utf8") for p in engine_files)
-        for forbidden in ("import openai", "from openai", "import genai", "from google", "llm.generate", "generate_json", "render(", "system_text"):
-            assert forbidden not in engine_text, forbidden
+        text_of = {p: p.read_text(encoding="utf8") for p in files}
 
-        sdk = {p.name for p in files if "live" in p.parts and ("from google" in p.read_text(encoding="utf8") or "import genai" in p.read_text(encoding="utf8"))}
+        sdk = {p.name for p, text in text_of.items() if "from google" in text or "import genai" in text or "import openai" in text}
         assert sdk == {"gemini.py"}, sdk
-        builders = {p.name for p in files if "live" in p.parts and "system_instruction" in p.read_text(encoding="utf8")}
-        assert builders <= {"gemini.py"}, builders
+
+        # Prompt wording belongs to prompts.py (the seeded templates) and live/prompts.py (the call).
+        wording = {p.name for p, text in text_of.items() if "You are " in text}
+        assert wording == {"prompts.py"}, wording
+
+        # The engine asks the wrapper; it never builds a request for a provider itself.
+        for p, text in text_of.items():
+            if p.name in ("gemini.py",):
+                continue
+            assert "chat(" not in text, p.name
+            assert "generate_content" not in text, p.name
 
 
 class TestLogRedaction:

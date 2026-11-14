@@ -16,7 +16,7 @@ Django app label `foundation` · Phase 2 guide, Module 5 · API under `/api/noti
 
 Rules worth knowing
 - **Eager locally.** `CELERY_TASK_ALWAYS_EAGER=true` (the local default) runs tasks inline, so no Redis is needed to develop. Production needs `CELERY_BROKER_URL`, a worker and beat, and refuses to start otherwise.
-- **Production start-up checks:** eager mode off, `AI_PROVIDER=openai`, `OPENAI_API_KEY` set. The `fake` provider is for development and tests only.
+- **Production start-up checks:** eager mode off, `AI_PROVIDER` not `fake`, that provider's key set (`OPENAI_API_KEY` or `GEMINI_API_KEY`), and `GEMINI_API_KEY` set in any case, because Module 7's live interview talks to Gemini directly whatever the scoring provider is. The `fake` provider is for development and tests only.
 - **Emails never fail a request.** A row is stored first; a dead broker or SMTP server only delays it. Mark emails that carry a credential link `sensitive=True`.
 - **Audit events** are written by services, not views, with ids and codes only (no names, emails or free text). They never block the action they describe.
 - **AI calls** go only through `ai/llm.py`. Do not hold a long database transaction around them (a rollback would also remove the log row). Candidate text goes into prompts through `wrap_untrusted`.

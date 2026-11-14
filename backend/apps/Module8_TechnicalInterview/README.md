@@ -4,7 +4,7 @@ Django app label `technical_interview` · Phase 2 guide, Module 8 · No tables a
 
 | Area | Where |
 |---|---|
-| The technical rules: invite gate and override, seniority, follow-up rule, typed-only, outage policy, report shape | `rules.py` |
+| The technical rules: invite gate and override, seniority, live call length, prompt framing, report shape | `rules.py` |
 | Registering the rules with the engine | `apps.py` (`kinds.register`) |
 | The automatic invitation after a screening `advance` | `receivers.py` |
 | Tests (55) | `tests/` (they reuse Module 7's fixtures) |

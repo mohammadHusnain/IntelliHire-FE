@@ -15,6 +15,7 @@ BASE_ENV = {
     "EMAIL_HOST": "smtp.example",
     "AI_PROVIDER": "openai",
     "OPENAI_API_KEY": "sk-test",
+    "GEMINI_API_KEY": "g-test",
     "CELERY_TASK_ALWAYS_EAGER": "false",
 }
 
@@ -28,12 +29,18 @@ def test_a_complete_production_setup_starts():
     assert start().returncode == 0
 
 
+def test_gemini_as_the_scoring_provider_starts_too():
+    assert start(AI_PROVIDER="gemini", OPENAI_API_KEY="").returncode == 0
+
+
 @pytest.mark.parametrize(
     "overrides,message",
     [
         ({"CELERY_TASK_ALWAYS_EAGER": "true"}, "CELERY_TASK_ALWAYS_EAGER"),
         ({"AI_PROVIDER": "fake"}, "fake provider"),
         ({"OPENAI_API_KEY": ""}, "OPENAI_API_KEY"),
+        ({"AI_PROVIDER": "gemini", "GEMINI_API_KEY": ""}, "GEMINI_API_KEY"),
+        ({"GEMINI_API_KEY": ""}, "live screening and technical interviews"),
     ],
 )
 def test_production_refuses_to_start_with_unsafe_background_or_ai_settings(overrides, message):
