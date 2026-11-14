@@ -15,6 +15,8 @@ import { skillsForRole } from "@/lib/interview/questionBank";
 import { TYPE_LABEL } from "@/lib/candidateStats";
 import { toast } from "@/store/toastStore";
 import { interviewsApi } from "@/api/interviewsApi";
+import LiveInterviewRoom from "./LiveInterviewRoom";
+import { USE_MOCK_API } from "@/config/env";
 
 const KIND_LABEL = { general: "Behavioural", technical: "Technical", "role-specific": "Role scenario" };
 const ttsSupported = typeof window !== "undefined" && "speechSynthesis" in window;
@@ -211,7 +213,10 @@ function InvitedInterviewRoom({ token }) {
 
 export default function InterviewRoom() {
   const { token } = useParams();
-  return token ? <InvitedInterviewRoom token={token} /> : <PracticeInterviewRoom />;
+  // An invited interview is a live voice call now (Module 7 live/). The typed room below is kept
+  // for the demo build only; `InvitedInterviewRoom` is unreachable with the real API.
+  if (token) return USE_MOCK_API ? <InvitedInterviewRoom token={token} /> : <LiveInterviewRoom token={token} />;
+  return <PracticeInterviewRoom />;
 }
 
 function PracticeInterviewRoom() {

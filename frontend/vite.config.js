@@ -16,6 +16,8 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/api': { target, changeOrigin: false },
         '/media': { target, changeOrigin: false },
+        // the live interview websocket (Module 7 live/); needs the backend on ASGI (uvicorn)
+        '/ws': { target: target.replace(/^http/, 'ws'), ws: true, changeOrigin: false },
       },
     },
     resolve: {

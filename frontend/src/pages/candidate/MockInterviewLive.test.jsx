@@ -43,7 +43,7 @@ describe("Setup", () => {
     ]);
     await userEvent.setup().click(await screen.findByRole("button", { name: /begin/i }));
     await waitFor(() => expect(body).toEqual({ interview_type: "general", use_cv: false }));
-    expect(await screen.findByTestId("where")).toHaveTextContent("/candidate/interview/room?s=s9");
+    await waitFor(() => expect(screen.getByTestId("where")).toHaveTextContent("/candidate/interview/room?s=s9"));
   });
 
   it("needs a role for a role-specific session, and sends role_id", async () => {
@@ -95,7 +95,7 @@ describe("Room", () => {
     const user = userEvent.setup();
     await user.type(await screen.findByLabelText("Your answer"), "Last one");
     await user.click(screen.getByRole("button", { name: /submit answer/i }));
-    expect(await screen.findByTestId("where")).toHaveTextContent("/candidate/report/s1");
+    await waitFor(() => expect(screen.getByTestId("where")).toHaveTextContent("/candidate/report/s1"));
   });
 
   it("refuses an empty answer without a request", async () => {
@@ -111,7 +111,7 @@ describe("Room", () => {
 
   it("sends a finished session to its report instead of the room", async () => {
     mount("/candidate/interview/room?s=s1", [route.get("/mock-interviews/s1/", () => json(session({ status: "completed" })))]);
-    expect(await screen.findByTestId("where")).toHaveTextContent("/candidate/report/s1");
+    await waitFor(() => expect(screen.getByTestId("where")).toHaveTextContent("/candidate/report/s1"));
   });
 
   it("ending under three answers cancels and says it does not count", async () => {
@@ -120,7 +120,7 @@ describe("Room", () => {
       route.post("/mock-interviews/s1/end/", () => json(session({ status: "cancelled" }))),
     ]);
     await userEvent.setup().click(await screen.findByRole("button", { name: /end practice/i }));
-    expect(await screen.findByTestId("where")).toHaveTextContent("/candidate/reports");
+    await waitFor(() => expect(screen.getByTestId("where")).toHaveTextContent("/candidate/reports"));
   });
 });
 
