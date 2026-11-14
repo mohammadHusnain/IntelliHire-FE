@@ -29,10 +29,11 @@ const UnauthorizedPage = lazy(() => import("@/pages/public/UnauthorizedPage"));
 // Candidate
 const CandidateDashboard = lazy(() => import("@/pages/candidate/CandidateDashboard"));
 const CandidateProfile = lazy(() => import("@/pages/candidate/CandidateProfile"));
-const CandidateReports = lazy(() => import("@/pages/candidate/CandidateReports"));
-const InterviewSetup = lazy(() => import("@/pages/candidate/InterviewSetup"));
+const CandidateReports = lazy(() => (DEMO ? import("@/pages/candidate/CandidateReports") : import("@/pages/candidate/MockInterviewLive").then((m) => ({ default: m.History }))));
+const InterviewSetup = lazy(() => (DEMO ? import("@/pages/candidate/InterviewSetup") : import("@/pages/candidate/MockInterviewLive").then((m) => ({ default: m.Setup }))));
 const InterviewRoom = lazy(() => import("@/pages/candidate/InterviewRoom"));
-const InterviewReport = lazy(() => import("@/pages/candidate/InterviewReport"));
+const PracticeRoom = lazy(() => (DEMO ? import("@/pages/candidate/InterviewRoom") : import("@/pages/candidate/MockInterviewLive").then((m) => ({ default: m.Room }))));
+const InterviewReport = lazy(() => (DEMO ? import("@/pages/candidate/InterviewReport") : import("@/pages/candidate/MockInterviewLive").then((m) => ({ default: m.Report }))));
 const CandidateCommunities = lazy(() => (DEMO ? import("@/pages/candidate/CandidateCommunities") : import("@/pages/candidate/CandidateCommunitiesLive")));
 const CandidateSettings = lazy(() => import("@/pages/candidate/CandidateSettings"));
 const CandidateApplications = lazy(() => import("@/pages/candidate/CandidateApplications"));
@@ -97,7 +98,7 @@ function App() {
             {/* ── Candidate Routes (role-guarded) ── */}
             <Route element={<RoleProtectedRoute allowedRoles={[ROLES.CANDIDATE]} />}>
               <Route element={<CandidateGate />}>
-                <Route path="/candidate/interview/room" element={<InterviewRoom />} />
+                <Route path="/candidate/interview/room" element={<PracticeRoom />} />
                 <Route element={<CandidateLayout />}>
                   <Route path="/candidate/dashboard" element={<CandidateDashboard />} />
                   <Route path="/candidate/profile" element={<CandidateProfile />} />
