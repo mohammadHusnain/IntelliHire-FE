@@ -296,3 +296,83 @@ class TestLiveEvaluation:
         session.refresh_from_db()
         assert session.status == SessionStatus.COMPLETED
         assert session.overall_score is None and session.recommendation is None
+
+
+class TestTheScreeningChain:
+    """Phase B end to end: a live screening call that advances pulls the technical round after it,
+    through the paths that already existed."""
+
+    def test_a_live_screening_that_advances_auto_invites_the_technical_round(
+        self, screening, hooks, django_capture_on_commit_callbacks
+    ):
+        from ..models import InterviewSession
+
+        session, _ = screening
+        hooks.install()
+        begin_live(session)
+        with django_capture_on_commit_callbacks(execute=True):
+            finish_live(session, [
+                {"role": "interviewer", "text": "Why this role?"},
+                {"role": "candidate", "text": "I want to build payment systems."},
+                {"role": "interviewer", "text": "What have you shipped?"},
+                {"role": "candidate", "text": "A billing API."},
+            ], "time_up")
+
+        session.refresh_from_db()
+        assert session.recommendation == "advance"
+        technical = InterviewSession.objects.filter(application=session.application, kind="technical").first()
+        assert technical is not None, "advancing should invite the technical round by itself"
+        assert technical.status == "invited"
+
+    def test_a_screening_that_does_not_advance_invites_nothing(
+        self, screening, hooks, django_capture_on_commit_callbacks
+    ):
+        from ..models import InterviewSession
+
+        session, _ = screening
+        hooks.score = 2.0  # well under the minimum, so the guard refuses
+        hooks.install()
+        begin_live(session)
+        with django_capture_on_commit_callbacks(execute=True):
+            finish_live(session, [
+                {"role": "interviewer", "text": "Why this role?"},
+                {"role": "candidate", "text": "Not sure."},
+            ], "time_up")
+
+        session.refresh_from_db()
+        assert session.recommendation != "advance"
+        assert not InterviewSession.objects.filter(application=session.application, kind="technical").exists()
+
+    def test_both_rounds_are_live_but_of_different_lengths(self):
+        from ..live.prompts import live_seconds
+        from ..services.kinds import rules_for
+
+        assert live_seconds(rules_for("screening")) == 180
+        assert live_seconds(rules_for("technical")) == 360
+
+
+class TestWhatTheCandidateIsTold:
+    """The briefing has to match the call the candidate is about to join."""
+
+    def test_the_length_is_the_call_length_not_a_guess_from_the_question_count(self, screening, api_client):
+        session, raw_token = screening
+        session.question_target = 12  # the typed estimate would say 30 minutes
+        session.save(update_fields=["question_target"])
+        body = api_client.get(f"{PUBLIC}{raw_token}/").json()
+        assert body["estimated_minutes"] == 3
+
+    def test_a_technical_call_says_six_minutes(self, application, session_factory, api_client):
+        session = session_factory(application, kind="technical")
+        body = api_client.get(f"{PUBLIC}{session.raw_token}/").json()
+        assert body["estimated_minutes"] == 6
+
+    def test_voice_is_reported_as_available_for_a_live_call(self, screening, api_client, settings):
+        settings.INTERVIEW_VOICE_ENABLED = False  # the typed transcribe hook is still unconnected
+        _, raw_token = screening
+        assert api_client.get(f"{PUBLIC}{raw_token}/").json()["voice_available"] is True
+
+    def test_the_instructions_describe_a_spoken_call(self, screening, api_client):
+        _, raw_token = screening
+        text = api_client.get(f"{PUBLIC}{raw_token}/").json()["instructions"]
+        assert "spoken" in text and "microphone" in text
+        assert "pause and come back" not in text, "a live call cannot be resumed later"

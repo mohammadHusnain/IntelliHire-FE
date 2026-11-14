@@ -14,6 +14,18 @@ AI_DISCLAIMER = (
 
 
 def estimated_minutes(session):
+    """How long the candidate should set aside.
+
+    A live call has an exact length, so say that. The typed flow can only be estimated from how many
+    questions are planned.
+    """
+    from .kinds import rules_for
+
+    rules = rules_for(session.kind)
+    if getattr(rules, "live", False):
+        from ..live.prompts import live_seconds
+
+        return max(1, round(live_seconds(rules) / 60))
     return max(5, round(session.question_target * 2.5))
 
 

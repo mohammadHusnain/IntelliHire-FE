@@ -32,6 +32,7 @@ ANY_LOGGED_IN = {
     ("POST", "/api/auth/logout/"), ("GET", "/api/auth/me/"), ("PATCH", "/api/auth/me/"), ("POST", "/api/auth/password/change/"),
     ("GET", "/api/notifications/"), ("GET", "/api/notifications/unread-count/"), ("POST", "/api/notifications/read-all/"),
     ("POST", "/api/notifications/{notification_id}/read/"), ("POST", "/api/reports/"),
+    ("GET", "/api/notifications/preferences/"), ("PATCH", "/api/notifications/preferences/"),
 }
 
 
@@ -80,7 +81,8 @@ def call(client, operation, values=None, body=None):
 
 
 def test_every_operation_is_classified():
-    assert len(OPERATIONS) == 179
+    # 181 since Module 5 gained GET and PATCH /api/notifications/preferences/ (7257223).
+    assert len(OPERATIONS) == 181
     assert [op for op in OPERATIONS if kind(op) == "unclassified"] == []
     assert PUBLIC <= set(OPERATIONS) and ANY_LOGGED_IN <= set(OPERATIONS)
 

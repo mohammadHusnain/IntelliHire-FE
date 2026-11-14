@@ -30,10 +30,15 @@ logger = logging.getLogger(__name__)
 
 INSTRUCTIONS = {
     "screening": (
-        "Answer each question in your own words. There are no trick questions: we want to understand your interest in "
-        "the role, what you know about it and your relevant experience. You can pause and come back with the same link."
+        "This is a short spoken interview. Speak your answers in your own words; there are no trick questions. We want "
+        "to understand your interest in the role, what you know about it and your relevant experience. Find a quiet "
+        "place with a working microphone, because the call runs start to finish in one go."
     ),
-    "technical": "Answer each question as fully as you can, and explain your reasoning. You can pause and come back with the same link.",
+    "technical": (
+        "This is a spoken technical interview. Talk through your reasoning out loud, as you would with a colleague; "
+        "you will not be asked to write or paste code. Find a quiet place with a working microphone, because the call "
+        "runs start to finish in one go."
+    ),
     "mock": "This is a practice interview. Answer as you would in a real one; you will get feedback at the end.",
 }
 UNAVAILABLE = "This interview is no longer available."
@@ -109,7 +114,7 @@ def public_summary(session):
         "estimated_minutes": notices.estimated_minutes(session),
         "expires_at": session.expires_at,
         "seconds_left_to_start": left,
-        "voice_available": settings.INTERVIEW_VOICE_ENABLED,
+        "voice_available": kinds.rules_for(session.kind).live or settings.INTERVIEW_VOICE_ENABLED,
         "ai_disclaimer": notices.AI_DISCLAIMER,
         "current_turn": turn_payload(current_turn(session)),
     }

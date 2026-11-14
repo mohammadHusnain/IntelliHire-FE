@@ -1,8 +1,11 @@
 """The technical interview's rules (FR-48 to FR-51), plugged into the Module 7 engine. Plain code, no LLM.
 
-What differs from screening: who may be invited, typed answers only, adaptive follow-ups, difficulty by seniority, what
-happens when the question service is down, and the report shape. Everything else (links, answers, evaluation, sweeps)
-is the shared engine.
+What differs from screening: who may be invited, how long the call runs, what the interviewer is told to probe, and the
+report shape. Everything else (links, the live call, evaluation, sweeps) is the shared engine.
+
+Like screening, this round is a live spoken call (Module 7 `live/`): the model runs the conversation itself and the
+transcript becomes the turns afterwards. The question hook, the bank, the follow-up rule and the per-answer difficulty
+this module used to carry are gone with the typed path; what the interviewer should probe is now said in the prompt.
 """
 from rest_framework import serializers
 
@@ -12,18 +15,26 @@ from apps.common.permissions import get_membership
 from apps.Module7_Interviews.models import SessionStatus
 from apps.Module7_Interviews.services.kinds import KindRules
 
-FOLLOW_UP_BELOW = 4  # an answer scored under this earns one follow-up (code decides, not the hook)
-MAX_FOLLOW_UPS = 2
-DIFFICULTY = {"junior": "easy", "mid": "medium", "senior": "hard"}
 OVERRIDE_ROLES = (MemberRole.ADMIN, MemberRole.HR_MANAGER)
 
 
 class TechnicalRules(KindRules):
     kind = "technical"
     invitable = True
-    allow_voice = False  # FR-48: typed only (candidates may paste code)
+    # FR-48 asked for typed answers so a candidate could paste code. The round is a spoken call now, so
+    # voice is how it is answered; there is no typed path left to restrict.
+    allow_voice = True
+    live = True
+    live_seconds = 360  # 6 minutes, inside the 5 to 7 the brief asks for
     outage_uses_bank = False  # a down question service is a 503 and, after a while, an interrupted session
     report_needs_text = True  # no report hook yet means an empty report ("Report not available yet")
+    prompt_framing = (
+        "This is the technical round, and it is deeper than a screening call. Probe the required skills one at a "
+        "time with concrete, practical questions: how they would build or debug something, what they would trade "
+        "off, and why. When an answer is thin or hand-waving, ask one follow-up on that same point before moving "
+        "on. Match the difficulty to the seniority given above. Spoken answers only, so never ask the candidate "
+        "to write or paste code: ask them to talk you through it instead."
+    )
 
     # --- Invite ---------------------------------------------------------------------------------------------
     def check_invite(self, application, user, override, note):
@@ -55,27 +66,6 @@ class TechnicalRules(KindRules):
         if application.job.required_skills:
             return []
         return ["This job has no required skills, so questions will come from the general technical bank until the AI is connected."]
-
-    # --- Questions ------------------------------------------------------------------------------------------
-    def hint(self, session, turns):
-        """What the question hook is told: the level, what is left to cover and, when the rule fires, `follow_up_of`."""
-        context = session.context
-        band = context.get("seniority_band", "mid")
-        covered = {str(t.question_meta.get("topic", "")).lower() for t in turns if not t.question_meta.get("is_follow_up")}
-        remaining = [s for s in context.get("competencies_to_cover", []) if str(s).lower() not in covered]
-        hint = {"avoid_topics": [], "seniority_band": band, "difficulty": DIFFICULTY.get(band, "medium"), "competencies_to_cover": remaining}
-        follow_ups = sum(1 for t in turns if t.question_meta.get("is_follow_up"))
-        last = turns[-1] if turns else None
-        if (
-            last is not None and last.answered_at is not None and last.score is not None  # never fires while nothing scores
-            and last.score < FOLLOW_UP_BELOW and follow_ups < MAX_FOLLOW_UPS
-            and not last.question_meta.get("is_follow_up")
-            and not any(t.question_meta.get("follow_up_of") == last.index for t in turns)
-        ):  # fmt: skip
-            hint["follow_up_of"] = last.index
-        elif remaining:
-            hint["focus_topic"] = remaining[0]
-        return hint
 
     # --- Report ---------------------------------------------------------------------------------------------
     def extend_report(self, session, turns, report):
