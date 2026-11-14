@@ -45,6 +45,7 @@ export const ROUTES = {
     CANDIDATES: "/company/candidates",
     JOB_CANDIDATES: "/company/jobs/:id/candidates",
     JOB_CV_ANALYSIS: "/company/jobs/:id/cv-analysis",
+    JOB_INTERVIEWS: "/company/jobs/:id/interviews",
     EVALUATION: "/company/evaluation",
     CANDIDATE_PROFILE: "/company/candidates/:id",
     ANALYTICS: "/company/analytics",

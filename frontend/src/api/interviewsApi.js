@@ -6,6 +6,14 @@ const publicPath = (token) => `/public/interviews/${encodeURIComponent(token)}/`
 export const interviewsApi = {
   listForApplication: (applicationId, options) =>
     api.get(`/applications/${encodeURIComponent(applicationId)}/interviews/`, options),
+  /** Every interview of a role, newest first. Paginated; filter by `kind` and `status`. */
+  async listForJob(jobId, { kind = "", status = "", page = 1 } = {}, options) {
+    const q = new URLSearchParams({ page });
+    if (kind) q.set("kind", kind);
+    if (status) q.set("status", status);
+    const data = await api.get(`/jobs/${encodeURIComponent(jobId)}/interviews/?${q}`, options);
+    return { count: data.count, hasNext: Boolean(data.next), results: data.results };
+  },
   invite: (applicationId, payload) =>
     api.post(`/applications/${encodeURIComponent(applicationId)}/interviews/`, payload),
   get: (sessionId, options) => api.get(sessionPath(sessionId), options),

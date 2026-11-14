@@ -8,6 +8,7 @@ import CompanyBlocked from "@/components/company/CompanyBlocked";
 import AnswerValue from "@/components/applications/AnswerValue";
 import StatusDialog from "@/components/applications/StatusDialog";
 import TechnicalInterviewPanel from "@/components/company/TechnicalInterviewPanel";
+import ScreeningInvitePanel from "@/components/company/ScreeningInvitePanel";
 import CvAnalysisPanel from "@/components/company/CvAnalysisPanel";
 import { isBlocked } from "@/api/companyApi";
 import { applicationsApi } from "@/api/applicationsApi";
@@ -242,6 +243,8 @@ function Applicant({ initial }) {
       </div>
 
       <CvAnalysisPanel applicationId={a.id} jobId={a.job?.id} memberRole={user?.memberRole} />
+
+      <ScreeningInvitePanel applicationId={a.id} applicationStatus={a.status} memberRole={user?.memberRole} />
 
       <TechnicalInterviewPanel applicationId={a.id} memberRole={user?.memberRole} />
 

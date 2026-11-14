@@ -253,6 +253,7 @@ function Applicants({ routeJobId }) {
             {jobId && (
               <>
                 <Link to={ROUTES.COMPANY.JOB_CV_ANALYSIS.replace(":id", jobId)} className="btn-secondary"><FileSearch size={16} /> CV analysis</Link>
+                <Link to={ROUTES.COMPANY.JOB_INTERVIEWS.replace(":id", jobId)} className="btn-secondary">Interviews</Link>
                 <button type="button" onClick={exportJob} disabled={exporting} className="btn-secondary disabled:opacity-50">
                   {exporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} Export CSV
                 </button>

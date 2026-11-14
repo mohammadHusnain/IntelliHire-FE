@@ -112,9 +112,8 @@ describe("CompanyApplicantLive: technical interviews", () => {
   it("invites a technical interview after screening passes and refreshes the session list", async () => {
     const sessions = [{ id: "screen-1", kind: "screening", status: "evaluated", recommendation: "advance", invited_at: "2026-11-01T10:00:00Z", expires_at: "2026-11-08T10:00:00Z", question_target: 6, answered_count: 6, overall_score: null }];
     let inviteBody;
-    let listCalls = 0;
     mount({ handlers: [
-      route.get("/applications/app-1/interviews/", () => json(++listCalls > 1 ? [...sessions, { id: "tech-1", kind: "technical", status: "invited", invited_at: "2026-11-12T10:00:00Z", expires_at: "2026-11-19T10:00:00Z", question_target: 8, answered_count: 0, overall_score: null }] : sessions)),
+      route.get("/applications/app-1/interviews/", () => json(inviteBody ? [...sessions, { id: "tech-1", kind: "technical", status: "invited", invited_at: "2026-11-12T10:00:00Z", expires_at: "2026-11-19T10:00:00Z", question_target: 8, answered_count: 0, overall_score: null }] : sessions)),
       route.post("/applications/app-1/interviews/", async ({ request }) => ((inviteBody = await request.json()), json({ id: "tech-1", kind: "technical", status: "invited", warnings: [] }, 201))),
     ] });
     const user = userEvent.setup();
